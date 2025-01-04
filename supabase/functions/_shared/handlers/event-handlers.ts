@@ -13,7 +13,7 @@ const supabaseAdmin = createClient(
 );
 
 const processEventData = (eventData: any) => {
-  console.log('Processing event data:', JSON.stringify(eventData, null, 2));
+  console.log('🔄 Processing event data:', JSON.stringify(eventData, null, 2));
   
   // Process participants, ensuring we include the organizer if they're a participant
   const allParticipants = eventData.participants || [];
@@ -38,8 +38,8 @@ const processEventData = (eventData: any) => {
     status: p.status || 'none'
   }));
 
-  console.log('Processed participants:', JSON.stringify(participants, null, 2));
-  console.log('Processed organizer:', JSON.stringify(organizer, null, 2));
+  console.log('👥 Processed participants:', JSON.stringify(participants, null, 2));
+  console.log('👤 Processed organizer:', JSON.stringify(organizer, null, 2));
 
   return {
     title: eventData.title || 'Untitled Event',
@@ -66,16 +66,21 @@ const processEventData = (eventData: any) => {
 };
 
 export const handleEventCreated = async (objectData: any, grantId: string) => {
-  console.log('Processing event.created:', objectData);
+  console.log('📅 Processing event.created:', {
+    eventId: objectData.id,
+    grantId,
+    title: objectData.title,
+    startTime: objectData.when?.start_time
+  });
   
   // Find user associated with this grant
   const profile = await findUserByGrant(grantId);
   if (!profile) {
-    console.log(`Skipping event.created for unknown grant: ${grantId}`);
-    return;
+    console.log(`⚠️ Skipping event.created for unknown grant: ${grantId}`);
+    return { success: false, message: `No user found for grant: ${grantId}` };
   }
 
-  console.log('Found profile for event.created:', profile);
+  console.log('👤 Found profile for event.created:', profile);
 
   const processedData = processEventData(objectData);
   const eventData = {
@@ -94,24 +99,33 @@ export const handleEventCreated = async (objectData: any, grantId: string) => {
     });
 
   if (eventError) {
-    console.error('Error creating event:', eventError);
-    throw eventError;
+    console.error('❌ Error creating event:', eventError);
+    return { success: false, error: eventError };
   }
 
-  console.log('Event created successfully');
+  console.log('✅ Event created successfully:', {
+    eventId: objectData.id,
+    userId: profile.id
+  });
+  
+  return { success: true, eventId: objectData.id };
 };
 
 export const handleEventUpdated = async (objectData: any, grantId: string) => {
-  console.log('Processing event.updated:', objectData);
+  console.log('🔄 Processing event.updated:', {
+    eventId: objectData.id,
+    grantId,
+    title: objectData.title
+  });
   
   // Find user associated with this grant
   const profile = await findUserByGrant(grantId);
   if (!profile) {
-    console.log(`Skipping event.updated for unknown grant: ${grantId}`);
-    return;
+    console.log(`⚠️ Skipping event.updated for unknown grant: ${grantId}`);
+    return { success: false, message: `No user found for grant: ${grantId}` };
   }
 
-  console.log('Found profile for event.updated:', profile);
+  console.log('👤 Found profile for event.updated:', profile);
 
   const processedData = processEventData(objectData);
   const eventData = {
@@ -130,26 +144,34 @@ export const handleEventUpdated = async (objectData: any, grantId: string) => {
     });
 
   if (eventError) {
-    console.error('Error updating event:', eventError);
-    throw eventError;
+    console.error('❌ Error updating event:', eventError);
+    return { success: false, error: eventError };
   }
 
-  console.log('Event updated successfully');
+  console.log('✅ Event updated successfully:', {
+    eventId: objectData.id,
+    userId: profile.id
+  });
+  
+  return { success: true, eventId: objectData.id };
 };
 
 export const handleEventDeleted = async (objectData: any, grantId: string) => {
   if (!objectData?.id) {
-    console.log('No event ID in deletion webhook, skipping');
-    return;
+    console.log('⚠️ No event ID in deletion webhook, skipping');
+    return { success: false, message: 'No event ID provided' };
   }
 
-  console.log('Processing event.deleted:', objectData.id);
+  console.log('🗑️ Processing event.deleted:', {
+    eventId: objectData.id,
+    grantId
+  });
 
   // Find user associated with this grant
   const profile = await findUserByGrant(grantId);
   if (!profile) {
-    console.log(`Skipping event.deleted for unknown grant: ${grantId}`);
-    return;
+    console.log(`⚠️ Skipping event.deleted for unknown grant: ${grantId}`);
+    return { success: false, message: `No user found for grant: ${grantId}` };
   }
 
   // Delete the event (cascade will handle queue items)
@@ -160,9 +182,14 @@ export const handleEventDeleted = async (objectData: any, grantId: string) => {
     .eq('user_id', profile.id);
 
   if (deleteError) {
-    console.error('Error deleting event:', deleteError);
-    throw deleteError;
+    console.error('❌ Error deleting event:', deleteError);
+    return { success: false, error: deleteError };
   }
 
-  console.log('Event and related queue items deleted successfully');
+  console.log('✅ Event and related queue items deleted successfully:', {
+    eventId: objectData.id,
+    userId: profile.id
+  });
+  
+  return { success: true, eventId: objectData.id };
 };
