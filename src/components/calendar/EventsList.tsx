@@ -74,15 +74,18 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
     });
 
     return filteredEvents.reduce((groups: GroupedEvents, event) => {
-      // Get the start time in the user's local timezone
-      const localStartTime = new Date(event.start_time);
-      // Format the date key using the local date
-      const dateKey = format(localStartTime, 'yyyy-MM-dd');
+      // Convert the UTC timestamp to local date for grouping
+      const localDate = new Date(event.start_time).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      });
       
-      if (!groups[dateKey]) {
-        groups[dateKey] = [];
+      if (!groups[localDate]) {
+        groups[localDate] = [];
       }
-      groups[dateKey].push(event);
+      groups[localDate].push(event);
       return groups;
     }, {});
   };
@@ -90,13 +93,13 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
   // Sort events by start time within each group
   const sortedGroupedEvents = (() => {
     const grouped = groupEventsByDate(events);
-    // Sort dates
+    // Sort dates using local timezone comparison
     const sortedDates = Object.keys(grouped).sort((a, b) => 
       new Date(a).getTime() - new Date(b).getTime()
     );
     // Sort events within each date
     return sortedDates.map(date => ({
-      date,
+      date: new Date(date),
       events: grouped[date].sort((a, b) => 
         new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
       )
@@ -136,9 +139,9 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
           ) : sortedGroupedEvents.length > 0 ? (
             <div className="space-y-8">
               {sortedGroupedEvents.map(({ date, events }) => (
-                <div key={date} className="space-y-4">
+                <div key={date.toISOString()} className="space-y-4">
                   <h2 className="text-lg font-semibold text-muted-foreground">
-                    {format(new Date(date), "EEEE, MMMM d")}
+                    {format(date, "EEEE, MMMM d")}
                   </h2>
                   <div className="space-y-4">
                     {events.map((event) => (
