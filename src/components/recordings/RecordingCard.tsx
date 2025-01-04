@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Video, Clock, Check, X, Loader } from "lucide-react";
 import { EventParticipants } from "../calendar/EventParticipants";
 import type { Database } from "@/integrations/supabase/types";
+import type { Json } from "@/integrations/supabase/types/json";
 
 type Recording = Database['public']['Tables']['recordings']['Row'] & {
   event: {
@@ -11,8 +12,8 @@ type Recording = Database['public']['Tables']['recordings']['Row'] & {
     description: string | null;
     start_time: string;
     end_time: string;
-    participants: any[];
-    organizer: any;
+    participants: Json;
+    organizer: Json;
   };
 };
 
