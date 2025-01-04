@@ -30,12 +30,32 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
   const location = useLocation();
   const isCalendarRoute = location.pathname === "/calendar";
 
+  // Safely parse organizer and participants with type checking
+  const parseOrganizer = (data: unknown): EventOrganizer | null => {
+    if (typeof data === 'object' && data !== null && 'email' in data && 'name' in data) {
+      return data as EventOrganizer;
+    }
+    return null;
+  };
+
+  const parseParticipants = (data: unknown): EventParticipant[] => {
+    if (Array.isArray(data)) {
+      return data.filter((item): item is EventParticipant => 
+        typeof item === 'object' && 
+        item !== null && 
+        'email' in item && 
+        'name' in item
+      );
+    }
+    return [];
+  };
+
   // Determine if meeting is internal
   const isInternalMeeting = (() => {
-    const organizer = event.organizer as EventOrganizer | null;
-    const participants = event.participants as EventParticipant[] | null;
+    const organizer = parseOrganizer(event.organizer);
+    const participants = parseParticipants(event.participants);
     
-    if (!organizer?.email || !participants?.length) return true;
+    if (!organizer?.email || !participants.length) return true;
     const organizerDomain = organizer.email.split('@')[1];
     return participants.every(participant => 
       participant.email.split('@')[1] === organizerDomain
@@ -128,8 +148,8 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
             <div className="flex items-start gap-3">
               <div className="mt-1">
                 <EventParticipants 
-                  participants={event.participants as EventParticipant[]} 
-                  organizer={event.organizer as EventOrganizer}
+                  participants={parseParticipants(event.participants)} 
+                  organizer={parseOrganizer(event.organizer)}
                   isInternalMeeting={isInternalMeeting}
                 />
               </div>
