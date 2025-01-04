@@ -21,7 +21,8 @@ Deno.serve(async (req) => {
 
   try {
     // Handle Nylas webhook challenge
-    const challenge = new URL(req.url).searchParams.get('challenge')
+    const url = new URL(req.url);
+    const challenge = url.searchParams.get('challenge')
     if (challenge) {
       console.log('Responding to Nylas webhook challenge:', challenge)
       return new Response(challenge, {
@@ -53,8 +54,7 @@ Deno.serve(async (req) => {
       case 'event.created':
         if (delta.object_data) {
           console.log('Processing event.created:', delta.object_data)
-          // We'll let the sync-nylas-events function handle new events
-          // Just trigger a sync for this grant
+          // Find user for this grant and trigger a sync
           const { error: syncError } = await supabaseAdmin
             .from('profiles')
             .select('id')
