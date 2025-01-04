@@ -17,6 +17,12 @@ export const handleEventCreated = async (objectData: any, grantId: string) => {
   
   // Find user associated with this grant
   const profile = await findUserByGrant(grantId);
+  if (!profile) {
+    console.error('No profile found for grant:', grantId);
+    return;
+  }
+
+  console.log('Found profile for event.created:', profile);
 
   // Insert or update the event in our database
   const { error: eventError } = await supabaseAdmin

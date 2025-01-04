@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from '../_shared/cors.ts'
 import { verifyWebhookSignature } from '../_shared/webhook-verification.ts'
 import { logWebhookRequest, logWebhookBody, logSignatureVerification } from '../_shared/webhook-logger.ts'
+import { handleEventCreated, handleEventUpdated, handleEventDeleted } from '../_shared/handlers/event-handlers.ts'
+import { handleGrantCreated, handleGrantUpdated, handleGrantDeleted, handleGrantExpired } from '../_shared/handlers/user-handlers.ts'
 
 serve(async (req) => {
   // Log every incoming request
@@ -58,10 +60,60 @@ serve(async (req) => {
     // Get and log the raw request body
     const rawBody = await req.text();
     const webhookData = logWebhookBody(rawBody);
+    if (!webhookData) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid webhook data' }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
     // Verify signature
     const isValid = await verifyWebhookSignature(rawBody, signature, webhookSecret);
     logSignatureVerification(isValid);
+
+    if (!isValid) {
+      console.error('❌ Invalid webhook signature');
+      return new Response(
+        JSON.stringify({ error: 'Invalid signature' }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    // Process webhook based on type
+    const grantId = webhookData.data.object.grant_id;
+    console.log('Processing webhook type:', webhookData.type, 'for grant:', grantId);
+
+    switch (webhookData.type) {
+      case 'event.created':
+        await handleEventCreated(webhookData.data.object, grantId);
+        break;
+      case 'event.updated':
+        await handleEventUpdated(webhookData.data.object, grantId);
+        break;
+      case 'event.deleted':
+        await handleEventDeleted(webhookData.data.object, grantId);
+        break;
+      case 'grant.created':
+        await handleGrantCreated(webhookData.data.object);
+        break;
+      case 'grant.updated':
+        await handleGrantUpdated(webhookData.data.object);
+        break;
+      case 'grant.deleted':
+        await handleGrantDeleted(webhookData.data.object);
+        break;
+      case 'grant.expired':
+        await handleGrantExpired(webhookData.data.object);
+        break;
+      default:
+        console.log('⚠️ Unhandled webhook type:', webhookData.type);
+    }
 
     // Always return 200 to acknowledge receipt
     return new Response(
