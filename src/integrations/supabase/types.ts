@@ -199,7 +199,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      update_profile_grant_id: {
+        Args: {
+          p_user_id: string
+          p_grant_id: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
