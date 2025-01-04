@@ -15,9 +15,28 @@ serve(async (req) => {
       headers: Object.fromEntries(req.headers.entries())
     });
 
-    // Get the raw body as text for signature verification
+    // Check for challenge parameter in URL
+    const url = new URL(req.url);
+    const challenge = url.searchParams.get('challenge');
+    
+    if (challenge) {
+      console.log('Received challenge request:', challenge);
+      return new Response(
+        JSON.stringify({ challenge }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      );
+    }
+
+    // For non-challenge requests, proceed with signature verification
     const rawBody = await req.text();
     console.log('Received webhook payload:', rawBody.slice(0, 100) + '...'); // Log first 100 chars
+
+    // Log the client secret being used (first few characters only for security)
+    const clientSecret = Deno.env.get('NYLAS_CLIENT_SECRET');
+    console.log('Using client secret (first 4 chars):', clientSecret?.slice(0, 4));
 
     // Verify the webhook signature
     const isValid = await verifyNylasWebhook(req, rawBody);
@@ -50,18 +69,6 @@ serve(async (req) => {
         { 
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    // Handle Nylas challenge request
-    if (webhookData.challenge) {
-      console.log('Responding to challenge request:', webhookData.challenge);
-      return new Response(
-        JSON.stringify({ challenge: webhookData.challenge }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200
         }
       );
     }
