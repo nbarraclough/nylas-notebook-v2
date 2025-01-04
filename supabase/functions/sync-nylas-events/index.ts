@@ -50,18 +50,17 @@ serve(async (req) => {
     console.log('Found Nylas grant ID:', profile.nylas_grant_id)
 
     // Get Nylas credentials
-    const nylasClientId = Deno.env.get('NYLAS_CLIENT_ID')
-    const nylasClientSecret = Deno.env.get('NYLAS_CLIENT_SECRET')
+    const nylasApiKey = Deno.env.get('NYLAS_API_KEY')
 
-    if (!nylasClientId || !nylasClientSecret) {
-      throw new Error('Nylas credentials not configured')
+    if (!nylasApiKey) {
+      throw new Error('Nylas API key not configured')
     }
 
     // Fetch events directly using the grant_id
     console.log('Fetching events from Nylas...')
     const eventsResponse = await fetch(`https://api-staging.us.nylas.com/v3/grants/${profile.nylas_grant_id}/events?limit=100`, {
       headers: {
-        'Authorization': `Basic ${btoa(`${nylasClientId}:${nylasClientSecret}`)}`,
+        'Authorization': `Bearer ${nylasApiKey}`,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
@@ -89,6 +88,8 @@ serve(async (req) => {
         end_time: event.when?.end_time ? new Date(event.when.end_time * 1000).toISOString() : null,
         participants: event.participants || [],
         conference_url: event.conferencing?.details?.url || null,
+        last_updated_at: event.updated_at ? new Date(event.updated_at * 1000).toISOString() : new Date().toISOString(),
+        ical_uid: event.ical_uid,
         busy: event.busy !== false,
         html_link: event.html_link,
         master_event_id: event.master_event_id,
