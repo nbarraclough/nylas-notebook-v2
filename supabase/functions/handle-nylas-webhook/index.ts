@@ -9,6 +9,12 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Received webhook request:', {
+      method: req.method,
+      url: req.url,
+      headers: Object.fromEntries(req.headers.entries())
+    });
+
     // Get the raw body as text for signature verification
     const rawBody = await req.text();
     console.log('Received webhook payload:', rawBody.slice(0, 100) + '...'); // Log first 100 chars
