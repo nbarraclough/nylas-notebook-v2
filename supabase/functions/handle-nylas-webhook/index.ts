@@ -87,29 +87,36 @@ serve(async (req) => {
 
     // Process webhook based on type
     const grantId = webhookData.data.object.grant_id;
-    console.log('Processing webhook type:', webhookData.type, 'for grant:', grantId);
+    console.log('🎯 Processing webhook type:', webhookData.type, 'for grant:', grantId);
 
     switch (webhookData.type) {
       case 'event.created':
+        console.log('📅 Processing event.created webhook');
         await handleEventCreated(webhookData.data.object, grantId);
         break;
       case 'event.updated':
+        console.log('🔄 Processing event.updated webhook');
         await handleEventUpdated(webhookData.data.object, grantId);
         break;
       case 'event.deleted':
+        console.log('🗑️ Processing event.deleted webhook');
         await handleEventDeleted(webhookData.data.object, grantId);
         break;
       case 'grant.created':
-        await handleGrantCreated(webhookData.data.object);
+        console.log('🔑 Processing grant.created webhook');
+        await handleGrantCreated(webhookData.data);
         break;
       case 'grant.updated':
-        await handleGrantUpdated(webhookData.data.object);
+        console.log('🔄 Processing grant.updated webhook');
+        await handleGrantUpdated(webhookData.data);
         break;
       case 'grant.deleted':
-        await handleGrantDeleted(webhookData.data.object);
+        console.log('🗑️ Processing grant.deleted webhook');
+        await handleGrantDeleted(webhookData.data);
         break;
       case 'grant.expired':
-        await handleGrantExpired(webhookData.data.object);
+        console.log('⚠️ Processing grant.expired webhook');
+        await handleGrantExpired(webhookData.data);
         break;
       default:
         console.log('⚠️ Unhandled webhook type:', webhookData.type);
