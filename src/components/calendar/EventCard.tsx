@@ -9,6 +9,7 @@ import { RecordingToggle } from "./RecordingToggle";
 import DOMPurify from "dompurify";
 import type { Database } from "@/integrations/supabase/types";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "react-router-dom";
 
 type Event = Database['public']['Tables']['events']['Row'];
 
@@ -21,6 +22,8 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isQueued, setIsQueued] = useState(false);
+  const location = useLocation();
+  const isCalendarRoute = location.pathname === "/calendar";
 
   // Fetch user's profile to get Nylas grant ID
   const { data: profile } = useQuery({
@@ -87,11 +90,18 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
     <Card>
       <CardContent className="p-6 space-y-4">
         <div className="flex justify-between items-start">
-          <div className="space-y-1">
-            <h3 className="font-semibold">{event.title}</h3>
-            <p className="text-sm text-muted-foreground">
-              {format(new Date(event.start_time), "MMM d, yyyy 'at' h:mm a")}
-            </p>
+          <div className="space-y-1 flex items-start gap-2">
+            <EventParticipants 
+              participants={event.participants as any[]} 
+              organizer={event.organizer as any}
+              isInternalMeeting={false}
+            />
+            <div>
+              <h3 className="font-semibold">{event.title}</h3>
+              <p className="text-sm text-muted-foreground">
+                {format(new Date(event.start_time), "MMM d, yyyy 'at' h:mm a")}
+              </p>
+            </div>
           </div>
           {event.conference_url && (
             <RecordingToggle
@@ -113,24 +123,23 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
           />
         )}
 
-        {event.conference_url && (
+        {event.conference_url && isCalendarRoute && (
           <div className="text-sm">
-            <a 
-              href={event.conference_url} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-primary hover:underline"
+            <Button 
+              variant="outline"
+              size="sm"
+              asChild
             >
-              Join meeting
-            </a>
+              <a 
+                href={event.conference_url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+              >
+                Join meeting
+              </a>
+            </Button>
           </div>
         )}
-
-        <EventParticipants 
-          participants={event.participants as any[]} 
-          organizer={event.organizer as any}
-          isInternalMeeting={false}
-        />
       </CardContent>
     </Card>
   );
