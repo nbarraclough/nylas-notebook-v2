@@ -6,6 +6,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { EventParticipants } from "./EventParticipants";
 import { RecordingToggle } from "./RecordingToggle";
+import { Badge } from "@/components/ui/badge";
+import { Globe, Shield } from "lucide-react";
 import DOMPurify from "dompurify";
 import type { Database } from "@/integrations/supabase/types";
 import { useQuery } from "@tanstack/react-query";
@@ -26,6 +28,15 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const location = useLocation();
   const isCalendarRoute = location.pathname === "/calendar";
+
+  // Determine if meeting is internal
+  const isInternalMeeting = (() => {
+    if (!event.organizer?.email || !event.participants?.length) return true;
+    const organizerDomain = event.organizer.email.split('@')[1];
+    return event.participants.every(participant => 
+      participant.email.split('@')[1] === organizerDomain
+    );
+  })();
 
   // Fetch user's profile to get Nylas grant ID
   const { data: profile } = useQuery({
@@ -115,7 +126,7 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
                 <EventParticipants 
                   participants={event.participants as any[]} 
                   organizer={event.organizer as any}
-                  isInternalMeeting={false}
+                  isInternalMeeting={isInternalMeeting}
                 />
               </div>
               <div>
@@ -125,17 +136,35 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
                 </p>
               </div>
             </div>
-            {event.conference_url && (
-              <RecordingToggle
-                isQueued={isQueued}
-                eventId={event.id}
-                userId={userId}
-                hasConferenceUrl={!!event.conference_url}
-                scheduledFor={event.start_time}
-                nylasGrantId={profile?.nylas_grant_id}
-                onToggle={handleQueueToggle}
-              />
-            )}
+            <div className="flex flex-col items-end gap-2">
+              {event.conference_url && (
+                <RecordingToggle
+                  isQueued={isQueued}
+                  eventId={event.id}
+                  userId={userId}
+                  hasConferenceUrl={!!event.conference_url}
+                  scheduledFor={event.start_time}
+                  nylasGrantId={profile?.nylas_grant_id}
+                  onToggle={handleQueueToggle}
+                />
+              )}
+              <Badge 
+                variant={isInternalMeeting ? "secondary" : "outline"}
+                className={`text-xs ${isInternalMeeting ? 'bg-purple-100 hover:bg-purple-100 text-purple-800' : 'border-blue-200 text-blue-700 hover:bg-blue-50'}`}
+              >
+                {isInternalMeeting ? (
+                  <>
+                    <Shield className="w-3 h-3 mr-1" />
+                    Internal
+                  </>
+                ) : (
+                  <>
+                    <Globe className="w-3 h-3 mr-1" />
+                    External
+                  </>
+                )}
+              </Badge>
+            </div>
           </div>
 
           {sanitizedDescription && (
