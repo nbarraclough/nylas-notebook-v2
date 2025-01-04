@@ -42,6 +42,7 @@ const hexToUint8Array = (hexString: string) => {
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
+    console.log('🔄 Handling CORS preflight request');
     return new Response(null, { headers: corsHeaders })
   }
 
