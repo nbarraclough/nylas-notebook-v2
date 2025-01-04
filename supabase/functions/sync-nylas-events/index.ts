@@ -51,10 +51,8 @@ serve(async (req) => {
 
     // Get Nylas API key from environment variables
     const NYLAS_API_KEY = Deno.env.get('NYLAS_API_KEY')
-    console.log('Checking Nylas API key:', NYLAS_API_KEY ? 'Found' : 'Not found')
-
     if (!NYLAS_API_KEY) {
-      console.error('Nylas API key not found in environment variables')
+      console.error('NYLAS_API_KEY environment variable is not set')
       throw new Error('Nylas API key not configured')
     }
 
