@@ -39,9 +39,18 @@ export default function Calendar() {
         .from('profiles')
         .select('nylas_grant_id')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching profile:', error);
+        toast({
+          title: "Error",
+          description: "Failed to check Nylas connection status.",
+          variant: "destructive",
+        });
+        return null;
+      }
+
       return data;
     },
     enabled: !!userId,
