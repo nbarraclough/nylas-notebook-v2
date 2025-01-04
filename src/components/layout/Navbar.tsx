@@ -1,6 +1,9 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { CalendarDays, Settings, ListOrdered, Video } from "lucide-react";
+import { CalendarDays, Settings, ListOrdered, Video, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 
 const navItems = [
   { name: "Calendar", path: "/calendar", icon: CalendarDays },
@@ -11,6 +14,26 @@ const navItems = [
 
 export function Navbar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      navigate("/auth");
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out of your account.",
+      });
+    } catch (error) {
+      console.error("Error logging out:", error);
+      toast({
+        title: "Error",
+        description: "Failed to log out. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b">
@@ -18,7 +41,7 @@ export function Navbar() {
         <Link to="/" className="mr-8 flex items-center space-x-2">
           <span className="text-xl font-bold">Notebook</span>
         </Link>
-        <div className="flex space-x-6">
+        <div className="flex space-x-6 flex-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -38,6 +61,15 @@ export function Navbar() {
             );
           })}
         </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleLogout}
+          className="flex items-center space-x-2"
+        >
+          <LogOut className="h-4 w-4" />
+          <span>Logout</span>
+        </Button>
       </div>
     </nav>
   );
