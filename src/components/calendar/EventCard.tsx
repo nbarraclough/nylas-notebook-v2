@@ -88,58 +88,62 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
 
   return (
     <Card>
-      <CardContent className="p-6 space-y-4">
-        <div className="flex justify-between items-start">
-          <div className="space-y-1 flex items-start gap-2">
-            <EventParticipants 
-              participants={event.participants as any[]} 
-              organizer={event.organizer as any}
-              isInternalMeeting={false}
-            />
-            <div>
-              <h3 className="font-semibold">{event.title}</h3>
-              <p className="text-sm text-muted-foreground">
-                {format(new Date(event.start_time), "MMM d, yyyy 'at' h:mm a")}
-              </p>
+      <CardContent className="p-6">
+        <div className="flex flex-col space-y-4">
+          <div className="flex justify-between items-start">
+            <div className="flex items-start gap-3">
+              <div className="mt-1">
+                <EventParticipants 
+                  participants={event.participants as any[]} 
+                  organizer={event.organizer as any}
+                  isInternalMeeting={false}
+                />
+              </div>
+              <div>
+                <h3 className="font-semibold leading-snug">{event.title}</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {format(new Date(event.start_time), "MMM d, yyyy 'at' h:mm a")}
+                </p>
+              </div>
             </div>
+            {event.conference_url && (
+              <RecordingToggle
+                isQueued={isQueued}
+                eventId={event.id}
+                userId={userId}
+                hasConferenceUrl={!!event.conference_url}
+                scheduledFor={event.start_time}
+                nylasGrantId={profile?.nylas_grant_id}
+                onToggle={handleQueueToggle}
+              />
+            )}
           </div>
-          {event.conference_url && (
-            <RecordingToggle
-              isQueued={isQueued}
-              eventId={event.id}
-              userId={userId}
-              hasConferenceUrl={!!event.conference_url}
-              scheduledFor={event.start_time}
-              nylasGrantId={profile?.nylas_grant_id}
-              onToggle={handleQueueToggle}
+
+          {sanitizedDescription && (
+            <div 
+              className="text-sm text-muted-foreground prose prose-sm max-w-none"
+              dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
             />
           )}
-        </div>
 
-        {sanitizedDescription && (
-          <div 
-            className="text-sm text-muted-foreground prose prose-sm max-w-none"
-            dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
-          />
-        )}
-
-        {event.conference_url && isCalendarRoute && (
-          <div className="text-sm">
-            <Button 
-              variant="outline"
-              size="sm"
-              asChild
-            >
-              <a 
-                href={event.conference_url} 
-                target="_blank" 
-                rel="noopener noreferrer"
+          {event.conference_url && isCalendarRoute && (
+            <div className="flex justify-start">
+              <Button 
+                variant="outline"
+                size="sm"
+                asChild
               >
-                Join meeting
-              </a>
-            </Button>
-          </div>
-        )}
+                <a 
+                  href={event.conference_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                >
+                  Join meeting
+                </a>
+              </Button>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
