@@ -5,6 +5,16 @@ import { PageLayout } from "@/components/layout/PageLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { format } from "date-fns";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export default function Calendar() {
   const navigate = useNavigate();
@@ -12,6 +22,52 @@ export default function Calendar() {
   const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [isNylasAuthenticated, setIsNylasAuthenticated] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // Fetch events from our database
+  const { data: events, refetch: refetchEvents } = useQuery({
+    queryKey: ['events', userId],
+    queryFn: async () => {
+      if (!userId) return [];
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .order('start_time', { ascending: true });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!userId && isNylasAuthenticated,
+  });
+
+  // Sync events from Nylas
+  const syncEvents = async () => {
+    if (!userId) return;
+
+    try {
+      setIsLoading(true);
+      const { error } = await supabase.functions.invoke('sync-nylas-events', {
+        body: { user_id: userId }
+      });
+
+      if (error) throw error;
+
+      await refetchEvents();
+      toast({
+        title: "Success",
+        description: "Calendar events synced successfully!",
+      });
+    } catch (error) {
+      console.error('Error syncing events:', error);
+      toast({
+        title: "Error",
+        description: "Failed to sync calendar events. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -20,6 +76,8 @@ export default function Calendar() {
         navigate("/auth");
         return;
       }
+
+      setUserId(session.user.id);
 
       // Check if user has Nylas connected
       const { data: profile, error } = await supabase
@@ -38,7 +96,13 @@ export default function Calendar() {
         return;
       }
 
-      setIsNylasAuthenticated(!!profile?.nylas_grant_id);
+      const hasNylas = !!profile?.nylas_grant_id;
+      setIsNylasAuthenticated(hasNylas);
+
+      // If authenticated with Nylas, sync events
+      if (hasNylas) {
+        syncEvents();
+      }
     };
 
     checkAuth();
@@ -162,10 +226,46 @@ export default function Calendar() {
   return (
     <PageLayout>
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold">Your Calendar</h1>
-        <div className="grid gap-4">
-          {/* Calendar events will go here */}
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Your Calendar</h1>
+          <Button 
+            onClick={syncEvents} 
+            disabled={isLoading}
+          >
+            {isLoading ? "Syncing..." : "Sync Events"}
+          </Button>
         </div>
+
+        <Card>
+          <CardContent className="p-6">
+            {events && events.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Start Time</TableHead>
+                    <TableHead>End Time</TableHead>
+                    <TableHead>Location</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {events.map((event) => (
+                    <TableRow key={event.id}>
+                      <TableCell className="font-medium">{event.title}</TableCell>
+                      <TableCell>{format(new Date(event.start_time), 'PPp')}</TableCell>
+                      <TableCell>{format(new Date(event.end_time), 'PPp')}</TableCell>
+                      <TableCell>{event.location || event.conference_url || 'No location'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No events found. Click "Sync Events" to fetch your calendar events.
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </PageLayout>
   );
