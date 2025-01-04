@@ -86,7 +86,7 @@ export default function Calendar() {
   useEffect(() => {
     const handleNylasCode = async () => {
       const code = searchParams.get('code');
-      if (!code) return;
+      if (!code || !userId) return;
 
       try {
         setIsLoading(true);
