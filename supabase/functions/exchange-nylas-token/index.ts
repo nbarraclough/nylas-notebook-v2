@@ -26,8 +26,8 @@ serve(async (req) => {
       throw new Error('Missing required environment variables')
     }
 
-    // Exchange the code for a grant_id
-    const tokenResponse = await fetch('https://api.nylas.com/v3/connect/token', {
+    // Exchange the code for a grant_id using the correct Nylas API URL
+    const tokenResponse = await fetch('https://api.us.nylas.com/v3/connect/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -40,7 +40,9 @@ serve(async (req) => {
     })
 
     if (!tokenResponse.ok) {
-      throw new Error('Failed to exchange token')
+      const errorData = await tokenResponse.json()
+      console.error('Nylas token exchange error:', errorData)
+      throw new Error('Failed to exchange token with Nylas')
     }
 
     const { grant_id } = await tokenResponse.json()
@@ -74,6 +76,7 @@ serve(async (req) => {
       },
     )
   } catch (error) {
+    console.error('Error in exchange-nylas-token:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { 

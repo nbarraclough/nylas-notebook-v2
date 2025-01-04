@@ -27,8 +27,8 @@ serve(async (req) => {
     // Generate a random state to prevent CSRF attacks
     const state = crypto.randomUUID()
 
-    // Construct the Nylas auth URL
-    const authUrl = new URL('https://api.nylas.com/v3/connect/auth')
+    // Construct the Nylas auth URL using the correct base URL
+    const authUrl = new URL('https://api.us.nylas.com/v3/connect/auth')
     authUrl.searchParams.append('client_id', clientId)
     authUrl.searchParams.append('redirect_uri', `${req.headers.get('origin')}/calendar`)
     authUrl.searchParams.append('response_type', 'code')
@@ -44,6 +44,7 @@ serve(async (req) => {
       },
     )
   } catch (error) {
+    console.error('Error in get-nylas-auth-url:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
