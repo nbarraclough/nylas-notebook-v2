@@ -20,29 +20,38 @@ interface WebhookEvent {
 }
 
 Deno.serve(async (req) => {
-  // First, check for the challenge parameter before anything else
-  const url = new URL(req.url);
-  const challenge = url.searchParams.get('challenge');
-  
-  if (challenge) {
-    console.log('Received Nylas webhook challenge:', challenge);
-    // Return ONLY the raw challenge value without any formatting or additional content
-    return new Response(challenge, {
-      headers: {
-        'Content-Type': 'text/plain',
-        'Transfer-Encoding': 'identity', // Prevent chunked encoding
-        'Content-Length': challenge.length.toString(), // Explicitly set content length
-      },
-    });
-  }
+  console.log('Received webhook request:', {
+    method: req.method,
+    url: req.url,
+    headers: Object.fromEntries(req.headers.entries())
+  });
 
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { 
+      status: 200,
+      headers: corsHeaders 
+    });
   }
 
   try {
-    // For non-challenge requests, verify the webhook signature
+    // First, check for the challenge parameter
+    const url = new URL(req.url);
+    const challenge = url.searchParams.get('challenge');
+    
+    if (challenge) {
+      console.log('Received Nylas challenge:', challenge);
+      return new Response(challenge, {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/plain',
+          'Content-Length': challenge.length.toString(),
+        },
+      });
+    }
+
+    // For non-challenge requests, get the raw body
     const rawBody = await req.text();
     console.log('Received webhook payload:', rawBody);
     
@@ -51,8 +60,8 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Invalid signature' }), 
         { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 401 
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
@@ -88,12 +97,14 @@ Deno.serve(async (req) => {
         throw profileError;
       }
 
-      // If we don't have a matching profile, log and return early
       if (!profile) {
         console.log(`No profile found for grant_id: ${grantId}. Skipping webhook processing.`);
         return new Response(
           JSON.stringify({ message: 'No matching profile found for grant_id' }), 
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { 
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
         );
       }
     }
@@ -143,7 +154,10 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({ success: true }), 
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { 
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
     );
 
   } catch (error) {
@@ -151,8 +165,8 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }
