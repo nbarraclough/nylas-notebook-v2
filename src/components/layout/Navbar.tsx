@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { CalendarDays, Settings, ListOrdered, Video, LogOut } from "lucide-react";
+import { CalendarDays, Settings, ListOrdered, Video, LogOut, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -9,6 +9,7 @@ const navItems = [
   { name: "Calendar", path: "/calendar", icon: CalendarDays },
   { name: "Queue", path: "/queue", icon: ListOrdered },
   { name: "Recordings", path: "/recordings", icon: Video },
+  { name: "Shared", path: "/shared", icon: Share2 },
   { name: "Settings", path: "/settings", icon: Settings },
 ];
 
