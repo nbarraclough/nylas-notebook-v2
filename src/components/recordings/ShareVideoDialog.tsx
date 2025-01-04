@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Share2 } from "lucide-react";
+import { Share2, Copy, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@supabase/auth-helpers-react";
@@ -18,6 +18,8 @@ export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
   const [isInternalEnabled, setIsInternalEnabled] = useState(false);
   const [isExternalEnabled, setIsExternalEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [externalShareUrl, setExternalShareUrl] = useState<string | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
 
   const handleShare = async () => {
     if (!session?.user) return;
@@ -41,11 +43,16 @@ export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
       }
 
       if (isExternalEnabled) {
-        await supabase.from('video_shares').insert({
+        const { data: shareData } = await supabase.from('video_shares').insert({
           recording_id: recordingId,
           share_type: 'external',
           shared_by: session.user.id
-        });
+        }).select('external_token').single();
+
+        if (shareData?.external_token) {
+          const shareUrl = `${window.location.origin}/shared/${shareData.external_token}`;
+          setExternalShareUrl(shareUrl);
+        }
       }
 
       toast({
@@ -61,6 +68,27 @@ export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    if (!externalShareUrl) return;
+    
+    try {
+      await navigator.clipboard.writeText(externalShareUrl);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+      
+      toast({
+        title: "Link copied",
+        description: "The sharing link has been copied to your clipboard."
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to copy",
+        description: "Please try copying the link manually.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -101,13 +129,37 @@ export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
               onCheckedChange={setIsExternalEnabled}
             />
           </div>
+
+          {externalShareUrl && (
+            <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+              <input
+                type="text"
+                value={externalShareUrl}
+                readOnly
+                className="flex-1 bg-transparent border-none focus:outline-none text-sm"
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCopyLink}
+                className="flex items-center gap-2"
+              >
+                {isCopied ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+                {isCopied ? 'Copied!' : 'Copy'}
+              </Button>
+            </div>
+          )}
+
           <Button 
             onClick={handleShare} 
-            disabled={!isInternalEnabled && !isExternalEnabled}
+            disabled={!isInternalEnabled && !isExternalEnabled || isLoading}
             className="w-full"
-            isLoading={isLoading}
           >
-            Share Recording
+            {isLoading ? "Sharing..." : "Share Recording"}
           </Button>
         </div>
       </DialogContent>
