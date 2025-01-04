@@ -54,7 +54,9 @@ export const handleEventDeleted = async (objectData: any) => {
   }
 };
 
-export const handleGrantStatus = async (grantId: string, status: 'active' | 'revoked' | 'error') => {
+export const handleGrantStatus = async (grantId: string, status: 'active' | 'revoked' | 'error' | 'expired') => {
+  console.log(`Processing grant status update for ${grantId} to ${status}`);
+  
   const { error: grantError } = await supabaseAdmin
     .from('profiles')
     .update({ 
@@ -67,4 +69,43 @@ export const handleGrantStatus = async (grantId: string, status: 'active' | 'rev
     console.error(`Error updating grant status to ${status}:`, grantError);
     throw grantError;
   }
+};
+
+export const handleGrantCreated = async (data: any) => {
+  console.log('Processing grant.created:', {
+    grantId: data.object.grant_id,
+    provider: data.object.provider,
+    loginId: data.object.login_id
+  });
+  
+  await handleGrantStatus(data.object.grant_id, 'active');
+};
+
+export const handleGrantUpdated = async (data: any) => {
+  console.log('Processing grant.updated:', {
+    grantId: data.object.grant_id,
+    provider: data.object.provider,
+    reauthFlag: data.object.reauthentication_flag
+  });
+  
+  await handleGrantStatus(data.object.grant_id, 'active');
+};
+
+export const handleGrantDeleted = async (data: any) => {
+  console.log('Processing grant.deleted:', {
+    grantId: data.object.grant_id,
+    provider: data.object.provider
+  });
+  
+  await handleGrantStatus(data.object.grant_id, 'revoked');
+};
+
+export const handleGrantExpired = async (data: any) => {
+  console.log('Processing grant.expired:', {
+    grantId: data.object.grant_id,
+    provider: data.object.provider,
+    loginId: data.object.login_id
+  });
+  
+  await handleGrantStatus(data.object.grant_id, 'expired');
 };

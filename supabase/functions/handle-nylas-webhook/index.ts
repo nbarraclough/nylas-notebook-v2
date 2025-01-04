@@ -1,5 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from '../_shared/cors.ts'
+import { 
+  handleEventCreated,
+  handleEventUpdated,
+  handleEventDeleted,
+  handleGrantCreated,
+  handleGrantUpdated,
+  handleGrantDeleted,
+  handleGrantExpired
+} from '../_shared/webhook-handlers.ts'
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -58,26 +67,52 @@ serve(async (req) => {
     if (rawBody) {
       try {
         const webhookData = JSON.parse(rawBody);
-        console.log('Parsed webhook data:', {
+        console.log('Processing webhook:', {
           type: webhookData.type,
-          trigger: webhookData.trigger,
-          delta: webhookData.delta,
-          grant_id: webhookData.grant_id,
-          object_data: webhookData.object_data
+          source: webhookData.source,
+          time: new Date(webhookData.time * 1000).toISOString()
         });
+
+        // Handle different webhook types
+        switch (webhookData.type) {
+          case 'event.created':
+            await handleEventCreated(webhookData.data.object, webhookData.data.grant_id);
+            break;
+          case 'event.updated':
+            await handleEventUpdated(webhookData.data.object, webhookData.data.grant_id);
+            break;
+          case 'event.deleted':
+            await handleEventDeleted(webhookData.data.object);
+            break;
+          case 'grant.created':
+            await handleGrantCreated(webhookData.data);
+            break;
+          case 'grant.updated':
+            await handleGrantUpdated(webhookData.data);
+            break;
+          case 'grant.deleted':
+            await handleGrantDeleted(webhookData.data);
+            break;
+          case 'grant.expired':
+            await handleGrantExpired(webhookData.data);
+            break;
+          default:
+            console.log('Unhandled webhook type:', webhookData.type);
+        }
+
       } catch (error) {
-        console.error('Error parsing webhook body:', error);
+        console.error('Error processing webhook:', error);
         return new Response(
-          JSON.stringify({ error: 'Invalid JSON payload' }),
+          JSON.stringify({ error: 'Error processing webhook', details: error.message }),
           { 
-            status: 400,
+            status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         );
       }
     }
 
-    // Always return a success response for now
+    // Return success response
     return new Response(
       JSON.stringify({ success: true }), 
       {
