@@ -65,19 +65,6 @@ export default function Calendar() {
       }
 
       setUserId(session.user.id);
-
-      // If we have a Nylas grant_id but no events, sync them
-      if (profile?.nylas_grant_id && (!events || events.length === 0)) {
-        console.log('Initial sync of events...');
-        const { error: syncError } = await supabase.functions.invoke('sync-nylas-events', {
-          body: { user_id: session.user.id }
-        });
-        if (syncError) {
-          console.error('Error in initial sync:', syncError);
-        } else {
-          refetchEvents();
-        }
-      }
     };
 
     checkAuth();
@@ -93,7 +80,7 @@ export default function Calendar() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate, profile?.nylas_grant_id, events, refetchEvents]);
+  }, [navigate]);
 
   // Handle Nylas auth code
   useEffect(() => {
@@ -111,17 +98,30 @@ export default function Calendar() {
 
         if (error) throw error;
 
-        toast({
-          title: "Success",
-          description: "Calendar connected successfully!",
+        // After successful token exchange, trigger events sync
+        console.log('Syncing events after Nylas authentication...');
+        const { error: syncError } = await supabase.functions.invoke('sync-nylas-events', {
+          body: { user_id: userId }
         });
+
+        if (syncError) {
+          console.error('Error syncing events:', syncError);
+          toast({
+            title: "Warning",
+            description: "Calendar connected, but failed to sync events. Please try syncing manually.",
+            variant: "destructive",
+          });
+        } else {
+          await refetchEvents();
+          toast({
+            title: "Success",
+            description: "Calendar connected and events synced successfully!",
+          });
+        }
 
         // Remove code from URL
         window.history.replaceState({}, '', '/calendar');
         
-        // Refresh page to update UI
-        window.location.reload();
-
       } catch (error) {
         console.error('Error exchanging Nylas code:', error);
         toast({
@@ -135,7 +135,7 @@ export default function Calendar() {
     };
 
     handleNylasCode();
-  }, [searchParams, toast]);
+  }, [searchParams, toast, userId, refetchEvents]);
 
   // Show loading state while checking profile
   if (isLoadingProfile) {
