@@ -49,21 +49,8 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents }: E
     }
   };
 
-  // Filter out duplicate events, keeping only the most recently updated one
-  const uniqueEvents = events.reduce((acc: Event[], current) => {
-    const existingEvent = acc.find(event => event.nylas_event_id === current.nylas_event_id);
-    if (!existingEvent) {
-      acc.push(current);
-    } else if (new Date(current.last_updated_at) > new Date(existingEvent.last_updated_at)) {
-      // Replace the existing event with the more recently updated one
-      const index = acc.indexOf(existingEvent);
-      acc[index] = current;
-    }
-    return acc;
-  }, []);
-
   // Sort events by start time
-  const sortedEvents = [...uniqueEvents].sort((a, b) => 
+  const sortedEvents = [...events].sort((a, b) => 
     new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
   );
 
