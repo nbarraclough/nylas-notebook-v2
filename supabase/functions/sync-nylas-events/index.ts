@@ -119,13 +119,13 @@ Deno.serve(async (req) => {
         }
 
         // Get conference URL from the correct location in the Nylas API response
-        const conferenceUrl = event.conferencing?.url || null;
+        const conferenceUrl = event.conferencing?.details?.url || null;
         console.log('Event:', event.id, 'Raw conferencing data:', JSON.stringify(event.conferencing));
         console.log('Conference URL for event:', event.id, conferenceUrl);
 
         // Check if event exists and compare last_updated_at
         const existingEventLastUpdated = existingEventsMap.get(event.id);
-        const eventLastUpdated = new Date(event.last_updated * 1000);
+        const eventLastUpdated = new Date(event.updated_at * 1000);
 
         // Skip if event exists and hasn't been updated
         if (existingEventLastUpdated && eventLastUpdated <= existingEventLastUpdated) {
