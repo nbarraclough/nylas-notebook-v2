@@ -1,8 +1,9 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { Clock, AlertCircle, Check, Loader } from "lucide-react";
 import type { NotetakerQueue } from "@/integrations/supabase/types/notetaker-queue";
 import type { EventParticipant, EventOrganizer } from "@/types/calendar";
+import { useState, useEffect } from "react";
 
 interface QueueCardProps {
   queueItem: NotetakerQueue & {
@@ -19,6 +20,24 @@ interface QueueCardProps {
 }
 
 export const QueueCard = ({ queueItem }: QueueCardProps) => {
+  const [timeUntilStart, setTimeUntilStart] = useState<string>("");
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      const startTime = new Date(queueItem.scheduled_for);
+      if (startTime > now) {
+        setTimeUntilStart(formatDistanceToNow(startTime, { addSuffix: true }));
+      } else {
+        setTimeUntilStart("Processing soon...");
+      }
+    };
+
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, [queueItem.scheduled_for]);
+
   const participants = (queueItem.event.participants || []).map(p => ({
     name: p.name || '',
     email: p.email || ''
@@ -56,6 +75,9 @@ export const QueueCard = ({ queueItem }: QueueCardProps) => {
             <h3 className="font-medium">{queueItem.event.title}</h3>
             <p className="text-sm text-muted-foreground">
               {formatTimeRange(queueItem.event.start_time, queueItem.event.end_time)}
+            </p>
+            <p className="text-sm font-medium mt-1 text-blue-600">
+              Notetaker will join {timeUntilStart}
             </p>
             {queueItem.event.description && (
               <p className="text-sm text-muted-foreground mt-2">
