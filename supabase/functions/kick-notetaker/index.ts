@@ -77,23 +77,26 @@ Deno.serve(async (req) => {
       }
     )
 
-    let responseBody
     const responseText = await response.text()
     console.log('📡 Nylas API Response:', {
       status: response.status,
       statusText: response.statusText,
       headers: Object.fromEntries(response.headers.entries()),
-      body: responseText
+      body: responseText || '(empty response)'
     })
 
-    try {
-      // Try to parse as JSON if possible
-      responseBody = responseText ? JSON.parse(responseText) : {}
-      console.log('📦 Parsed response body:', JSON.stringify(responseBody, null, 2))
-    } catch (e) {
-      console.log('⚠️ Response was not JSON, using raw text')
-      // If not JSON, use the raw text
-      responseBody = { message: responseText }
+    // For 204 No Content or empty responses, don't try to parse JSON
+    let responseBody = {}
+    if (responseText) {
+      try {
+        responseBody = JSON.parse(responseText)
+        console.log('📦 Parsed response body:', JSON.stringify(responseBody, null, 2))
+      } catch (e) {
+        console.log('⚠️ Response was not JSON, using raw text')
+        responseBody = { message: responseText }
+      }
+    } else {
+      console.log('ℹ️ Empty response body (expected for DELETE request)')
     }
 
     if (!response.ok) {
