@@ -1,51 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from '../_shared/cors.ts'
-import { 
-  handleEventCreated,
-  handleEventUpdated,
-  handleEventDeleted,
-  handleGrantCreated,
-  handleGrantUpdated,
-  handleGrantDeleted,
-  handleGrantExpired
-} from '../_shared/webhook-handlers.ts'
-
-// Function to verify webhook signature
-const verifyWebhookSignature = async (body: string, signature: string, secret: string) => {
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["verify"]
-  );
-
-  const actualSignature = await crypto.subtle.verify(
-    "HMAC",
-    key,
-    hexToUint8Array(signature),
-    encoder.encode(body)
-  );
-
-  return actualSignature;
-};
-
-// Helper function to convert hex string to Uint8Array
-const hexToUint8Array = (hexString: string) => {
-  const pairs = hexString.match(/[\dA-F]{2}/gi) || [];
-  return new Uint8Array(
-    pairs.map(s => parseInt(s, 16))
-  );
-};
+import { verifyWebhookSignature } from '../_shared/webhook-verification.ts'
+import { logWebhookRequest, logWebhookBody, logSignatureVerification } from '../_shared/webhook-logger.ts'
 
 serve(async (req) => {
   // Log every incoming request
-  console.log('🔔 Webhook received:', {
-    method: req.method,
-    url: req.url,
-    headers: Object.fromEntries(req.headers.entries())
-  });
+  logWebhookRequest(req);
 
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -76,7 +36,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Webhook secret not configured' }),
         { 
-          status: 200, // Still return 200 to acknowledge receipt
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -89,7 +49,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'No signature provided' }),
         { 
-          status: 200, // Still return 200 to acknowledge receipt
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -97,44 +57,13 @@ serve(async (req) => {
 
     // Get and log the raw request body
     const rawBody = await req.text();
-    console.log('📥 Raw webhook body:', rawBody);
+    const webhookData = logWebhookBody(rawBody);
 
     // Verify signature
     const isValid = await verifyWebhookSignature(rawBody, signature, webhookSecret);
-    console.log('🔐 Signature verification:', isValid ? 'valid' : 'invalid');
+    logSignatureVerification(isValid);
 
-    // Parse JSON if we have a body
-    if (rawBody) {
-      try {
-        const webhookData = JSON.parse(rawBody);
-        console.log('📦 Parsed webhook data:', JSON.stringify(webhookData, null, 2));
-
-        // Log webhook type
-        console.log('📋 Webhook type:', webhookData.type);
-
-        // Always return 200 to acknowledge receipt
-        return new Response(
-          JSON.stringify({ success: true }), 
-          {
-            status: 200,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
-
-      } catch (error) {
-        console.error('❌ Error parsing webhook JSON:', error);
-        // Still return 200 to acknowledge receipt
-        return new Response(
-          JSON.stringify({ error: 'Error parsing webhook', details: error.message }),
-          { 
-            status: 200,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
-      }
-    }
-
-    // Return success for empty body
+    // Always return 200 to acknowledge receipt
     return new Response(
       JSON.stringify({ success: true }), 
       {
