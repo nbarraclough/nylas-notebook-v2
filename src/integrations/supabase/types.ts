@@ -152,6 +152,72 @@ export type Database = {
           },
         ]
       }
+      organization_members: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          role: Database["public"]["Enums"]["org_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          role?: Database["public"]["Enums"]["org_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          role?: Database["public"]["Enums"]["org_role"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          domain: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          domain: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          domain?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -160,6 +226,7 @@ export type Database = {
           id: string
           notetaker_name: string | null
           nylas_grant_id: string | null
+          organization_id: string | null
           record_external_meetings: boolean | null
           record_internal_meetings: boolean | null
           updated_at: string
@@ -171,6 +238,7 @@ export type Database = {
           id: string
           notetaker_name?: string | null
           nylas_grant_id?: string | null
+          organization_id?: string | null
           record_external_meetings?: boolean | null
           record_internal_meetings?: boolean | null
           updated_at?: string
@@ -182,11 +250,20 @@ export type Database = {
           id?: string
           notetaker_name?: string | null
           nylas_grant_id?: string | null
+          organization_id?: string | null
           record_external_meetings?: boolean | null
           record_internal_meetings?: boolean | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       recordings: {
         Row: {
@@ -239,6 +316,106 @@ export type Database = {
           },
         ]
       }
+      video_shares: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          external_token: string | null
+          id: string
+          organization_id: string | null
+          password: string | null
+          recording_id: string
+          share_type: string
+          shared_by: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          external_token?: string | null
+          id?: string
+          organization_id?: string | null
+          password?: string | null
+          recording_id: string
+          share_type: string
+          shared_by: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          external_token?: string | null
+          id?: string
+          organization_id?: string | null
+          password?: string | null
+          recording_id?: string
+          share_type?: string
+          shared_by?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_shares_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_shares_recording_id_fkey"
+            columns: ["recording_id"]
+            isOneToOne: false
+            referencedRelation: "recordings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_shares_shared_by_fkey"
+            columns: ["shared_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_views: {
+        Row: {
+          external_viewer_ip: string | null
+          id: string
+          recording_id: string
+          viewed_at: string
+          viewer_id: string | null
+        }
+        Insert: {
+          external_viewer_ip?: string | null
+          id?: string
+          recording_id: string
+          viewed_at?: string
+          viewer_id?: string | null
+        }
+        Update: {
+          external_viewer_ip?: string | null
+          id?: string
+          recording_id?: string
+          viewed_at?: string
+          viewer_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_views_recording_id_fkey"
+            columns: ["recording_id"]
+            isOneToOne: false
+            referencedRelation: "recordings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_views_viewer_id_fkey"
+            columns: ["viewer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -270,7 +447,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      org_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
