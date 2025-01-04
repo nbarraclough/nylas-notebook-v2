@@ -1,5 +1,4 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
-import { safeTimestampToISO, ensureValidTimestamp } from './timestamp-utils.ts';
 
 export const processEvent = async (
   event: any, 
@@ -21,6 +20,12 @@ export const processEvent = async (
     // Skip events without ical_uid as they might be temporary or draft events
     if (!event.ical_uid) {
       console.log('Skipping event without ical_uid:', event.id);
+      return;
+    }
+
+    // Check if this is an all-day event by examining the 'when' object
+    if (event.when?.object === 'date' || event.when?.all_day === true) {
+      console.log('Skipping all-day event:', event.id);
       return;
     }
 
