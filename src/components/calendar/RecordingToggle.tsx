@@ -60,14 +60,14 @@ export const RecordingToggle = ({
       console.log('Toggling recording for event:', eventId, 'Current state:', isQueued);
 
       if (!isQueued) {
-        // Add to queue
-        const { error } = await supabase
-          .from('notetaker_queue')
-          .insert({
-            user_id: userId,
+        // Add to queue using the new Edge Function
+        const { error } = await supabase.functions.invoke('queue-event-recording', {
+          body: {
             event_id: eventId,
-            scheduled_for: scheduledFor,
-          });
+            user_id: userId,
+            scheduled_for: scheduledFor
+          }
+        });
 
         if (error) {
           console.error('Error adding to queue:', error);
