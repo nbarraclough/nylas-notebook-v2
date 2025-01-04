@@ -1,5 +1,6 @@
 export const logWebhookRequest = (req: Request) => {
-  console.log('🔔 Webhook received:', {
+  const timestamp = new Date().toISOString();
+  console.log(`🔔 [${timestamp}] Webhook received:`, {
     method: req.method,
     url: req.url,
     headers: Object.fromEntries(req.headers.entries())
@@ -7,12 +8,14 @@ export const logWebhookRequest = (req: Request) => {
 };
 
 export const logWebhookBody = (body: string) => {
-  console.log('📥 Raw webhook body:', body);
+  const timestamp = new Date().toISOString();
+  console.log(`📥 [${timestamp}] Raw webhook body:`, body);
   
   try {
     const parsedBody = JSON.parse(body);
     console.log('📦 Parsed webhook data:', JSON.stringify(parsedBody, null, 2));
     console.log('📋 Webhook type:', parsedBody.type);
+    console.log('🆔 Grant ID:', parsedBody.data?.object?.grant_id);
     
     // Log specific event data if present
     if (parsedBody.data?.object) {
@@ -33,11 +36,12 @@ export const logWebhookBody = (body: string) => {
     
     return parsedBody;
   } catch (error) {
-    console.error('❌ Error parsing webhook JSON:', error);
+    console.error(`❌ [${timestamp}] Error parsing webhook JSON:`, error);
     return null;
   }
 };
 
 export const logSignatureVerification = (isValid: boolean) => {
-  console.log('🔐 Signature verification:', isValid ? 'valid' : 'invalid');
+  const timestamp = new Date().toISOString();
+  console.log(`🔐 [${timestamp}] Signature verification:`, isValid ? 'valid' : 'invalid');
 };

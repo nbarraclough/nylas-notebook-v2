@@ -6,6 +6,9 @@ import { handleEventCreated, handleEventUpdated, handleEventDeleted } from '../_
 import { handleGrantCreated, handleGrantUpdated, handleGrantDeleted, handleGrantExpired } from '../_shared/handlers/user-handlers.ts'
 
 serve(async (req) => {
+  const timestamp = new Date().toISOString();
+  console.log(`⚡ [${timestamp}] Webhook handler started`);
+  
   // Log every incoming request
   logWebhookRequest(req);
 
@@ -103,7 +106,7 @@ serve(async (req) => {
 
     // Process webhook based on type
     const grantId = webhookData.data.object.grant_id;
-    console.log('🎯 Processing webhook type:', webhookData.type, 'for grant:', grantId);
+    console.log(`🎯 [${timestamp}] Processing webhook type:`, webhookData.type, 'for grant:', grantId);
 
     try {
       switch (webhookData.type) {
@@ -139,7 +142,7 @@ serve(async (req) => {
           console.log('⚠️ Unhandled webhook type:', webhookData.type);
       }
 
-      console.log('✅ Successfully processed webhook:', webhookData.type);
+      console.log(`✅ [${timestamp}] Successfully processed webhook:`, webhookData.type);
       
       // Return 200 with success message to properly acknowledge webhook
       return new Response(
@@ -155,7 +158,7 @@ serve(async (req) => {
       );
     } catch (error) {
       // Log the error but still return 200 to acknowledge receipt
-      console.error(`❌ Error processing ${webhookData.type} webhook:`, error);
+      console.error(`❌ [${timestamp}] Error processing ${webhookData.type} webhook:`, error);
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -171,7 +174,7 @@ serve(async (req) => {
 
   } catch (error) {
     // Log the error but still return 200 to acknowledge receipt
-    console.error('❌ Fatal error processing webhook:', error);
+    console.error(`❌ [${timestamp}] Fatal error processing webhook:`, error);
     console.error('Error stack:', error.stack);
     return new Response(
       JSON.stringify({ 
