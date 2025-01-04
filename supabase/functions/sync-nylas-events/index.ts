@@ -3,6 +3,22 @@ import { corsHeaders } from '../_shared/cors.ts'
 
 const NYLAS_API_URL = 'https://api-staging.us.nylas.com'
 
+// Helper function to safely convert Unix timestamp to ISO string
+const safeTimestampToISO = (timestamp: number | null | undefined): string | null => {
+  if (!timestamp) return null;
+  try {
+    // Check if timestamp is within valid range (1970 to 2100)
+    if (timestamp < 0 || timestamp > 4102444800) { // 4102444800 is 2100-01-01
+      console.error('Invalid timestamp value:', timestamp);
+      return null;
+    }
+    return new Date(timestamp * 1000).toISOString();
+  } catch (error) {
+    console.error('Error converting timestamp:', timestamp, error);
+    return null;
+  }
+};
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -97,24 +113,12 @@ Deno.serve(async (req) => {
     for (const event of events) {
       try {
         // Extract and validate start/end times from the when object
-        let startTime = null;
-        let endTime = null;
-
-        if (event.when) {
-          if (event.when.time) {
-            // Handle timespan format
-            startTime = event.when.start_time ? new Date(event.when.start_time * 1000).toISOString() : null;
-            endTime = event.when.end_time ? new Date(event.when.end_time * 1000).toISOString() : null;
-          } else if (event.when.start_time && event.when.end_time) {
-            // Direct timestamps
-            startTime = new Date(event.when.start_time * 1000).toISOString();
-            endTime = new Date(event.when.end_time * 1000).toISOString();
-          }
-        }
+        const startTime = safeTimestampToISO(event.when?.start_time);
+        const endTime = safeTimestampToISO(event.when?.end_time);
 
         // Skip events without valid start/end times
         if (!startTime || !endTime) {
-          console.warn('Skipping event due to missing start/end time:', event.id);
+          console.warn('Skipping event due to invalid timestamps:', event.id);
           continue;
         }
 
@@ -125,10 +129,15 @@ Deno.serve(async (req) => {
 
         // Check if event exists and compare last_updated_at
         const existingEventLastUpdated = existingEventsMap.get(event.id);
-        const eventLastUpdated = new Date(event.updated_at * 1000);
+        const eventLastUpdated = safeTimestampToISO(event.updated_at);
+
+        if (!eventLastUpdated) {
+          console.warn('Skipping event due to invalid updated_at timestamp:', event.id);
+          continue;
+        }
 
         // Skip if event exists and hasn't been updated
-        if (existingEventLastUpdated && eventLastUpdated <= existingEventLastUpdated) {
+        if (existingEventLastUpdated && new Date(eventLastUpdated) <= existingEventLastUpdated) {
           console.log('Skipping event as it has not been updated:', event.id);
           continue;
         }
@@ -144,7 +153,7 @@ Deno.serve(async (req) => {
           end_time: endTime,
           participants: Array.isArray(event.participants) ? event.participants : [],
           conference_url: conferenceUrl,
-          last_updated_at: eventLastUpdated.toISOString(),
+          last_updated_at: eventLastUpdated,
           ical_uid: event.ical_uid || null,
           busy: event.busy === false ? false : true, // Default to true if undefined
           html_link: event.html_link || null,
@@ -156,9 +165,7 @@ Deno.serve(async (req) => {
           recurrence: Array.isArray(event.recurrence) ? event.recurrence : null,
           status: event.status || null,
           visibility: event.visibility || 'default',
-          original_start_time: event.original_start_time 
-            ? new Date(event.original_start_time * 1000).toISOString()
-            : null,
+          original_start_time: safeTimestampToISO(event.original_start_time),
         };
 
         const { error: upsertError } = await supabaseClient
