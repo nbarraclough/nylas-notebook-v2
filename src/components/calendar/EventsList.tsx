@@ -5,12 +5,16 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { EventsTable } from "./EventsTable";
 import { SkeletonTable } from "./SkeletonTable";
+import type { QueryObserverResult, RefetchOptions } from "@tanstack/react-query";
+import type { Database } from "@/integrations/supabase/types";
+
+type Event = Database['public']['Tables']['events']['Row'];
 
 interface EventsListProps {
-  events: any[];
+  events: Event[];
   isLoadingEvents: boolean;
   userId: string;
-  refetchEvents: () => Promise<void>;
+  refetchEvents: (options?: RefetchOptions) => Promise<QueryObserverResult<Event[], Error>>;
 }
 
 export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents }: EventsListProps) => {
