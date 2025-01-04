@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
 
   try {
     const { notetakerId } = await req.json()
-    console.log('Kicking notetaker:', notetakerId)
+    console.log('🎯 Received kick request for notetaker:', notetakerId)
 
     // Initialize Supabase client
     const supabaseClient = createClient(
@@ -29,8 +29,11 @@ Deno.serve(async (req) => {
 
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser(authHeader)
     if (authError || !user) {
+      console.error('❌ Authentication error:', authError)
       throw new Error('Unauthorized')
     }
+
+    console.log('👤 Authenticated user:', user.id)
 
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
@@ -39,10 +42,12 @@ Deno.serve(async (req) => {
       .single()
 
     if (profileError || !profile?.nylas_grant_id) {
+      console.error('❌ Profile error:', profileError)
       throw new Error('Nylas grant ID not found')
     }
 
-    console.log('Found Nylas grant ID:', profile.nylas_grant_id)
+    console.log('🔑 Found Nylas grant ID:', profile.nylas_grant_id)
+    console.log('🚀 Making request to Nylas API to kick notetaker...')
 
     // Make the request to Nylas API
     const response = await fetch(
@@ -56,13 +61,16 @@ Deno.serve(async (req) => {
       }
     )
 
+    const responseText = await response.text()
+    console.log('📡 Nylas API Response Status:', response.status)
+    console.log('📡 Nylas API Response Body:', responseText)
+
     if (!response.ok) {
-      const error = await response.text()
-      console.error('Nylas API error:', error)
+      console.error('❌ Nylas API error:', responseText)
       throw new Error(`Failed to kick notetaker: ${response.status}`)
     }
 
-    console.log('Successfully kicked notetaker')
+    console.log('✅ Successfully kicked notetaker')
 
     return new Response(
       JSON.stringify({ success: true }),
@@ -73,7 +81,7 @@ Deno.serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error in kick-notetaker function:', error)
+    console.error('❌ Error in kick-notetaker function:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       {
