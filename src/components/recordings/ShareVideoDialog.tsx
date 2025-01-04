@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@supabase/auth-helpers-react";
 
 interface ShareVideoDialogProps {
   recordingId: string;
@@ -13,11 +14,14 @@ interface ShareVideoDialogProps {
 
 export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isInternalEnabled, setIsInternalEnabled] = useState(false);
   const [isExternalEnabled, setIsExternalEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleShare = async () => {
+    if (!user) return;
+    
     try {
       setIsLoading(true);
       
@@ -31,14 +35,16 @@ export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
         await supabase.from('video_shares').insert({
           recording_id: recordingId,
           share_type: 'internal',
-          organization_id: profile?.organization_id
+          organization_id: profile?.organization_id,
+          shared_by: user.id
         });
       }
 
       if (isExternalEnabled) {
         await supabase.from('video_shares').insert({
           recording_id: recordingId,
-          share_type: 'external'
+          share_type: 'external',
+          shared_by: user.id
         });
       }
 
