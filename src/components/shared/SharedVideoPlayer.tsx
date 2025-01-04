@@ -21,6 +21,8 @@ export function SharedVideoPlayer({ videoUrl, recordingUrl }: SharedVideoPlayerP
       controls
       className="w-full h-full rounded-lg"
       autoPlay
-    />
+    >
+      Your browser does not support the video tag.
+    </video>
   );
 }
