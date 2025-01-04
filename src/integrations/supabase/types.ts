@@ -106,6 +106,7 @@ export type Database = {
           event_id: string
           id: string
           last_attempt: string | null
+          notetaker_id: string | null
           scheduled_for: string
           status: string
           user_id: string
@@ -117,6 +118,7 @@ export type Database = {
           event_id: string
           id?: string
           last_attempt?: string | null
+          notetaker_id?: string | null
           scheduled_for: string
           status?: string
           user_id: string
@@ -128,6 +130,7 @@ export type Database = {
           event_id?: string
           id?: string
           last_attempt?: string | null
+          notetaker_id?: string | null
           scheduled_for?: string
           status?: string
           user_id?: string
@@ -188,6 +191,7 @@ export type Database = {
           duration: number | null
           event_id: string
           id: string
+          notetaker_id: string | null
           recording_url: string
           status: string
           updated_at: string
@@ -198,6 +202,7 @@ export type Database = {
           duration?: number | null
           event_id: string
           id?: string
+          notetaker_id?: string | null
           recording_url: string
           status?: string
           updated_at?: string
@@ -208,6 +213,7 @@ export type Database = {
           duration?: number | null
           event_id?: string
           id?: string
+          notetaker_id?: string | null
           recording_url?: string
           status?: string
           updated_at?: string

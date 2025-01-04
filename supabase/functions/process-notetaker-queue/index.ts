@@ -89,15 +89,27 @@ Deno.serve(async (req) => {
 
         console.log('Notetaker sent successfully:', responseData)
 
-        // Update queue item status
+        // Update queue item status and save notetaker_id
         await supabaseClient
           .from('notetaker_queue')
           .update({
             status: 'completed',
             last_attempt: new Date().toISOString(),
-            attempts: (item.attempts || 0) + 1
+            attempts: (item.attempts || 0) + 1,
+            notetaker_id: responseData.id // Save the notetaker_id from Nylas response
           })
           .eq('id', item.id)
+
+        // Create a new recording entry
+        await supabaseClient
+          .from('recordings')
+          .insert({
+            user_id: item.user_id,
+            event_id: item.event_id,
+            notetaker_id: responseData.id,
+            recording_url: '', // Will be updated when recording is ready
+            status: 'pending'
+          })
 
       } catch (error) {
         console.error('Error processing queue item:', error)
