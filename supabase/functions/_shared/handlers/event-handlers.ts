@@ -24,24 +24,35 @@ export const handleEventCreated = async (objectData: any, grantId: string) => {
 
   console.log('Found profile for event.created:', profile);
 
-  // Log participant data for debugging
-  console.log('Event participants:', objectData.participants);
-  console.log('Event organizer:', objectData.organizer);
+  // Log raw participant and organizer data for debugging
+  console.log('Raw event participants:', JSON.stringify(objectData.participants, null, 2));
+  console.log('Raw event organizer:', JSON.stringify(objectData.organizer, null, 2));
 
-  // Ensure participants is an array and contains all required fields
-  const participants = Array.isArray(objectData.participants) 
-    ? objectData.participants.map(p => ({
-        email: p.email,
-        name: p.name || p.email.split('@')[0],
-        status: p.status || 'none'
-      }))
-    : [];
-
-  // Ensure organizer has all required fields
+  // Process participants, ensuring we include the organizer if they're a participant
+  const allParticipants = objectData.participants || [];
   const organizer = objectData.organizer ? {
     email: objectData.organizer.email,
     name: objectData.organizer.name || objectData.organizer.email.split('@')[0]
   } : null;
+
+  // Add organizer to participants if not already included
+  if (organizer && !allParticipants.some(p => p.email === organizer.email)) {
+    allParticipants.push({
+      email: organizer.email,
+      name: organizer.name,
+      status: 'accepted'
+    });
+  }
+
+  // Process all participants with consistent formatting
+  const participants = allParticipants.map(p => ({
+    email: p.email,
+    name: p.name || p.email.split('@')[0],
+    status: p.status || 'none'
+  }));
+
+  console.log('Processed participants:', JSON.stringify(participants, null, 2));
+  console.log('Processed organizer:', JSON.stringify(organizer, null, 2));
 
   // Insert or update the event in our database
   const { error: eventError } = await supabaseAdmin
@@ -86,24 +97,35 @@ export const handleEventUpdated = async (objectData: any, grantId: string) => {
   // Find user associated with this grant
   const profile = await findUserByGrant(grantId);
 
-  // Log participant data for debugging
-  console.log('Event participants:', objectData.participants);
-  console.log('Event organizer:', objectData.organizer);
+  // Log raw participant and organizer data for debugging
+  console.log('Raw event participants:', JSON.stringify(objectData.participants, null, 2));
+  console.log('Raw event organizer:', JSON.stringify(objectData.organizer, null, 2));
 
-  // Ensure participants is an array and contains all required fields
-  const participants = Array.isArray(objectData.participants) 
-    ? objectData.participants.map(p => ({
-        email: p.email,
-        name: p.name || p.email.split('@')[0],
-        status: p.status || 'none'
-      }))
-    : [];
-
-  // Ensure organizer has all required fields
+  // Process participants, ensuring we include the organizer if they're a participant
+  const allParticipants = objectData.participants || [];
   const organizer = objectData.organizer ? {
     email: objectData.organizer.email,
     name: objectData.organizer.name || objectData.organizer.email.split('@')[0]
   } : null;
+
+  // Add organizer to participants if not already included
+  if (organizer && !allParticipants.some(p => p.email === organizer.email)) {
+    allParticipants.push({
+      email: organizer.email,
+      name: organizer.name,
+      status: 'accepted'
+    });
+  }
+
+  // Process all participants with consistent formatting
+  const participants = allParticipants.map(p => ({
+    email: p.email,
+    name: p.name || p.email.split('@')[0],
+    status: p.status || 'none'
+  }));
+
+  console.log('Processed participants:', JSON.stringify(participants, null, 2));
+  console.log('Processed organizer:', JSON.stringify(organizer, null, 2));
 
   // Prepare event data
   const eventData = {
