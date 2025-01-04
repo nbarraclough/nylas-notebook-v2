@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -12,6 +13,7 @@ import { Eye, Link2, Share2, Trash2 } from "lucide-react";
 
 export default function Shared() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [userId, setUserId] = useState<string | null>(null);
 
   // Check authentication
