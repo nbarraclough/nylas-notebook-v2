@@ -6,7 +6,7 @@ const NYLAS_API_URL = 'https://api.us.nylas.com'
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
@@ -24,16 +24,21 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get user's Nylas grant_id
+    // Get user's Nylas grant_id with better error handling
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
       .select('nylas_grant_id')
       .eq('id', user_id)
       .single()
 
-    if (profileError || !profile?.nylas_grant_id) {
-      console.error('Failed to get Nylas grant_id:', profileError)
-      throw new Error('Failed to get Nylas grant_id')
+    if (profileError) {
+      console.error('Failed to fetch profile:', profileError)
+      throw new Error('Failed to fetch profile')
+    }
+
+    if (!profile?.nylas_grant_id) {
+      console.error('No Nylas grant_id found for user:', user_id)
+      throw new Error('No Nylas grant_id found for user')
     }
 
     console.log('Found Nylas grant_id:', profile.nylas_grant_id)
@@ -70,7 +75,7 @@ Deno.serve(async (req) => {
 
     // Store events in database
     for (const event of events) {
-      const { data, error: upsertError } = await supabaseClient
+      const { error: upsertError } = await supabaseClient
         .from('events')
         .upsert({
           user_id,
