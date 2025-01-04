@@ -122,15 +122,15 @@ serve(async (req) => {
       )
     }
 
-    console.log('Starting profile update process for user:', userId)
+    console.log('Starting profile check/update process for user:', userId)
 
-    // First, verify the profile exists
+    // First, check if profile exists
     console.log('Checking if profile exists...')
     const { data: existingProfile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, nylas_grant_id')
+      .select('id, email, nylas_grant_id')
       .eq('id', userId)
-      .single()
+      .maybeSingle()
 
     if (profileError) {
       console.error('Error checking profile:', profileError)
@@ -143,45 +143,63 @@ serve(async (req) => {
       )
     }
 
+    console.log('Profile check result:', JSON.stringify(existingProfile, null, 2))
+
+    let updateResult;
     if (!existingProfile) {
-      console.error('Profile not found for user:', userId)
-      return new Response(
-        JSON.stringify({ error: 'Profile not found' }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 404,
-        }
-      )
+      // Create profile if it doesn't exist
+      console.log('Profile not found, creating new profile...')
+      const { data: newProfile, error: createError } = await supabase
+        .from('profiles')
+        .insert([{ 
+          id: userId,
+          nylas_grant_id: grant_id,
+          updated_at: new Date().toISOString()
+        }])
+        .select()
+        .single()
+
+      if (createError) {
+        console.error('Error creating profile:', createError)
+        return new Response(
+          JSON.stringify({ error: 'Failed to create profile', details: createError }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 500,
+          }
+        )
+      }
+      updateResult = newProfile
+    } else {
+      // Update existing profile
+      console.log('Updating existing profile with new nylas_grant_id:', grant_id)
+      const { data: updatedProfile, error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          nylas_grant_id: grant_id,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId)
+        .select()
+        .single()
+
+      if (updateError) {
+        console.error('Error updating profile:', updateError)
+        return new Response(
+          JSON.stringify({ error: 'Failed to update profile', details: updateError }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 500,
+          }
+        )
+      }
+      updateResult = updatedProfile
     }
 
-    console.log('Current profile state:', JSON.stringify(existingProfile, null, 2))
-
-    // Update user's profile with nylas_grant_id using service role client
-    console.log('Updating profile with new nylas_grant_id:', grant_id)
-    const { data: updateData, error: updateError } = await supabase
-      .from('profiles')
-      .update({ 
-        nylas_grant_id: grant_id,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', userId)
-      .select()
-
-    if (updateError) {
-      console.error('Error updating profile:', updateError)
-      return new Response(
-        JSON.stringify({ error: 'Failed to update profile', details: updateError }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500,
-        }
-      )
-    }
-
-    console.log('Profile update result:', JSON.stringify(updateData, null, 2))
+    console.log('Profile update/create result:', JSON.stringify(updateResult, null, 2))
 
     return new Response(
-      JSON.stringify({ success: true, grant_id }),
+      JSON.stringify({ success: true, grant_id, profile: updateResult }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
