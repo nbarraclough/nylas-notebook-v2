@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { MembersList } from "./organization/MembersList";
@@ -25,7 +26,7 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
         .from('organizations')
         .select(`
           *,
-          organization_members!inner(
+          organization_members(
             user_id,
             role,
             profiles(
