@@ -1,19 +1,12 @@
-import { useState, useEffect } from "react";
-import { format } from "date-fns";
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { EventParticipants } from "./EventParticipants";
-import { RecordingToggle } from "./RecordingToggle";
-import { Badge } from "@/components/ui/badge";
-import { Globe, Shield } from "lucide-react";
-import DOMPurify from "dompurify";
-import type { Database } from "@/integrations/supabase/types";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
-import { ChevronDown, ChevronUp } from "lucide-react";
-import type { EventParticipant, EventOrganizer } from "@/types/calendar";
+import { supabase } from "@/integrations/supabase/client";
+import { EventHeader } from "./EventHeader";
+import { EventDescription } from "./EventDescription";
+import { EventActions } from "./EventActions";
+import type { Database } from "@/integrations/supabase/types";
 
 type Event = Database['public']['Tables']['events']['Row'];
 
@@ -24,39 +17,16 @@ interface EventCardProps {
 }
 
 export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
   const [isQueued, setIsQueued] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
   const location = useLocation();
   const isCalendarRoute = location.pathname === "/calendar";
 
-  // Safely parse organizer and participants with type checking
-  const parseOrganizer = (data: unknown): EventOrganizer | null => {
-    if (typeof data === 'object' && data !== null && 'email' in data && 'name' in data) {
-      return data as EventOrganizer;
-    }
-    return null;
-  };
-
-  const parseParticipants = (data: unknown): EventParticipant[] => {
-    if (Array.isArray(data)) {
-      return data.filter((item): item is EventParticipant => 
-        typeof item === 'object' && 
-        item !== null && 
-        'email' in item && 
-        'name' in item
-      );
-    }
-    return [];
-  };
-
   // Determine if meeting is internal
   const isInternalMeeting = (() => {
-    const organizer = parseOrganizer(event.organizer);
-    const participants = parseParticipants(event.participants);
+    const organizer = event.organizer;
+    const participants = event.participants;
     
-    if (!organizer?.email || !participants.length) return true;
+    if (!organizer?.email || !participants?.length) return true;
     const organizerDomain = organizer.email.split('@')[1];
     return participants.every(participant => 
       participant.email.split('@')[1] === organizerDomain
@@ -104,35 +74,13 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
   };
 
   // Load initial queue status
-  useEffect(() => {
+  useState(() => {
     checkQueueStatus();
   }, [event.id, userId]);
 
   const handleQueueToggle = (newState: boolean) => {
     setIsQueued(newState);
   };
-
-  // Format description text to handle URLs and preserve formatting
-  const formatDescription = (text: string | null) => {
-    if (!text) return '';
-    
-    // Convert URLs to anchor tags
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const textWithLinks = text.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
-    
-    // Convert line breaks to <br> tags and preserve spacing
-    const textWithBreaks = textWithLinks
-      .replace(/\n/g, '<br>')
-      .replace(/\s{2,}/g, match => '&nbsp;'.repeat(match.length));
-
-    return DOMPurify.sanitize(textWithBreaks, {
-      ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'em', 'strong', 'a', 'ul', 'ol', 'li'],
-      ALLOWED_ATTR: ['href', 'target', 'rel'],
-      ALLOW_DATA_ATTR: false,
-    });
-  };
-
-  const sanitizedDescription = formatDescription(event.description);
 
   console.log('Rendering EventCard:', {
     eventId: event.id,
@@ -145,98 +93,28 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
     <Card className={isPast ? "opacity-60" : ""}>
       <CardContent className="p-6">
         <div className="flex flex-col space-y-4">
-          <div className="flex justify-between items-start">
-            <div className="flex items-start gap-3">
-              <div className="mt-1">
-                <EventParticipants 
-                  participants={parseParticipants(event.participants)} 
-                  organizer={parseOrganizer(event.organizer)}
-                  isInternalMeeting={isInternalMeeting}
-                />
-              </div>
-              <div>
-                <h3 className="font-semibold leading-snug">{event.title}</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {format(new Date(event.start_time), "MMM d, yyyy 'at' h:mm a")} - {format(new Date(event.end_time), "h:mm a")}
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-col items-end gap-2">
-              {event.conference_url && !isPast && (
-                <RecordingToggle
-                  isQueued={isQueued}
-                  eventId={event.id}
-                  userId={userId}
-                  hasConferenceUrl={!!event.conference_url}
-                  scheduledFor={event.start_time}
-                  nylasGrantId={profile?.nylas_grant_id}
-                  onToggle={handleQueueToggle}
-                />
-              )}
-              <Badge 
-                variant={isInternalMeeting ? "secondary" : "outline"}
-                className={`text-xs ${isInternalMeeting ? 'bg-purple-100 hover:bg-purple-100 text-purple-800' : 'border-blue-200 text-blue-700 hover:bg-blue-50'}`}
-              >
-                {isInternalMeeting ? (
-                  <>
-                    <Shield className="w-3 h-3 mr-1" />
-                    Internal
-                  </>
-                ) : (
-                  <>
-                    <Globe className="w-3 h-3 mr-1" />
-                    External
-                  </>
-                )}
-              </Badge>
-            </div>
-          </div>
+          <EventHeader 
+            title={event.title}
+            startTime={event.start_time}
+            endTime={event.end_time}
+            participants={event.participants}
+            organizer={event.organizer}
+            isInternalMeeting={isInternalMeeting}
+          />
 
-          {sanitizedDescription && (
-            <div className="relative">
-              <div 
-                className={`text-sm text-muted-foreground prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_a]:text-primary [&_a]:underline [&_a]:hover:text-primary/80 whitespace-pre-line ${!isExpanded ? 'line-clamp-5' : ''}`}
-                dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
-              />
-              {sanitizedDescription.split('<br>').length > 5 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-2 hover:bg-accent"
-                  onClick={() => setIsExpanded(!isExpanded)}
-                >
-                  {isExpanded ? (
-                    <>
-                      Show less <ChevronUp className="ml-1 h-4 w-4" />
-                    </>
-                  ) : (
-                    <>
-                      Show more <ChevronDown className="ml-1 h-4 w-4" />
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-          )}
+          <EventDescription description={event.description} />
 
-          {event.conference_url && !isPast && isCalendarRoute && (
-            <div className="flex justify-start">
-              <Button 
-                variant="outline"
-                size="sm"
-                className="hover:bg-accent"
-                asChild
-              >
-                <a 
-                  href={event.conference_url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                >
-                  Join meeting
-                </a>
-              </Button>
-            </div>
-          )}
+          <EventActions 
+            conferenceUrl={event.conference_url}
+            isQueued={isQueued}
+            eventId={event.id}
+            userId={userId}
+            scheduledFor={event.start_time}
+            nylasGrantId={profile?.nylas_grant_id}
+            onToggle={handleQueueToggle}
+            isPast={isPast}
+            isCalendarRoute={isCalendarRoute}
+          />
         </div>
       </CardContent>
     </Card>
