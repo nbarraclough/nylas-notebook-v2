@@ -37,6 +37,7 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
     return organizerDomain && participantDomain && organizerDomain === participantDomain;
   });
 
+  // Subscribe to profile changes
   useEffect(() => {
     const fetchProfile = async () => {
       const { data, error } = await supabase
@@ -53,6 +54,33 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
       setProfile(data);
     };
 
+    fetchProfile();
+
+    // Subscribe to profile changes
+    const channel = supabase
+      .channel('profile-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${userId}`,
+        },
+        (payload) => {
+          console.log('Profile updated:', payload);
+          setProfile(payload.new as Profile);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [userId]);
+
+  // Check queue status and handle auto-queueing
+  useEffect(() => {
     const checkQueueStatus = async () => {
       const { data, error } = await supabase
         .from('notetaker_queue')
@@ -69,9 +97,8 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
       setIsQueued(!!data);
     };
 
-    fetchProfile();
     checkQueueStatus();
-  }, [userId, event.id]);
+  }, [event.id, userId]);
 
   const shouldAutoRecord = () => {
     if (!profile) return false;
@@ -86,9 +113,10 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
     return `${format(new Date(start), 'MMM d, yyyy, h:mm a')} - ${format(new Date(end), 'h:mm a')}`;
   };
 
-  // Auto-queue recording if rules match
+  // Auto-queue recording if rules match - now depends on profile changes
   useEffect(() => {
     if (shouldAutoRecord() && !isQueued && event.conference_url) {
+      console.log('Auto-queueing recording for event:', event.title);
       const handleAutoQueue = async () => {
         const { error } = await supabase
           .from('notetaker_queue')
@@ -108,7 +136,7 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
 
       handleAutoQueue();
     }
-  }, [profile?.record_internal_meetings, profile?.record_external_meetings]);
+  }, [profile?.record_internal_meetings, profile?.record_external_meetings, isQueued, event.conference_url]);
 
   return (
     <Card className="mb-4">
