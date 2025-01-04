@@ -109,7 +109,7 @@ export const processEvent = async (
     const { error } = await supabaseAdmin
       .from('events')
       .upsert(eventData, {
-        onConflict: 'user_id,nylas_event_id',
+        onConflict: 'ical_uid',
         ignoreDuplicates: false
       });
 
