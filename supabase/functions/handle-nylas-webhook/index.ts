@@ -18,7 +18,10 @@ serve(async (req) => {
     if (!isValid) {
       console.error('Invalid webhook signature');
       return new Response(
-        JSON.stringify({ error: 'Invalid signature' }),
+        JSON.stringify({ 
+          error: 'Invalid signature',
+          message: 'The webhook signature verification failed'
+        }),
         { 
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -27,11 +30,27 @@ serve(async (req) => {
     }
 
     // Parse the body as JSON after verification
-    const webhookData = JSON.parse(rawBody);
-    console.log('Webhook data:', webhookData);
+    let webhookData;
+    try {
+      webhookData = JSON.parse(rawBody);
+      console.log('Webhook data:', webhookData);
+    } catch (error) {
+      console.error('Error parsing webhook data:', error);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid JSON',
+          message: 'Failed to parse webhook payload as JSON'
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
     // Handle Nylas challenge request
     if (webhookData.challenge) {
+      console.log('Responding to challenge request:', webhookData.challenge);
       return new Response(
         JSON.stringify({ challenge: webhookData.challenge }),
         { 
@@ -54,7 +73,6 @@ serve(async (req) => {
     );
 
     // Process the webhook based on its type
-    // Add your webhook handling logic here
     console.log('Processing webhook:', webhookData.type);
 
     return new Response(
@@ -68,7 +86,10 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error processing webhook:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: 'Internal server error',
+        message: error.message
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500

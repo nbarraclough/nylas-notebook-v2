@@ -1,6 +1,6 @@
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-nylas-signature',
 };
 
 export const verifyNylasWebhook = async (req: Request, rawBody: string): Promise<boolean> => {
@@ -8,6 +8,7 @@ export const verifyNylasWebhook = async (req: Request, rawBody: string): Promise
     // For challenge requests, bypass signature verification
     const url = new URL(req.url);
     if (url.searchParams.get('challenge')) {
+      console.log('Challenge request detected, bypassing signature verification');
       return true;
     }
 
@@ -23,24 +24,24 @@ export const verifyNylasWebhook = async (req: Request, rawBody: string): Promise
       return false;
     }
 
-    // Create HMAC using client secret
-    const key = new TextEncoder().encode(clientSecret);
-    const message = new TextEncoder().encode(rawBody);
+    // Log headers and body for debugging
+    console.log('Headers:', Object.fromEntries(req.headers.entries()));
+    console.log('Raw body (first 100 chars):', rawBody.slice(0, 100));
 
-    // Import key for HMAC
-    const hmacKey = await crypto.subtle.importKey(
+    // Create HMAC using client secret
+    const key = await crypto.subtle.importKey(
       "raw",
-      key,
+      new TextEncoder().encode(clientSecret),
       { name: "HMAC", hash: "SHA-256" },
       false,
       ["sign"]
     );
-    
+
     // Generate signature
     const signatureBuffer = await crypto.subtle.sign(
       "HMAC",
-      hmacKey,
-      message
+      key,
+      new TextEncoder().encode(rawBody)
     );
 
     // Convert the signature to hex string
@@ -48,16 +49,10 @@ export const verifyNylasWebhook = async (req: Request, rawBody: string): Promise
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
 
-    // Compare signatures
-    const isValid = signature === computedSignature;
-    if (!isValid) {
-      console.error('Signature mismatch:', {
-        received: signature,
-        computed: computedSignature,
-        rawBody: rawBody.slice(0, 100) + '...' // Log first 100 chars of body for debugging
-      });
-    }
-    return isValid;
+    console.log('Computed signature:', computedSignature);
+    console.log('Received signature:', signature);
+
+    return signature === computedSignature;
 
   } catch (error) {
     console.error('Error verifying webhook:', error);
