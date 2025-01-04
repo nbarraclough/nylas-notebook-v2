@@ -74,14 +74,15 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
     });
 
     return filteredEvents.reduce((groups: GroupedEvents, event) => {
-      // Convert UTC date to local date for grouping
-      const localDate = new Date(event.start_time);
-      const date = format(localDate, 'yyyy-MM-dd');
+      // Get the start time in the user's local timezone
+      const localStartTime = new Date(event.start_time);
+      // Format the date key using the local date
+      const dateKey = format(localStartTime, 'yyyy-MM-dd');
       
-      if (!groups[date]) {
-        groups[date] = [];
+      if (!groups[dateKey]) {
+        groups[dateKey] = [];
       }
-      groups[date].push(event);
+      groups[dateKey].push(event);
       return groups;
     }, {});
   };
