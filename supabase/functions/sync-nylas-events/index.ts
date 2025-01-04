@@ -49,14 +49,14 @@ serve(async (req) => {
 
     console.log('Found Nylas grant ID:', profile.nylas_grant_id)
 
-    // Get Nylas credentials
+    // Get Nylas API key
     const nylasApiKey = Deno.env.get('NYLAS_API_KEY')
 
     if (!nylasApiKey) {
       throw new Error('Nylas API key not configured')
     }
 
-    // Fetch events directly using the grant_id
+    // Fetch events from Nylas
     console.log('Fetching events from Nylas...')
     const eventsResponse = await fetch(`https://api-staging.us.nylas.com/v3/grants/${profile.nylas_grant_id}/events?limit=100`, {
       headers: {
