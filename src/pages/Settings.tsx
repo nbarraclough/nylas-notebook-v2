@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { useToast } from "@/components/ui/use-toast";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation } from "@tanstack/react-query";
 
@@ -34,16 +35,42 @@ export default function Settings() {
     enabled: !!userId,
   });
 
-  // Update profile settings and trigger event re-evaluation
+  // Update notetaker name
+  const updateNotetakerName = useMutation({
+    mutationFn: async (name: string) => {
+      if (!userId) throw new Error('No user ID');
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({ notetaker_name: name })
+        .eq('id', userId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Notetaker name updated successfully!",
+      });
+    },
+    onError: (error) => {
+      console.error('Error updating notetaker name:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update notetaker name. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update recording rules
   const updateProfile = useMutation({
     mutationFn: async (updates: {
-      notetaker_name?: string;
       record_external_meetings?: boolean;
       record_internal_meetings?: boolean;
     }) => {
       if (!userId) throw new Error('No user ID');
       
-      // Update profile
       const { error: profileError } = await supabase
         .from('profiles')
         .update(updates)
@@ -51,18 +78,15 @@ export default function Settings() {
 
       if (profileError) throw profileError;
 
-      // If recording rules changed, trigger re-evaluation
-      if ('record_external_meetings' in updates || 'record_internal_meetings' in updates) {
-        console.log('Recording rules changed, triggering event re-evaluation');
-        const { error: evalError } = await supabase.functions.invoke('sync-nylas-events', {
-          body: { 
-            user_id: userId,
-            force_recording_rules: true 
-          }
-        });
+      console.log('Recording rules changed, triggering event re-evaluation');
+      const { error: evalError } = await supabase.functions.invoke('sync-nylas-events', {
+        body: { 
+          user_id: userId,
+          force_recording_rules: true 
+        }
+      });
 
-        if (evalError) throw evalError;
-      }
+      if (evalError) throw evalError;
     },
     onSuccess: () => {
       toast({
@@ -115,9 +139,8 @@ export default function Settings() {
     }
   }, [profile]);
 
-  const handleNotetakerNameChange = (name: string) => {
-    setNotetakerName(name);
-    updateProfile.mutate({ notetaker_name: name });
+  const handleSaveNotetakerName = () => {
+    updateNotetakerName.mutate(notetakerName);
   };
 
   const handleRecordExternalChange = () => {
@@ -142,14 +165,22 @@ export default function Settings() {
             <CardTitle>Notetaker Settings</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="notetaker-name">Notetaker Name</Label>
-              <Input 
-                id="notetaker-name" 
-                placeholder="Enter name for your Notetaker" 
-                value={notetakerName}
-                onChange={(e) => handleNotetakerNameChange(e.target.value)}
-              />
+            <div className="flex items-end gap-4">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="notetaker-name">Notetaker Name</Label>
+                <Input 
+                  id="notetaker-name" 
+                  placeholder="Enter name for your Notetaker" 
+                  value={notetakerName}
+                  onChange={(e) => setNotetakerName(e.target.value)}
+                />
+              </div>
+              <Button 
+                onClick={handleSaveNotetakerName}
+                disabled={updateNotetakerName.isPending}
+              >
+                Save Name
+              </Button>
             </div>
           </CardContent>
         </Card>
