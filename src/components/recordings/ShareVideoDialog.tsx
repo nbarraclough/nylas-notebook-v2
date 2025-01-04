@@ -24,6 +24,7 @@ export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
   const [expiryDate, setExpiryDate] = useState<Date | undefined>(undefined);
   const [isPasswordEnabled, setIsPasswordEnabled] = useState(false);
   const [isExpiryEnabled, setIsExpiryEnabled] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   const handleShare = async () => {
     if (!session?.user) return;
@@ -43,6 +44,11 @@ export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
           share_type: 'internal',
           organization_id: profile.organization_id,
           shared_by: session.user.id
+        });
+
+        toast({
+          title: "Shared with organization",
+          description: "The recording has been shared with your organization."
         });
       }
 
@@ -66,18 +72,17 @@ export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
         if (newShare?.external_token) {
           const shareUrl = `${window.location.origin}/shared/${newShare.external_token}`;
           setExternalShareUrl(shareUrl);
+          toast({
+            title: "Public link created",
+            description: "The public sharing link has been created successfully."
+          });
         }
       }
-
-      toast({
-        title: "Video shared successfully",
-        description: "The sharing settings have been updated."
-      });
     } catch (error) {
       console.error('Error sharing video:', error);
       toast({
         title: "Error sharing video",
-        description: "There was a problem updating the sharing settings.",
+        description: "There was a problem sharing the video. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -107,7 +112,7 @@ export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
   };
 
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="ghost" size="sm" className="flex items-center gap-2">
           <Share2 className="h-4 w-4" />
