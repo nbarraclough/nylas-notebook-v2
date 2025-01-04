@@ -49,7 +49,7 @@ serve(async (req) => {
 
     console.log('Found Nylas grant ID:', profile.nylas_grant_id)
 
-    // Get Nylas access token
+    // Get Nylas credentials
     const nylasClientId = Deno.env.get('NYLAS_CLIENT_ID')
     const nylasClientSecret = Deno.env.get('NYLAS_CLIENT_SECRET')
 
@@ -57,40 +57,13 @@ serve(async (req) => {
       throw new Error('Nylas credentials not configured')
     }
 
-    // Get access token from Nylas using staging URL
-    const tokenResponse = await fetch('https://api-staging.us.nylas.com/v3/connect/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        client_id: nylasClientId,
-        client_secret: nylasClientSecret,
-        grant_id: profile.nylas_grant_id,
-        grant_type: 'client_credentials',
-      }),
-    })
-
-    if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.text()
-      console.error('Failed to get Nylas token:', errorData)
-      throw new Error(`Failed to get Nylas access token: ${errorData}`)
-    }
-
-    const tokenData = await tokenResponse.json()
-    const accessToken = tokenData.access_token
-
-    if (!accessToken) {
-      throw new Error('No access token in Nylas response')
-    }
-
-    console.log('Successfully obtained Nylas access token')
-
-    // Fetch events from Nylas using staging URL
+    // Fetch events directly using the grant_id
+    console.log('Fetching events from Nylas...')
     const eventsResponse = await fetch(`https://api-staging.us.nylas.com/v3/grants/${profile.nylas_grant_id}/events?limit=100`, {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        'Authorization': `Basic ${btoa(`${nylasClientId}:${nylasClientSecret}`)}`,
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
     })
 
