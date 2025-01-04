@@ -77,6 +77,22 @@ Deno.serve(async (req) => {
     const { data: events } = await response.json()
     console.log('Fetched', events.length, 'events from Nylas')
 
+    // Get existing events to compare last_updated_at
+    const { data: existingEvents, error: existingEventsError } = await supabaseClient
+      .from('events')
+      .select('nylas_event_id, last_updated_at')
+      .eq('user_id', user_id)
+
+    if (existingEventsError) {
+      console.error('Error fetching existing events:', existingEventsError)
+      throw new Error('Failed to fetch existing events')
+    }
+
+    // Create a map of existing events for quick lookup
+    const existingEventsMap = new Map(
+      existingEvents?.map(event => [event.nylas_event_id, new Date(event.last_updated_at)]) || []
+    )
+
     // Store events in database
     for (const event of events) {
       try {
@@ -107,6 +123,16 @@ Deno.serve(async (req) => {
         console.log('Event:', event.id, 'Raw conferencing data:', JSON.stringify(event.conferencing));
         console.log('Conference URL for event:', event.id, conferenceUrl);
 
+        // Check if event exists and compare last_updated_at
+        const existingEventLastUpdated = existingEventsMap.get(event.id);
+        const eventLastUpdated = new Date(event.last_updated * 1000);
+
+        // Skip if event exists and hasn't been updated
+        if (existingEventLastUpdated && eventLastUpdated <= existingEventLastUpdated) {
+          console.log('Skipping event as it has not been updated:', event.id);
+          continue;
+        }
+
         // Safely extract and transform event data
         const eventData = {
           user_id,
@@ -118,7 +144,7 @@ Deno.serve(async (req) => {
           end_time: endTime,
           participants: Array.isArray(event.participants) ? event.participants : [],
           conference_url: conferenceUrl,
-          last_updated_at: new Date().toISOString(),
+          last_updated_at: eventLastUpdated.toISOString(),
           ical_uid: event.ical_uid || null,
           busy: event.busy === false ? false : true, // Default to true if undefined
           html_link: event.html_link || null,
@@ -144,6 +170,8 @@ Deno.serve(async (req) => {
         if (upsertError) {
           console.error('Error upserting event:', upsertError);
           console.error('Failed event data:', JSON.stringify(eventData, null, 2));
+        } else {
+          console.log('Successfully upserted event:', event.id);
         }
       } catch (error) {
         console.error('Error processing event:', event.id, error);
