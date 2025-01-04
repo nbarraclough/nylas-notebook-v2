@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
@@ -7,6 +7,7 @@ import { EventHeader } from "./EventHeader";
 import { EventDescription } from "./EventDescription";
 import { EventActions } from "./EventActions";
 import type { Database } from "@/integrations/supabase/types";
+import type { EventParticipant, EventOrganizer } from "@/types/calendar";
 
 type Event = Database['public']['Tables']['events']['Row'];
 
@@ -21,12 +22,32 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
   const location = useLocation();
   const isCalendarRoute = location.pathname === "/calendar";
 
+  // Parse organizer and participants with type checking
+  const parseParticipants = (data: unknown): EventParticipant[] => {
+    if (Array.isArray(data)) {
+      return data.filter((item): item is EventParticipant => 
+        typeof item === 'object' && 
+        item !== null && 
+        'email' in item && 
+        'name' in item
+      );
+    }
+    return [];
+  };
+
+  const parseOrganizer = (data: unknown): EventOrganizer | null => {
+    if (typeof data === 'object' && data !== null && 'email' in data && 'name' in data) {
+      return data as EventOrganizer;
+    }
+    return null;
+  };
+
   // Determine if meeting is internal
   const isInternalMeeting = (() => {
-    const organizer = event.organizer;
-    const participants = event.participants;
+    const organizer = parseOrganizer(event.organizer);
+    const participants = parseParticipants(event.participants);
     
-    if (!organizer?.email || !participants?.length) return true;
+    if (!organizer?.email || !participants.length) return true;
     const organizerDomain = organizer.email.split('@')[1];
     return participants.every(participant => 
       participant.email.split('@')[1] === organizerDomain
@@ -74,7 +95,7 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
   };
 
   // Load initial queue status
-  useState(() => {
+  useEffect(() => {
     checkQueueStatus();
   }, [event.id, userId]);
 
@@ -97,8 +118,8 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
             title={event.title}
             startTime={event.start_time}
             endTime={event.end_time}
-            participants={event.participants}
-            organizer={event.organizer}
+            participants={parseParticipants(event.participants)}
+            organizer={parseOrganizer(event.organizer)}
             isInternalMeeting={isInternalMeeting}
           />
 
