@@ -20,6 +20,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Navigate to="/calendar" replace />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/auth/callback" element={<Navigate to="/calendar" replace />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/queue" element={<Queue />} />
           <Route path="/recordings" element={<Recordings />} />
