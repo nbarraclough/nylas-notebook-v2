@@ -51,7 +51,7 @@ export const EventHeader = ({
         <div>
           <h3 className="font-semibold leading-snug">{title}</h3>
           <p className="text-sm text-muted-foreground mt-1">
-            {format(new Date(startTime), "MMM d, yyyy 'at' h:mm a")} - {format(new Date(endTime), "h:mm a")}
+            {format(new Date(startTime), "EEEE, MMMM d, yyyy 'at' h:mm a")} - {format(new Date(endTime), "h:mm a")}
           </p>
         </div>
       </div>

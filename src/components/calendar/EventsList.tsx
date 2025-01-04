@@ -36,7 +36,6 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
       setSyncProgress(25);
       console.log('Syncing events...');
       
-      // Start the sync process
       const { error } = await supabase.functions.invoke('sync-nylas-events', {
         body: { user_id: userId }
       });
@@ -59,7 +58,6 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
         variant: "destructive",
       });
     } finally {
-      // Reset the progress after a short delay to show the completion
       setTimeout(() => {
         setIsSyncing(false);
         setSyncProgress(0);
@@ -67,7 +65,7 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
     }
   };
 
-  // Filter and group events by date
+  // Filter and group events by date in user's timezone
   const groupEventsByDate = (events: Event[]): GroupedEvents => {
     const now = new Date();
     const filteredEvents = events.filter(event => {
@@ -76,7 +74,10 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
     });
 
     return filteredEvents.reduce((groups: GroupedEvents, event) => {
-      const date = format(new Date(event.start_time), 'yyyy-MM-dd');
+      // Convert UTC date to local date for grouping
+      const localDate = new Date(event.start_time);
+      const date = format(localDate, 'yyyy-MM-dd');
+      
       if (!groups[date]) {
         groups[date] = [];
       }
