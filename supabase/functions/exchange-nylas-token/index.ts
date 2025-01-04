@@ -30,8 +30,8 @@ serve(async (req) => {
     const origin = req.headers.get('origin') || 'http://localhost:5173'
     const redirectUri = `${origin}/calendar`
 
-    // Exchange the code for a nylas_grant_id
-    const tokenResponse = await fetch('https://api.us.nylas.com/v3/connect/token', {
+    // Exchange the code for a nylas_grant_id using staging URL
+    const tokenResponse = await fetch('https://api-staging.us.nylas.com/v3/connect/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -79,7 +79,17 @@ serve(async (req) => {
       }
     })
 
-    // Update the profile with nylas_grant_id using RPC call
+    // First, delete existing events for this user
+    const { error: deleteEventsError } = await supabase
+      .from('events')
+      .delete()
+      .eq('user_id', userId)
+
+    if (deleteEventsError) {
+      console.error('Error deleting events:', deleteEventsError)
+    }
+
+    // Update the profile with new nylas_grant_id using RPC call
     const { data: updateData, error: updateError } = await supabase.rpc(
       'update_profile_grant_id',
       {
