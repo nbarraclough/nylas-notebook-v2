@@ -10,6 +10,35 @@ import {
   handleGrantExpired
 } from '../_shared/webhook-handlers.ts'
 
+// Function to verify webhook signature
+const verifyWebhookSignature = async (body: string, signature: string, secret: string) => {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["verify"]
+  );
+
+  const actualSignature = await crypto.subtle.verify(
+    "HMAC",
+    key,
+    hexToUint8Array(signature),
+    encoder.encode(body)
+  );
+
+  return actualSignature;
+};
+
+// Helper function to convert hex string to Uint8Array
+const hexToUint8Array = (hexString: string) => {
+  const pairs = hexString.match(/[\dA-F]{2}/gi) || [];
+  return new Uint8Array(
+    pairs.map(s => parseInt(s, 16))
+  );
+};
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -47,16 +76,35 @@ serve(async (req) => {
       throw new Error('Webhook secret not configured');
     }
 
-    // Get the signature from headers
-    const signature = req.headers.get('x-nylas-signature');
+    // Get the signature from headers (try both cases)
+    const signature = req.headers.get('x-nylas-signature') || req.headers.get('X-Nylas-Signature');
     if (!signature) {
       console.error('❌ No signature in webhook request');
-      throw new Error('No signature provided');
+      return new Response(
+        JSON.stringify({ error: 'No signature provided' }),
+        { 
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     // Get and log the raw request body
     const rawBody = await req.text();
     console.log('📥 Raw webhook body:', rawBody);
+
+    // Verify signature before processing
+    const isValid = await verifyWebhookSignature(rawBody, signature, webhookSecret);
+    if (!isValid) {
+      console.error('❌ Invalid webhook signature');
+      return new Response(
+        JSON.stringify({ error: 'Invalid signature' }),
+        { 
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
     // Parse JSON if we have a body
     if (rawBody) {
@@ -103,10 +151,11 @@ serve(async (req) => {
       } catch (error) {
         console.error('❌ Error processing webhook:', error);
         console.error('Error details:', error.stack);
+        // Still return 200 to acknowledge receipt, even if processing failed
         return new Response(
           JSON.stringify({ error: 'Error processing webhook', details: error.message }),
           { 
-            status: 500,
+            status: 200,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         );
@@ -125,10 +174,11 @@ serve(async (req) => {
   } catch (error) {
     console.error('❌ Fatal error processing webhook:', error);
     console.error('Error stack:', error.stack);
+    // Still return 200 to acknowledge receipt, even if processing failed
     return new Response(
       JSON.stringify({ error: 'Internal server error', details: error.message }),
       { 
-        status: 500,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
