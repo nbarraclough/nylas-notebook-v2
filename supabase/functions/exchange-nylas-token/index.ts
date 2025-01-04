@@ -23,7 +23,14 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
     if (!clientId || !clientSecret || !supabaseUrl || !supabaseKey) {
-      throw new Error('Missing required environment variables')
+      console.error('Missing required environment variables')
+      return new Response(
+        JSON.stringify({ error: 'Missing required environment variables' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        }
+      )
     }
 
     console.log('Exchanging code for grant_id...')
@@ -41,13 +48,32 @@ serve(async (req) => {
       }),
     })
 
+    const tokenData = await tokenResponse.json()
+    console.log('Nylas response:', tokenData)
+
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json()
-      console.error('Nylas token exchange error:', errorData)
-      throw new Error('Failed to exchange token with Nylas')
+      console.error('Nylas token exchange error:', tokenData)
+      return new Response(
+        JSON.stringify({ error: 'Failed to exchange token with Nylas', details: tokenData }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: tokenResponse.status,
+        }
+      )
     }
 
-    const { grant_id } = await tokenResponse.json()
+    const { grant_id } = tokenData
+    if (!grant_id) {
+      console.error('No grant_id in Nylas response:', tokenData)
+      return new Response(
+        JSON.stringify({ error: 'No grant_id in Nylas response' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      )
+    }
+
     console.log('Received grant_id:', grant_id)
 
     // Create Supabase client
@@ -55,10 +81,28 @@ serve(async (req) => {
 
     // Get user from auth header
     const authHeader = req.headers.get('Authorization')?.split(' ')[1]
+    if (!authHeader) {
+      console.error('No authorization header')
+      return new Response(
+        JSON.stringify({ error: 'No authorization header' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401,
+        }
+      )
+    }
+
     const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader)
 
     if (userError || !user) {
-      throw new Error('Unauthorized')
+      console.error('Error getting user:', userError)
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized', details: userError }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401,
+        }
+      )
     }
 
     console.log('Updating profile with grant_id for user:', user.id)
@@ -71,13 +115,19 @@ serve(async (req) => {
 
     if (updateError) {
       console.error('Error updating profile:', updateError)
-      throw updateError
+      return new Response(
+        JSON.stringify({ error: 'Failed to update profile', details: updateError }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        }
+      )
     }
 
     console.log('Successfully updated profile with grant_id')
 
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ success: true, grant_id }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
@@ -89,7 +139,7 @@ serve(async (req) => {
       JSON.stringify({ error: error.message }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: 500,
       },
     )
   }
