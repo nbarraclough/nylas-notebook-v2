@@ -43,8 +43,7 @@ Deno.serve(async (req) => {
 
   try {
     // For non-challenge requests, verify the webhook signature
-    const clonedReq = req.clone();
-    const rawBody = await clonedReq.text();
+    const rawBody = await req.text();
     console.log('Received webhook payload:', rawBody);
     
     if (!verifyNylasWebhook(req, rawBody)) {
@@ -60,7 +59,7 @@ Deno.serve(async (req) => {
 
     // Parse the webhook event
     const webhookEvent: WebhookEvent = JSON.parse(rawBody);
-    console.log('Received webhook event:', webhookEvent);
+    console.log('Processing webhook event:', webhookEvent);
 
     const { delta } = webhookEvent;
     const grantId = delta.grant_id;
@@ -142,18 +141,18 @@ Deno.serve(async (req) => {
         console.log('Unhandled webhook type:', delta.type);
     }
 
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200
-    });
+    return new Response(
+      JSON.stringify({ success: true }), 
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 
   } catch (error) {
     console.error('Error processing webhook:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      {
+      { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400
+        status: 400 
       }
     );
   }
