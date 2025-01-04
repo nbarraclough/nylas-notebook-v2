@@ -13,29 +13,98 @@ const supabaseAdmin = createClient(
 
 export const handleEventCreated = async (objectData: any, grantId: string) => {
   console.log('Processing event.created:', objectData);
-  const { error: syncError } = await supabaseAdmin
+  
+  // Find user associated with this grant
+  const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
     .select('id')
     .eq('nylas_grant_id', grantId)
     .single();
 
-  if (syncError) {
-    console.error('Error finding user for grant:', syncError);
-    throw syncError;
+  if (profileError) {
+    console.error('Error finding user for grant:', profileError);
+    throw profileError;
+  }
+
+  // Insert or update the event in our database
+  const { error: eventError } = await supabaseAdmin
+    .from('events')
+    .upsert({
+      user_id: profile.id,
+      nylas_event_id: objectData.id,
+      title: objectData.title,
+      description: objectData.description,
+      location: objectData.location,
+      start_time: new Date(objectData.when.start_time * 1000).toISOString(),
+      end_time: new Date(objectData.when.end_time * 1000).toISOString(),
+      participants: objectData.participants,
+      conference_url: objectData.conferencing?.details?.url,
+      ical_uid: objectData.ical_uid,
+      busy: objectData.busy,
+      html_link: objectData.html_link,
+      master_event_id: objectData.master_event_id,
+      organizer: objectData.organizer,
+      resources: objectData.resources,
+      read_only: objectData.read_only,
+      reminders: objectData.reminders,
+      recurrence: objectData.recurrence,
+      status: objectData.status,
+      visibility: objectData.visibility
+    }, {
+      onConflict: 'nylas_event_id'
+    });
+
+  if (eventError) {
+    console.error('Error creating/updating event:', eventError);
+    throw eventError;
   }
 };
 
 export const handleEventUpdated = async (objectData: any, grantId: string) => {
   console.log('Processing event.updated:', objectData);
-  const { error: updateError } = await supabaseAdmin
+  
+  // Find user associated with this grant
+  const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
     .select('id')
     .eq('nylas_grant_id', grantId)
     .single();
 
-  if (updateError) {
-    console.error('Error finding user for grant:', updateError);
-    throw updateError;
+  if (profileError) {
+    console.error('Error finding user for grant:', profileError);
+    throw profileError;
+  }
+
+  // Update the event in our database
+  const { error: eventError } = await supabaseAdmin
+    .from('events')
+    .update({
+      title: objectData.title,
+      description: objectData.description,
+      location: objectData.location,
+      start_time: new Date(objectData.when.start_time * 1000).toISOString(),
+      end_time: new Date(objectData.when.end_time * 1000).toISOString(),
+      participants: objectData.participants,
+      conference_url: objectData.conferencing?.details?.url,
+      ical_uid: objectData.ical_uid,
+      busy: objectData.busy,
+      html_link: objectData.html_link,
+      master_event_id: objectData.master_event_id,
+      organizer: objectData.organizer,
+      resources: objectData.resources,
+      read_only: objectData.read_only,
+      reminders: objectData.reminders,
+      recurrence: objectData.recurrence,
+      status: objectData.status,
+      visibility: objectData.visibility,
+      last_updated_at: new Date().toISOString()
+    })
+    .eq('nylas_event_id', objectData.id)
+    .eq('user_id', profile.id);
+
+  if (eventError) {
+    console.error('Error updating event:', eventError);
+    throw eventError;
   }
 };
 
