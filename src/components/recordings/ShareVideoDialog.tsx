@@ -25,30 +25,30 @@ export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const handleShare = async () => {
-    // Get the current session directly from supabase
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    if (sessionError || !session?.user) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to share recordings.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    if (!isInternalEnabled && !isExternalEnabled) {
-      toast({
-        title: "Select sharing option",
-        description: "Please select at least one sharing option.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
     try {
       setIsLoading(true);
+
+      // Get the current session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
+      if (sessionError || !session?.user) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in to share recordings.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!isInternalEnabled && !isExternalEnabled) {
+        toast({
+          title: "Select sharing option",
+          description: "Please select at least one sharing option.",
+          variant: "destructive"
+        });
+        return;
+      }
+
       // Get current user's organization
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -57,6 +57,7 @@ export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
 
       if (profileError) throw profileError;
 
+      // Handle internal organization sharing
       if (isInternalEnabled && profile?.organization_id) {
         const { error: internalError } = await supabase
           .from('video_shares')
@@ -75,6 +76,7 @@ export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
         });
       }
 
+      // Handle external sharing with public link
       if (isExternalEnabled) {
         const shareData = {
           recording_id: recordingId,
@@ -102,7 +104,6 @@ export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
         }
       }
 
-      // Close dialog after successful share
       setIsOpen(false);
     } catch (error) {
       console.error('Error sharing video:', error);
@@ -173,7 +174,7 @@ export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
 
           <Button 
             onClick={handleShare} 
-            disabled={!isInternalEnabled && !isExternalEnabled || isLoading}
+            disabled={(!isInternalEnabled && !isExternalEnabled) || isLoading}
             className="w-full"
           >
             {isLoading ? "Sharing..." : "Share Recording"}
