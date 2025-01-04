@@ -6,15 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery } from "@tanstack/react-query";
-import { format } from "date-fns";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { EventsTable } from "@/components/calendar/EventsTable";
+import { SkeletonTable } from "@/components/calendar/SkeletonTable";
 
 export default function Calendar() {
   const navigate = useNavigate();
@@ -25,7 +18,7 @@ export default function Calendar() {
   const [userId, setUserId] = useState<string | null>(null);
 
   // Fetch events from our database
-  const { data: events, refetch: refetchEvents } = useQuery({
+  const { data: events, refetch: refetchEvents, isLoading: isLoadingEvents } = useQuery({
     queryKey: ['events', userId],
     queryFn: async () => {
       if (!userId) return [];
@@ -46,6 +39,7 @@ export default function Calendar() {
 
     try {
       setIsLoading(true);
+      console.log('Syncing events...');
       const { error } = await supabase.functions.invoke('sync-nylas-events', {
         body: { user_id: userId }
       });
@@ -99,8 +93,9 @@ export default function Calendar() {
       const hasNylas = !!profile?.nylas_grant_id;
       setIsNylasAuthenticated(hasNylas);
 
-      // If authenticated with Nylas, sync events
-      if (hasNylas) {
+      // If authenticated with Nylas and we don't have events yet, sync them
+      if (hasNylas && (!events || events.length === 0)) {
+        console.log('Initial sync of events...');
         syncEvents();
       }
     };
@@ -118,7 +113,7 @@ export default function Calendar() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate, toast]);
+  }, [navigate, toast, events]);
 
   // Handle Nylas auth code
   useEffect(() => {
@@ -162,41 +157,6 @@ export default function Calendar() {
     handleNylasCode();
   }, [searchParams, toast]);
 
-  const handleNylasConnect = async () => {
-    try {
-      setIsLoading(true);
-      
-      // Get the current user's email
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error("User not authenticated");
-      }
-
-      // Call Supabase Edge Function to get Nylas auth URL
-      const { data, error } = await supabase.functions.invoke('get-nylas-auth-url', {
-        body: { email: user.email }
-      });
-
-      if (error) {
-        console.error('Error getting Nylas auth URL:', error);
-        throw error;
-      }
-      
-      // Open Nylas auth URL in a new window
-      window.location.href = data.authUrl;
-      
-    } catch (error) {
-      console.error('Error connecting to Nylas:', error);
-      toast({
-        title: "Error",
-        description: "Failed to connect to Nylas. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   if (!isNylasAuthenticated) {
     return (
       <PageLayout>
@@ -238,27 +198,10 @@ export default function Calendar() {
 
         <Card>
           <CardContent className="p-6">
-            {events && events.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Start Time</TableHead>
-                    <TableHead>End Time</TableHead>
-                    <TableHead>Location</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {events.map((event) => (
-                    <TableRow key={event.id}>
-                      <TableCell className="font-medium">{event.title}</TableCell>
-                      <TableCell>{format(new Date(event.start_time), 'PPp')}</TableCell>
-                      <TableCell>{format(new Date(event.end_time), 'PPp')}</TableCell>
-                      <TableCell>{event.location || event.conference_url || 'No location'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            {isLoadingEvents ? (
+              <SkeletonTable />
+            ) : events && events.length > 0 ? (
+              <EventsTable events={events} />
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 No events found. Click "Sync Events" to fetch your calendar events.
