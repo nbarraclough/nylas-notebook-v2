@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders, verifyNylasWebhook } from "../_shared/nylas-auth.ts"
+import { corsHeaders } from "../_shared/nylas-auth.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 serve(async (req) => {
@@ -15,21 +15,10 @@ serve(async (req) => {
       headers: Object.fromEntries(req.headers.entries())
     });
 
-    // Verify the request and check for challenge
-    const { isValid, challenge } = await verifyNylasWebhook(req);
+    // Check for challenge parameter in URL
+    const url = new URL(req.url);
+    const challenge = url.searchParams.get('challenge');
     
-    if (!isValid) {
-      console.error('Invalid webhook request');
-      return new Response(
-        JSON.stringify({ error: 'Invalid request' }),
-        { 
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    // Handle challenge request - must return ONLY the challenge string
     if (challenge) {
       console.log('Responding to challenge request with:', challenge);
       return new Response(challenge, {
@@ -42,82 +31,43 @@ serve(async (req) => {
     }
 
     // For non-challenge requests, parse the webhook payload
-    const rawBody = await req.text();
-    console.log('Webhook payload:', rawBody);
+    const webhookData = await req.json();
+    console.log('Webhook payload:', webhookData);
 
-    let webhookData;
-    try {
-      webhookData = JSON.parse(rawBody);
-      console.log('Parsed webhook data:', webhookData);
-    } catch (error) {
-      console.error('Error parsing webhook data:', error);
-      return new Response(
-        JSON.stringify({ error: 'Invalid JSON payload' }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    // Initialize Supabase client for database operations
+    // Initialize Supabase client
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Process webhook based on type
-    const webhookType = webhookData.type;
-    console.log('Processing webhook type:', webhookType);
+    // Handle webhook types
+    if (webhookData.type && webhookData.type.startsWith('grant.')) {
+      const grantId = webhookData.grant_id;
+      const status = webhookData.type === 'grant.created' ? 'active' : 'revoked';
+      
+      const { error: updateError } = await supabaseAdmin
+        .from('profiles')
+        .update({ 
+          grant_status: status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('nylas_grant_id', grantId);
 
-    // Handle different webhook types
-    switch (webhookType) {
-      case 'grant.created':
-      case 'grant.deleted':
-      case 'grant.expired':
-        // Update grant status in profiles table
-        const grantId = webhookData.grant_id;
-        const status = webhookType === 'grant.created' ? 'active' : 'revoked';
-        
-        const { error: updateError } = await supabaseAdmin
-          .from('profiles')
-          .update({ 
-            grant_status: status,
-            updated_at: new Date().toISOString()
-          })
-          .eq('nylas_grant_id', grantId);
-
-        if (updateError) {
-          console.error('Error updating grant status:', updateError);
-          throw updateError;
-        }
-        break;
-
-      default:
-        console.log('Unhandled webhook type:', webhookType);
+      if (updateError) {
+        console.error('Error updating grant status:', updateError);
+        throw updateError;
+      }
     }
 
-    return new Response(
-      JSON.stringify({ success: true }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
-      }
-    );
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200
+    });
 
   } catch (error) {
     console.error('Error processing webhook:', error);
     return new Response(
-      JSON.stringify({ 
-        error: 'Internal server error',
-        message: error.message
-      }),
+      JSON.stringify({ error: 'Internal server error', details: error.message }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500
