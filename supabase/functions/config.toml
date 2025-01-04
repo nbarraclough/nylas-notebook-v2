@@ -6,3 +6,4 @@ NYLAS_CLIENT_SECRET = "env"
 
 [[function.handle-nylas-webhook]]
 verify_jwt = false
+verify_webhook = false
