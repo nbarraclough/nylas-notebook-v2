@@ -146,9 +146,9 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
               />
               {sanitizedDescription.split('<br>').length > 5 && (
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  className="mt-2"
+                  className="mt-2 border-primary hover:bg-primary/5"
                   onClick={() => setIsExpanded(!isExpanded)}
                 >
                   {isExpanded ? (
@@ -170,6 +170,7 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
               <Button 
                 variant="outline"
                 size="sm"
+                className="border-primary hover:bg-primary/5"
                 asChild
               >
                 <a 
