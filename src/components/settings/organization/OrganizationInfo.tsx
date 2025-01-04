@@ -41,12 +41,8 @@ export const OrganizationInfo = ({
     try {
       const { error } = await supabase
         .from('organizations')
-        .update({ 
-          name: newName.trim(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', organizationId)
-        .maybeSingle();
+        .update({ name: newName.trim() })
+        .eq('id', organizationId);
 
       if (error) throw error;
 
