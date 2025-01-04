@@ -6,6 +6,7 @@ import type { Database } from "@/integrations/supabase/types";
 import type { EventParticipant, EventOrganizer } from "@/types/calendar";
 import { EventParticipants } from "./EventParticipants";
 import { RecordingToggle } from "./RecordingToggle";
+import { useToast } from "@/components/ui/use-toast";
 
 type Event = Database['public']['Tables']['events']['Row'];
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -16,6 +17,7 @@ interface EventCardProps {
 }
 
 export const EventCard = ({ event, userId }: EventCardProps) => {
+  const { toast } = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isQueued, setIsQueued] = useState(false);
 
@@ -51,6 +53,7 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
         return;
       }
 
+      console.log('Profile fetched:', data);
       setProfile(data);
     };
 
@@ -62,7 +65,7 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'profiles',
           filter: `id=eq.${userId}`,
@@ -79,7 +82,7 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
     };
   }, [userId]);
 
-  // Check queue status and handle auto-queueing
+  // Check queue status
   useEffect(() => {
     const checkQueueStatus = async () => {
       const { data, error } = await supabase
@@ -89,54 +92,70 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
         .eq('user_id', userId)
         .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Error checking queue status:', error);
         return;
       }
 
+      console.log('Queue status checked for event:', event.id, 'Is queued:', !!data);
       setIsQueued(!!data);
     };
 
     checkQueueStatus();
   }, [event.id, userId]);
 
-  const shouldAutoRecord = () => {
-    if (!profile) return false;
-    
-    if (isInternalMeeting && profile.record_internal_meetings) return true;
-    if (!isInternalMeeting && profile.record_external_meetings) return true;
-    
-    return false;
-  };
+  // Handle auto-queueing based on profile settings
+  useEffect(() => {
+    const handleAutoQueue = async () => {
+      if (!profile || isQueued || !event.conference_url) {
+        return;
+      }
+
+      const shouldAutoRecord = (isInternalMeeting && profile.record_internal_meetings) ||
+                             (!isInternalMeeting && profile.record_external_meetings);
+
+      console.log('Auto-queue check for event:', event.id, {
+        isInternalMeeting,
+        shouldAutoRecord,
+        recordInternal: profile.record_internal_meetings,
+        recordExternal: profile.record_external_meetings,
+        hasConferenceUrl: !!event.conference_url,
+        isQueued
+      });
+
+      if (shouldAutoRecord) {
+        try {
+          const { error } = await supabase
+            .from('notetaker_queue')
+            .insert({
+              user_id: userId,
+              event_id: event.id,
+              scheduled_for: event.start_time,
+            });
+
+          if (error) {
+            console.error('Error auto-queueing recording:', error);
+            return;
+          }
+
+          console.log('Auto-queued recording for event:', event.id);
+          setIsQueued(true);
+          toast({
+            title: "Success",
+            description: "Meeting automatically scheduled for recording based on your settings!",
+          });
+        } catch (error) {
+          console.error('Error in auto-queue process:', error);
+        }
+      }
+    };
+
+    handleAutoQueue();
+  }, [profile?.record_internal_meetings, profile?.record_external_meetings, event.id, event.conference_url, isQueued, userId]);
 
   const formatTimeRange = (start: string, end: string) => {
     return `${format(new Date(start), 'MMM d, yyyy, h:mm a')} - ${format(new Date(end), 'h:mm a')}`;
   };
-
-  // Auto-queue recording if rules match - now depends on profile changes
-  useEffect(() => {
-    if (shouldAutoRecord() && !isQueued && event.conference_url) {
-      console.log('Auto-queueing recording for event:', event.title);
-      const handleAutoQueue = async () => {
-        const { error } = await supabase
-          .from('notetaker_queue')
-          .insert({
-            user_id: userId,
-            event_id: event.id,
-            scheduled_for: event.start_time,
-          });
-
-        if (error) {
-          console.error('Error auto-queueing recording:', error);
-          return;
-        }
-
-        setIsQueued(true);
-      };
-
-      handleAutoQueue();
-    }
-  }, [profile?.record_internal_meetings, profile?.record_external_meetings, isQueued, event.conference_url]);
 
   return (
     <Card className="mb-4">
