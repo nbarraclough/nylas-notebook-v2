@@ -32,7 +32,6 @@ serve(async (req) => {
     authUrl.searchParams.append('client_id', clientId)
     authUrl.searchParams.append('redirect_uri', `${req.headers.get('origin')}/calendar`)
     authUrl.searchParams.append('response_type', 'code')
-    authUrl.searchParams.append('scope', 'calendar.read_only')
     authUrl.searchParams.append('state', state)
     authUrl.searchParams.append('login_hint', email)
 
