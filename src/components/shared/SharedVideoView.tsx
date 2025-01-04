@@ -43,10 +43,11 @@ export function SharedVideoView() {
         const { data: share, error: shareError } = await supabase
           .from('video_shares')
           .select(`
-            recording:recordings (
+            recording_id,
+            recording:recordings!inner (
               id,
               video_url,
-              event:events (
+              event:events!inner (
                 title,
                 description,
                 start_time,
@@ -56,7 +57,7 @@ export function SharedVideoView() {
             )
           `)
           .eq('external_token', token)
-          .maybeSingle();
+          .single();
 
         if (shareError) throw shareError;
         if (!share?.recording) throw new Error('Share not found');
