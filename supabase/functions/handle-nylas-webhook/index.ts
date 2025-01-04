@@ -20,22 +20,28 @@ interface WebhookEvent {
 }
 
 Deno.serve(async (req) => {
+  // First, check for the challenge parameter before anything else
+  const url = new URL(req.url);
+  const challenge = url.searchParams.get('challenge');
+  
+  if (challenge) {
+    console.log('Received Nylas webhook challenge:', challenge);
+    // Return only the challenge value, no additional content or formatting
+    return new Response(challenge, {
+      headers: {
+        'Content-Type': 'text/plain',
+        'Transfer-Encoding': 'identity', // Prevent chunked encoding
+        ...corsHeaders,
+      },
+    });
+  }
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Handle Nylas webhook challenge - this must be handled before signature verification
-    const url = new URL(req.url);
-    const challenge = url.searchParams.get('challenge');
-    if (challenge) {
-      console.log('Responding to Nylas webhook challenge:', challenge);
-      return new Response(challenge, {
-        headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
-      });
-    }
-
     // For non-challenge requests, verify the webhook signature
     const clonedReq = req.clone();
     const rawBody = await clonedReq.text();
