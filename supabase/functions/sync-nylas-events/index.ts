@@ -53,9 +53,9 @@ serve(async (req) => {
         events.map(event => [event.ical_uid, new Date(event.last_updated_at)])
       )
 
-      // Re-process each event
+      // Re-process each event with force_process set to true
       for (const event of events) {
-        await processEvent(event, existingEventsMap, user_id, supabaseAdmin)
+        await processEvent(event, existingEventsMap, user_id, supabaseAdmin, true)
       }
 
       return new Response(
@@ -108,7 +108,7 @@ serve(async (req) => {
 
     // Process each event
     for (const event of events) {
-      await processEvent(event, existingEventsMap, user_id, supabaseAdmin)
+      await processEvent(event, existingEventsMap, user_id, supabaseAdmin, false)
     }
 
     return new Response(

@@ -5,7 +5,8 @@ export const processEvent = async (
   event: any, 
   existingEventsMap: Map<string, Date>,
   userId: string,
-  supabaseAdmin: ReturnType<typeof createClient>
+  supabaseAdmin: ReturnType<typeof createClient>,
+  forceProcess: boolean = false
 ) => {
   try {
     console.log('Processing event:', {
@@ -13,7 +14,8 @@ export const processEvent = async (
       ical_uid: event.ical_uid,
       rawStartTime: event.when?.start_time || event.start_time,
       rawEndTime: event.when?.end_time || event.end_time,
-      source: event.when ? 'Nylas API' : 'Database'
+      source: event.when ? 'Nylas API' : 'Database',
+      forceProcess
     });
 
     // Skip events without ical_uid as they might be temporary or draft events
@@ -58,8 +60,8 @@ export const processEvent = async (
       return;
     }
 
-    // Skip if event exists and hasn't been updated
-    if (existingEventLastUpdated && new Date(eventLastUpdated) <= existingEventLastUpdated) {
+    // Skip if event exists and hasn't been updated, unless force processing is enabled
+    if (!forceProcess && existingEventLastUpdated && new Date(eventLastUpdated) <= existingEventLastUpdated) {
       console.log('Skipping event as it has not been updated:', event.id);
       return;
     }
@@ -100,6 +102,7 @@ export const processEvent = async (
       conference_url: eventData.conference_url,
       start_time: eventData.start_time,
       end_time: eventData.end_time,
+      forceProcess
     });
 
     // First try to update existing event
