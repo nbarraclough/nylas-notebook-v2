@@ -40,6 +40,8 @@ export function SharedVideoView() {
   useEffect(() => {
     const fetchSharedVideo = async () => {
       try {
+        if (!token) throw new Error('No share token provided');
+
         const { data: share, error: shareError } = await supabase
           .from('video_shares')
           .select(`
@@ -57,10 +59,19 @@ export function SharedVideoView() {
             )
           `)
           .eq('external_token', token)
-          .single();
+          .maybeSingle();
 
         if (shareError) throw shareError;
-        if (!share?.recording) throw new Error('Share not found');
+        if (!share?.recording) {
+          toast({
+            title: "Video Not Found",
+            description: "This shared video link may have expired or been removed.",
+            variant: "destructive",
+          });
+          setRecording(null);
+          setIsLoading(false);
+          return;
+        }
 
         // Transform the data to match SharedRecording type
         const transformedRecording: SharedRecording = {
