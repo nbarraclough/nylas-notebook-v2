@@ -8,6 +8,7 @@ import { EventParticipants } from "./EventParticipants";
 import { RecordingToggle } from "./RecordingToggle";
 import DOMPurify from "dompurify";
 import type { Database } from "@/integrations/supabase/types";
+import { useQuery } from "@tanstack/react-query";
 
 type Event = Database['public']['Tables']['events']['Row'];
 
@@ -20,6 +21,21 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isQueued, setIsQueued] = useState(false);
+
+  // Fetch user's profile to get Nylas grant ID
+  const { data: profile } = useQuery({
+    queryKey: ['profile', userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('nylas_grant_id')
+        .eq('id', userId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+  });
 
   // Check if event is already in queue
   const checkQueueStatus = async () => {
@@ -68,6 +84,7 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
             userId={userId}
             hasConferenceUrl={!!event.conference_url}
             scheduledFor={event.start_time}
+            nylasGrantId={profile?.nylas_grant_id}
             onToggle={handleQueueToggle}
           />
         </div>
