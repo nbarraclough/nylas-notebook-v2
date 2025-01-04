@@ -1,5 +1,5 @@
 import { Switch } from "@/components/ui/switch";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 
@@ -46,6 +46,7 @@ export const RecordingToggle = ({
 
     try {
       setIsLoading(true);
+      console.log('Toggling recording for event:', eventId, 'Current state:', isQueued);
 
       if (!isQueued) {
         // Add to queue
@@ -57,7 +58,10 @@ export const RecordingToggle = ({
             scheduled_for: scheduledFor,
           });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error adding to queue:', error);
+          throw error;
+        }
 
         onToggle(true);
         toast({
@@ -72,7 +76,10 @@ export const RecordingToggle = ({
           .eq('event_id', eventId)
           .eq('user_id', userId);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error removing from queue:', error);
+          throw error;
+        }
 
         onToggle(false);
         toast({
