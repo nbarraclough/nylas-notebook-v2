@@ -19,7 +19,10 @@ export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
           Share
         </Button>
       </DialogTrigger>
-      <DialogContent onPointerDownOutside={(e) => e.preventDefault()}>
+      <DialogContent 
+        onPointerDownOutside={(e) => e.preventDefault()} 
+        className="sm:max-w-[425px]"
+      >
         <DialogHeader>
           <DialogTitle>Share Recording</DialogTitle>
         </DialogHeader>
