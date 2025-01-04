@@ -89,47 +89,64 @@ serve(async (req) => {
     const grantId = webhookData.data.object.grant_id;
     console.log('🎯 Processing webhook type:', webhookData.type, 'for grant:', grantId);
 
-    switch (webhookData.type) {
-      case 'event.created':
-        console.log('📅 Processing event.created webhook');
-        await handleEventCreated(webhookData.data.object, grantId);
-        break;
-      case 'event.updated':
-        console.log('🔄 Processing event.updated webhook');
-        await handleEventUpdated(webhookData.data.object, grantId);
-        break;
-      case 'event.deleted':
-        console.log('🗑️ Processing event.deleted webhook');
-        await handleEventDeleted(webhookData.data.object, grantId);
-        break;
-      case 'grant.created':
-        console.log('🔑 Processing grant.created webhook');
-        await handleGrantCreated(webhookData.data);
-        break;
-      case 'grant.updated':
-        console.log('🔄 Processing grant.updated webhook');
-        await handleGrantUpdated(webhookData.data);
-        break;
-      case 'grant.deleted':
-        console.log('🗑️ Processing grant.deleted webhook');
-        await handleGrantDeleted(webhookData.data);
-        break;
-      case 'grant.expired':
-        console.log('⚠️ Processing grant.expired webhook');
-        await handleGrantExpired(webhookData.data);
-        break;
-      default:
-        console.log('⚠️ Unhandled webhook type:', webhookData.type);
-    }
-
-    // Always return 200 to acknowledge receipt
-    return new Response(
-      JSON.stringify({ success: true }), 
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    try {
+      switch (webhookData.type) {
+        case 'event.created':
+          console.log('📅 Processing event.created webhook');
+          await handleEventCreated(webhookData.data.object, grantId);
+          break;
+        case 'event.updated':
+          console.log('🔄 Processing event.updated webhook');
+          await handleEventUpdated(webhookData.data.object, grantId);
+          break;
+        case 'event.deleted':
+          console.log('🗑️ Processing event.deleted webhook');
+          await handleEventDeleted(webhookData.data.object, grantId);
+          break;
+        case 'grant.created':
+          console.log('🔑 Processing grant.created webhook');
+          await handleGrantCreated(webhookData.data);
+          break;
+        case 'grant.updated':
+          console.log('🔄 Processing grant.updated webhook');
+          await handleGrantUpdated(webhookData.data);
+          break;
+        case 'grant.deleted':
+          console.log('🗑️ Processing grant.deleted webhook');
+          await handleGrantDeleted(webhookData.data);
+          break;
+        case 'grant.expired':
+          console.log('⚠️ Processing grant.expired webhook');
+          await handleGrantExpired(webhookData.data);
+          break;
+        default:
+          console.log('⚠️ Unhandled webhook type:', webhookData.type);
       }
-    );
+
+      console.log('✅ Successfully processed webhook:', webhookData.type);
+      
+      // Always return 200 to acknowledge receipt
+      return new Response(
+        JSON.stringify({ success: true }), 
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    } catch (error) {
+      console.error(`❌ Error processing ${webhookData.type} webhook:`, error);
+      // Still return 200 to acknowledge receipt
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `Error processing ${webhookData.type} webhook: ${error.message}` 
+        }), 
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
   } catch (error) {
     console.error('❌ Fatal error processing webhook:', error);

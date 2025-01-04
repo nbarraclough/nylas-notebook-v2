@@ -13,6 +13,24 @@ export const logWebhookBody = (body: string) => {
     const parsedBody = JSON.parse(body);
     console.log('📦 Parsed webhook data:', JSON.stringify(parsedBody, null, 2));
     console.log('📋 Webhook type:', parsedBody.type);
+    
+    // Log specific event data if present
+    if (parsedBody.data?.object) {
+      const eventData = parsedBody.data.object;
+      if (eventData.participants) {
+        console.log('👥 Event participants:', JSON.stringify(eventData.participants, null, 2));
+      }
+      if (eventData.organizer) {
+        console.log('👤 Event organizer:', JSON.stringify(eventData.organizer, null, 2));
+      }
+      if (eventData.when) {
+        console.log('🕒 Event timing:', JSON.stringify(eventData.when, null, 2));
+      }
+      if (eventData.conferencing) {
+        console.log('🎥 Event conferencing:', JSON.stringify(eventData.conferencing, null, 2));
+      }
+    }
+    
     return parsedBody;
   } catch (error) {
     console.error('❌ Error parsing webhook JSON:', error);
