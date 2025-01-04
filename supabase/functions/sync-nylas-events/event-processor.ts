@@ -25,13 +25,18 @@ export const processEvent = async (
     }
 
     // Handle timestamps based on source (Nylas API vs Database)
-    const startTime = event.when ? 
-      safeTimestampToISO(event.when.start_time) : 
-      ensureValidTimestamp(event.start_time);
-    
-    const endTime = event.when ? 
-      safeTimestampToISO(event.when.end_time) : 
-      ensureValidTimestamp(event.end_time);
+    let startTime: string | null;
+    let endTime: string | null;
+
+    if (event.when) {
+      // Coming from Nylas API
+      startTime = event.when.start_time ? new Date(event.when.start_time * 1000).toISOString() : null;
+      endTime = event.when.end_time ? new Date(event.when.end_time * 1000).toISOString() : null;
+    } else {
+      // Coming from Database or other source
+      startTime = event.start_time ? new Date(event.start_time).toISOString() : null;
+      endTime = event.end_time ? new Date(event.end_time).toISOString() : null;
+    }
 
     // Skip events without valid timestamps
     if (!startTime || !endTime) {
@@ -51,14 +56,7 @@ export const processEvent = async (
 
     // Handle last_updated_at timestamp
     const existingEventLastUpdated = existingEventsMap.get(event.ical_uid);
-    const eventLastUpdated = event.updated_at ? 
-      (event.when ? safeTimestampToISO(event.updated_at) : ensureValidTimestamp(event.updated_at)) : 
-      ensureValidTimestamp(event.last_updated_at);
-
-    if (!eventLastUpdated) {
-      console.error('Invalid updated_at timestamp for event:', event.id);
-      return;
-    }
+    const eventLastUpdated = new Date().toISOString(); // Default to current time if no timestamp available
 
     // Skip if event exists and hasn't been updated, unless force processing is enabled
     if (!forceProcess && existingEventLastUpdated && new Date(eventLastUpdated) <= existingEventLastUpdated) {
@@ -90,7 +88,7 @@ export const processEvent = async (
       status: event.status || null,
       visibility: event.visibility || 'default',
       original_start_time: event.original_start_time ? 
-        (event.when ? safeTimestampToISO(event.original_start_time) : ensureValidTimestamp(event.original_start_time)) : 
+        (event.when ? new Date(event.original_start_time * 1000).toISOString() : new Date(event.original_start_time).toISOString()) : 
         null,
     };
 
