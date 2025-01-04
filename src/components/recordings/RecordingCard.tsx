@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { EventParticipants } from "../calendar/EventParticipants";
 import { ShareVideoDialog } from "./ShareVideoDialog";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import type { Json } from "@/integrations/supabase/types/json";
 import type { EventParticipant, EventOrganizer } from "@/types/calendar";
@@ -45,12 +46,15 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
   const handleManualKick = async () => {
     try {
       setIsKicking(true);
-      const response = await fetch(`/api/notetaker/${recording.notetaker_id}/kick`, {
-        method: 'POST',
+      console.log('Initiating manual kick for notetaker:', recording.notetaker_id);
+      
+      const { error } = await supabase.functions.invoke('kick-notetaker', {
+        body: { notetakerId: recording.notetaker_id }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to kick notetaker');
+      if (error) {
+        console.error('Error from edge function:', error);
+        throw error;
       }
 
       toast({
