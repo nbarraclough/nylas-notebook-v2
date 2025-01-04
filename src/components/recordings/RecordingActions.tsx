@@ -22,6 +22,8 @@ export const RecordingActions = ({
   isRetrievingMedia,
   onRetrieveMedia
 }: RecordingActionsProps) => {
+  const canShare = status === 'completed' && videoUrl;
+
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
@@ -49,7 +51,7 @@ export const RecordingActions = ({
           </Button>
         )}
       </div>
-      {status === 'completed' && (
+      {canShare && (
         <ShareVideoDialog recordingId={recordingId} />
       )}
     </div>
