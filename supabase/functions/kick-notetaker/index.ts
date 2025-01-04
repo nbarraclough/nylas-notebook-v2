@@ -12,7 +12,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { notetakerId } = await req.json()
+    const requestBody = await req.json()
+    console.log('📥 Request payload:', JSON.stringify(requestBody, null, 2))
+    
+    const { notetakerId } = requestBody
     console.log('🎯 Received kick request for notetaker:', notetakerId)
 
     if (!notetakerId) {
@@ -33,7 +36,7 @@ Deno.serve(async (req) => {
 
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser(authHeader)
     if (authError || !user) {
-      console.error('❌ Authentication error:', authError)
+      console.error('❌ Authentication error:', JSON.stringify(authError, null, 2))
       throw new Error('Unauthorized')
     }
 
@@ -46,16 +49,25 @@ Deno.serve(async (req) => {
       .single()
 
     if (profileError || !profile?.nylas_grant_id) {
-      console.error('❌ Profile error:', profileError)
+      console.error('❌ Profile error:', JSON.stringify(profileError, null, 2))
       throw new Error('Nylas grant ID not found')
     }
 
     console.log('🔑 Found Nylas grant ID:', profile.nylas_grant_id)
-    console.log('🚀 Making request to Nylas API to kick notetaker...')
+    
+    const nylasApiUrl = `https://api-staging.us.nylas.com/v3/grants/${profile.nylas_grant_id}/notetakers/${notetakerId}`
+    console.log('🚀 Making request to Nylas API:', {
+      url: nylasApiUrl,
+      method: 'DELETE',
+      headers: {
+        'Accept': 'application/json, application/gzip',
+        'Authorization': 'Bearer [REDACTED]'
+      }
+    })
 
     // Make the request to Nylas API
     const response = await fetch(
-      `https://api-staging.us.nylas.com/v3/grants/${profile.nylas_grant_id}/notetakers/${notetakerId}`,
+      nylasApiUrl,
       {
         method: 'DELETE',
         headers: {
@@ -67,19 +79,25 @@ Deno.serve(async (req) => {
 
     let responseBody
     const responseText = await response.text()
-    console.log('📡 Nylas API Response Status:', response.status)
-    console.log('📡 Nylas API Response Body:', responseText)
+    console.log('📡 Nylas API Response:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries()),
+      body: responseText
+    })
 
     try {
       // Try to parse as JSON if possible
       responseBody = responseText ? JSON.parse(responseText) : {}
+      console.log('📦 Parsed response body:', JSON.stringify(responseBody, null, 2))
     } catch (e) {
+      console.log('⚠️ Response was not JSON, using raw text')
       // If not JSON, use the raw text
       responseBody = { message: responseText }
     }
 
     if (!response.ok) {
-      console.error('❌ Nylas API error:', responseBody)
+      console.error('❌ Nylas API error:', JSON.stringify(responseBody, null, 2))
       throw new Error(`Failed to kick notetaker: ${response.status} - ${responseBody.message || 'Unknown error'}`)
     }
 
