@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { CalendarDays, Settings, ListOrdered, Video, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 const navItems = [
   { name: "Calendar", path: "/calendar", icon: CalendarDays },

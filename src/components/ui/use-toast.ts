@@ -1,1 +1,2 @@
-// Remove this file as it creates a circular dependency
+// This file is deprecated. Import useToast from @/hooks/use-toast instead
+export {};
