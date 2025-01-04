@@ -94,7 +94,6 @@ export const processEvent = async (
         null,
     };
 
-    // Log the event data being upserted
     console.log('Upserting event with data:', {
       id: event.id,
       ical_uid: event.ical_uid,
@@ -105,7 +104,7 @@ export const processEvent = async (
       forceProcess
     });
 
-    // Use upsert with on_conflict to handle both insert and update cases
+    // Use upsert with ical_uid to handle both insert and update cases
     const { error } = await supabaseAdmin
       .from('events')
       .upsert(eventData, {

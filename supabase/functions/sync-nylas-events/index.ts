@@ -22,7 +22,13 @@ serve(async (req) => {
     // Initialize Supabase client with service role key
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
     )
 
     // Get user's Nylas grant ID
@@ -70,7 +76,9 @@ serve(async (req) => {
     // Get Nylas access token
     const { data: nylasToken, error: nylasTokenError } = await supabaseAdmin.functions.invoke(
       'get-nylas-access-token',
-      { body: { grant_id: profile.nylas_grant_id } }
+      { 
+        body: { grant_id: profile.nylas_grant_id },
+      }
     )
 
     if (nylasTokenError || !nylasToken?.access_token) {
