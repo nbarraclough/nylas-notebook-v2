@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { EventCard } from "./EventCard";
 import { Progress } from "@/components/ui/progress";
+import { format, isSameDay } from "date-fns";
 import type { QueryObserverResult, RefetchOptions } from "@tanstack/react-query";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -15,6 +16,10 @@ interface EventsListProps {
   isLoadingEvents: boolean;
   userId: string;
   refetchEvents: (options?: RefetchOptions) => Promise<QueryObserverResult<Event[], Error>>;
+}
+
+interface GroupedEvents {
+  [key: string]: Event[];
 }
 
 export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents }: EventsListProps) => {
@@ -61,10 +66,33 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents }: E
     }
   };
 
-  // Sort events by start time
-  const sortedEvents = [...events].sort((a, b) => 
-    new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
-  );
+  // Group events by date
+  const groupEventsByDate = (events: Event[]): GroupedEvents => {
+    return events.reduce((groups: GroupedEvents, event) => {
+      const date = format(new Date(event.start_time), 'yyyy-MM-dd');
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+      groups[date].push(event);
+      return groups;
+    }, {});
+  };
+
+  // Sort events by start time within each group
+  const sortedGroupedEvents = (() => {
+    const grouped = groupEventsByDate(events);
+    // Sort dates
+    const sortedDates = Object.keys(grouped).sort((a, b) => 
+      new Date(a).getTime() - new Date(b).getTime()
+    );
+    // Sort events within each date
+    return sortedDates.map(date => ({
+      date,
+      events: grouped[date].sort((a, b) => 
+        new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+      )
+    }));
+  })();
 
   return (
     <div className="space-y-4">
@@ -97,14 +125,23 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents }: E
                 <div key={n} className="h-24 bg-muted rounded-lg" />
               ))}
             </div>
-          ) : sortedEvents && sortedEvents.length > 0 ? (
-            <div className="space-y-4">
-              {sortedEvents.map((event) => (
-                <EventCard 
-                  key={event.id} 
-                  event={event}
-                  userId={userId}
-                />
+          ) : sortedGroupedEvents.length > 0 ? (
+            <div className="space-y-8">
+              {sortedGroupedEvents.map(({ date, events }) => (
+                <div key={date} className="space-y-4">
+                  <h2 className="text-lg font-semibold text-muted-foreground">
+                    {format(new Date(date), "EEEE, MMMM d")}
+                  </h2>
+                  <div className="space-y-4">
+                    {events.map((event) => (
+                      <EventCard 
+                        key={event.id} 
+                        event={event}
+                        userId={userId}
+                      />
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           ) : (
