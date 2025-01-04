@@ -241,6 +241,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      queue_notetaker_request: {
+        Args: {
+          p_queue_name: string
+          p_message: Json
+          p_delay_seconds?: number
+        }
+        Returns: string
+      }
       should_record_event: {
         Args: {
           event_organizer: Json

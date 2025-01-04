@@ -28,15 +28,6 @@ Deno.serve(async (req) => {
       }
     )
 
-    // Initialize PGMQ client
-    const queues = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        db: { schema: 'pgmq_public' }
-      }
-    )
-
     // Get user's profile and event details
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
@@ -79,19 +70,22 @@ Deno.serve(async (req) => {
       now: now.toISOString()
     })
 
-    // Add to PGMQ queue
-    const { data: queueData, error: queueError } = await queues.rpc('send', {
-      queue_name: 'notetaker_requests',
-      message: {
-        user_id,
-        event_id,
-        scheduled_for,
-        nylas_grant_id: profile.nylas_grant_id,
-        conference_url: event.conference_url,
-        notetaker_name: profile.notetaker_name
-      },
-      delay_seconds: delaySeconds
-    })
+    // Add to PGMQ queue using our wrapper function
+    const { data: queueData, error: queueError } = await supabaseAdmin.rpc(
+      'queue_notetaker_request',
+      {
+        p_queue_name: 'notetaker_requests',
+        p_message: {
+          user_id,
+          event_id,
+          scheduled_for,
+          nylas_grant_id: profile.nylas_grant_id,
+          conference_url: event.conference_url,
+          notetaker_name: profile.notetaker_name
+        },
+        p_delay_seconds: delaySeconds
+      }
+    )
 
     if (queueError) {
       console.error('Queue error:', queueError)
