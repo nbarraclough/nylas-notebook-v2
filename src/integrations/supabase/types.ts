@@ -119,6 +119,7 @@ export type Database = {
           email: string
           id: string
           notetaker_name: string | null
+          nylas_grant_id: string | null
           record_external_meetings: boolean | null
           record_internal_meetings: boolean | null
           updated_at: string
@@ -128,6 +129,7 @@ export type Database = {
           email: string
           id: string
           notetaker_name?: string | null
+          nylas_grant_id?: string | null
           record_external_meetings?: boolean | null
           record_internal_meetings?: boolean | null
           updated_at?: string
@@ -137,6 +139,7 @@ export type Database = {
           email?: string
           id?: string
           notetaker_name?: string | null
+          nylas_grant_id?: string | null
           record_external_meetings?: boolean | null
           record_internal_meetings?: boolean | null
           updated_at?: string
