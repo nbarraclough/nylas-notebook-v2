@@ -19,14 +19,20 @@ Deno.serve(async (req) => {
 
     console.log('Syncing events for user:', user_id)
 
-    // Initialize Supabase client
-    const supabaseClient = createClient(
+    // Initialize Supabase client with service role key
+    const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        }
+      }
     )
 
     // Get user's Nylas grant_id
-    const { data: profile, error: profileError } = await supabaseClient
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('nylas_grant_id')
       .eq('id', user_id)
@@ -79,7 +85,7 @@ Deno.serve(async (req) => {
     console.log('Fetched', events.length, 'events from Nylas')
 
     // Get existing events to compare last_updated_at
-    const { data: existingEvents, error: existingEventsError } = await supabaseClient
+    const { data: existingEvents, error: existingEventsError } = await supabaseAdmin
       .from('events')
       .select('nylas_event_id, last_updated_at')
       .eq('user_id', user_id)
@@ -96,7 +102,7 @@ Deno.serve(async (req) => {
 
     // Process each event
     for (const event of events) {
-      await processEvent(event, existingEventsMap, user_id, supabaseClient);
+      await processEvent(event, existingEventsMap, user_id, supabaseAdmin);
     }
 
     console.log('Successfully synced events to database');

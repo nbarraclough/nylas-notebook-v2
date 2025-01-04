@@ -5,7 +5,7 @@ export const processEvent = async (
   event: any, 
   existingEventsMap: Map<string, Date>,
   userId: string,
-  supabaseClient: ReturnType<typeof createClient>
+  supabaseAdmin: ReturnType<typeof createClient>
 ) => {
   try {
     // Extract and validate start/end times from the when object
@@ -48,10 +48,10 @@ export const processEvent = async (
       start_time: startTime,
       end_time: endTime,
       participants: Array.isArray(event.participants) ? event.participants : [],
-      conference_url: conferenceUrl, // This will now be properly set from the conferencing.details.url
+      conference_url: conferenceUrl,
       last_updated_at: eventLastUpdated,
       ical_uid: event.ical_uid || null,
-      busy: event.busy === false ? false : true, // Default to true if undefined
+      busy: event.busy === false ? false : true,
       html_link: event.html_link || null,
       master_event_id: event.master_event_id || null,
       organizer: event.organizer || null,
@@ -72,7 +72,7 @@ export const processEvent = async (
       start_time: eventData.start_time,
     });
 
-    const { error: upsertError } = await supabaseClient
+    const { error: upsertError } = await supabaseAdmin
       .from('events')
       .upsert(eventData, {
         onConflict: 'nylas_event_id',
@@ -81,10 +81,12 @@ export const processEvent = async (
     if (upsertError) {
       console.error('Error upserting event:', upsertError);
       console.error('Failed event data:', JSON.stringify(eventData, null, 2));
+      throw upsertError;
     } else {
       console.log('Successfully upserted event:', event.id);
     }
   } catch (error) {
     console.error('Error processing event:', event.id, error);
+    throw error;
   }
 };
