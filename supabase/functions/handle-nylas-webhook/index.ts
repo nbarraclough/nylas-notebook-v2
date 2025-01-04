@@ -13,7 +13,7 @@ import {
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
@@ -70,7 +70,15 @@ serve(async (req) => {
         console.log('Processing webhook:', {
           type: webhookData.type,
           source: webhookData.source,
-          time: new Date(webhookData.time * 1000).toISOString()
+          time: new Date(webhookData.time * 1000).toISOString(),
+          data: {
+            application_id: webhookData.data?.application_id,
+            object: {
+              grant_id: webhookData.data?.object?.grant_id,
+              id: webhookData.data?.object?.id,
+              calendar_id: webhookData.data?.object?.calendar_id
+            }
+          }
         });
 
         // Handle different webhook types
