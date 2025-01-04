@@ -1,10 +1,10 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { CalendarDays, Settings, QueueList, Video } from "lucide-react";
+import { CalendarDays, Settings, ListOrdered, Video } from "lucide-react";
 
 const navItems = [
   { name: "Calendar", path: "/calendar", icon: CalendarDays },
-  { name: "Queue", path: "/queue", icon: QueueList },
+  { name: "Queue", path: "/queue", icon: ListOrdered },
   { name: "Recordings", path: "/recordings", icon: Video },
   { name: "Settings", path: "/settings", icon: Settings },
 ];
