@@ -3,8 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { EventsTable } from "./EventsTable";
-import { SkeletonTable } from "./SkeletonTable";
+import { EventCard } from "./EventCard";
 import type { QueryObserverResult, RefetchOptions } from "@tanstack/react-query";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -65,9 +64,17 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents }: E
       <Card>
         <CardContent className="p-6">
           {isLoadingEvents ? (
-            <SkeletonTable />
+            <div className="animate-pulse space-y-4">
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="h-24 bg-muted rounded-lg" />
+              ))}
+            </div>
           ) : events && events.length > 0 ? (
-            <EventsTable events={events} />
+            <div className="space-y-4">
+              {events.map((event) => (
+                <EventCard key={event.id} event={event} />
+              ))}
+            </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               No events found. Click "Sync Events" to fetch your calendar events.
