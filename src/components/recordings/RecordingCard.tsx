@@ -2,8 +2,10 @@ import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import { Video, Clock, Check, X, Loader } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { EventParticipants } from "../calendar/EventParticipants";
 import { ShareVideoDialog } from "./ShareVideoDialog";
+import { useToast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
 import type { Json } from "@/integrations/supabase/types/json";
 import type { EventParticipant, EventOrganizer } from "@/types/calendar";
@@ -24,6 +26,9 @@ interface RecordingCardProps {
 }
 
 export const RecordingCard = ({ recording }: RecordingCardProps) => {
+  const { toast } = useToast();
+  const [isKicking, setIsKicking] = useState(false);
+
   const getStatusIcon = () => {
     switch (recording.status) {
       case 'processing':
@@ -34,6 +39,33 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
         return <X className="h-5 w-5 text-red-500" />;
       default:
         return <Clock className="h-5 w-5 text-yellow-500" />;
+    }
+  };
+
+  const handleManualKick = async () => {
+    try {
+      setIsKicking(true);
+      const response = await fetch(`/api/notetaker/${recording.notetaker_id}/kick`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to kick notetaker');
+      }
+
+      toast({
+        title: "Success",
+        description: "Manual kick initiated successfully",
+      });
+    } catch (error) {
+      console.error('Error kicking notetaker:', error);
+      toast({
+        title: "Error",
+        description: "Failed to kick notetaker. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsKicking(false);
     }
   };
 
@@ -80,8 +112,8 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
         )}
 
         <div className="flex items-center justify-between">
-          {recording.recording_url && recording.status === 'completed' && (
-            <div className="text-sm">
+          <div className="flex items-center gap-2">
+            {recording.recording_url && recording.status === 'completed' && (
               <a 
                 href={recording.recording_url} 
                 target="_blank" 
@@ -91,8 +123,25 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
                 <Video className="h-4 w-4" />
                 View Recording
               </a>
-            </div>
-          )}
+            )}
+            {recording.notetaker_id && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleManualKick}
+                disabled={isKicking}
+              >
+                {isKicking ? (
+                  <>
+                    <Loader className="h-4 w-4 animate-spin mr-2" />
+                    Kicking...
+                  </>
+                ) : (
+                  'Manual Kick'
+                )}
+              </Button>
+            )}
+          </div>
           {recording.status === 'completed' && (
             <ShareVideoDialog recordingId={recording.id} />
           )}
