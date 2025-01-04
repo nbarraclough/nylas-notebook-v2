@@ -26,6 +26,8 @@ serve(async (req) => {
       throw new Error('Missing required environment variables')
     }
 
+    console.log('Exchanging code for grant_id...')
+
     // Exchange the code for a grant_id using the correct Nylas API URL
     const tokenResponse = await fetch('https://api.us.nylas.com/v3/connect/token', {
       method: 'POST',
@@ -46,6 +48,7 @@ serve(async (req) => {
     }
 
     const { grant_id } = await tokenResponse.json()
+    console.log('Received grant_id:', grant_id)
 
     // Create Supabase client
     const supabase = createClient(supabaseUrl, supabaseKey)
@@ -58,6 +61,8 @@ serve(async (req) => {
       throw new Error('Unauthorized')
     }
 
+    console.log('Updating profile with grant_id for user:', user.id)
+
     // Update user's profile with grant_id
     const { error: updateError } = await supabase
       .from('profiles')
@@ -65,8 +70,11 @@ serve(async (req) => {
       .eq('id', user.id)
 
     if (updateError) {
+      console.error('Error updating profile:', updateError)
       throw updateError
     }
+
+    console.log('Successfully updated profile with grant_id')
 
     return new Response(
       JSON.stringify({ success: true }),

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 export default function Calendar() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [isNylasAuthenticated, setIsNylasAuthenticated] = useState(false);
 
@@ -54,6 +55,48 @@ export default function Calendar() {
       subscription.unsubscribe();
     };
   }, [navigate, toast]);
+
+  // Handle Nylas auth code
+  useEffect(() => {
+    const handleNylasCode = async () => {
+      const code = searchParams.get('code');
+      if (!code) return;
+
+      try {
+        setIsLoading(true);
+        console.log('Exchanging Nylas code for grant_id...');
+        
+        const { error } = await supabase.functions.invoke('exchange-nylas-token', {
+          body: { code }
+        });
+
+        if (error) throw error;
+
+        toast({
+          title: "Success",
+          description: "Calendar connected successfully!",
+        });
+
+        // Remove code from URL
+        window.history.replaceState({}, '', '/calendar');
+        
+        // Refresh page to update UI
+        window.location.reload();
+
+      } catch (error) {
+        console.error('Error exchanging Nylas code:', error);
+        toast({
+          title: "Error",
+          description: "Failed to connect calendar. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    handleNylasCode();
+  }, [searchParams, toast]);
 
   const handleNylasConnect = async () => {
     try {
