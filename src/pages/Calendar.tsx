@@ -12,7 +12,6 @@ export default function Calendar() {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
-  const [isNylasAuthenticated, setIsNylasAuthenticated] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
   // Fetch events from our database
@@ -28,7 +27,24 @@ export default function Calendar() {
       if (error) throw error;
       return data;
     },
-    enabled: !!userId && isNylasAuthenticated,
+    enabled: !!userId,
+  });
+
+  // Fetch user profile to check Nylas connection
+  const { data: profile, isLoading: isLoadingProfile } = useQuery({
+    queryKey: ['profile', userId],
+    queryFn: async () => {
+      if (!userId) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('nylas_grant_id')
+        .eq('id', userId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!userId,
   });
 
   useEffect(() => {
@@ -41,28 +57,8 @@ export default function Calendar() {
 
       setUserId(session.user.id);
 
-      // Check if user has Nylas connected
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('nylas_grant_id')
-        .eq('id', session.user.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error fetching profile:', error);
-        toast({
-          title: "Error",
-          description: "Failed to check Nylas connection status.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const hasNylas = !!profile?.nylas_grant_id;
-      setIsNylasAuthenticated(hasNylas);
-
-      // If authenticated with Nylas and we don't have events yet, sync them
-      if (hasNylas && (!events || events.length === 0)) {
+      // If we have a Nylas grant_id but no events, sync them
+      if (profile?.nylas_grant_id && (!events || events.length === 0)) {
         console.log('Initial sync of events...');
         const { error: syncError } = await supabase.functions.invoke('sync-nylas-events', {
           body: { user_id: session.user.id }
@@ -88,7 +84,7 @@ export default function Calendar() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate, toast, events, refetchEvents]);
+  }, [navigate, profile?.nylas_grant_id, events, refetchEvents]);
 
   // Handle Nylas auth code
   useEffect(() => {
@@ -132,9 +128,20 @@ export default function Calendar() {
     handleNylasCode();
   }, [searchParams, toast]);
 
+  // Show loading state while checking profile
+  if (isLoadingProfile) {
+    return (
+      <PageLayout>
+        <div className="flex items-center justify-center min-h-[80vh]">
+          <div className="animate-pulse">Loading...</div>
+        </div>
+      </PageLayout>
+    );
+  }
+
   return (
     <PageLayout>
-      {!isNylasAuthenticated ? (
+      {!profile?.nylas_grant_id ? (
         <ConnectNylas />
       ) : (
         <EventsList 
