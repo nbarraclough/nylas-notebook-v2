@@ -122,17 +122,14 @@ serve(async (req) => {
       )
     }
 
-    // Update the profile with the nylas_grant_id
-    console.log('Updating profile with nylas_grant_id:', grant_id)
-    const { data: profile, error: updateError } = await supabase
+    // Direct update of the profile with nylas_grant_id
+    console.log('Attempting to update profile for user:', userId)
+    console.log('With grant_id:', grant_id)
+
+    const { error: updateError } = await supabase
       .from('profiles')
-      .update({ 
-        nylas_grant_id: grant_id,
-        updated_at: new Date().toISOString()
-      })
+      .update({ nylas_grant_id: grant_id })
       .eq('id', userId)
-      .select()
-      .single()
 
     if (updateError) {
       console.error('Error updating profile:', updateError)
@@ -145,13 +142,31 @@ serve(async (req) => {
       )
     }
 
-    console.log('Successfully updated profile:', JSON.stringify(profile, null, 2))
+    // Verify the update was successful
+    const { data: verifyProfile, error: verifyError } = await supabase
+      .from('profiles')
+      .select('nylas_grant_id')
+      .eq('id', userId)
+      .single()
+
+    if (verifyError || !verifyProfile?.nylas_grant_id) {
+      console.error('Failed to verify profile update:', verifyError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to verify profile update', details: verifyError }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        }
+      )
+    }
+
+    console.log('Successfully verified profile update. Profile now has nylas_grant_id:', verifyProfile.nylas_grant_id)
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         grant_id,
-        profile 
+        profile: verifyProfile
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
