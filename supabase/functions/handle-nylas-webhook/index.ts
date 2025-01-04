@@ -53,63 +53,63 @@ serve(async (req) => {
       throw new Error('No signature provided');
     }
 
-    // Get the raw request body
+    // Get the raw request body and log it
     const rawBody = await req.text();
-    console.log('Raw webhook body:', rawBody);
-
-    // Verify webhook signature
-    // Note: In a production environment, you should implement proper signature verification
-    // using the webhookSecret and signature
-    console.log('Webhook signature:', signature);
-    console.log('Using webhook secret:', webhookSecret.substring(0, 4) + '...');
+    console.log('📥 Incoming Webhook Raw Body:', rawBody);
 
     // Parse JSON if we have a body
     if (rawBody) {
       try {
         const webhookData = JSON.parse(rawBody);
-        console.log('Processing webhook:', {
+        console.log('🔍 Processing Webhook:', {
           type: webhookData.type,
           source: webhookData.source,
-          time: new Date(webhookData.time * 1000).toISOString(),
+          timestamp: new Date(webhookData.time * 1000).toISOString(),
           data: {
             application_id: webhookData.data?.application_id,
-            object: {
-              grant_id: webhookData.data?.object?.grant_id,
-              id: webhookData.data?.object?.id,
-              calendar_id: webhookData.data?.object?.calendar_id
-            }
+            object: webhookData.data?.object,
+            grant_id: webhookData.data?.object?.grant_id,
           }
         });
 
         // Handle different webhook types
         switch (webhookData.type) {
           case 'event.created':
-            await handleEventCreated(webhookData.data.object, webhookData.data.grant_id);
+            console.log('📅 Processing event.created webhook');
+            await handleEventCreated(webhookData.data.object, webhookData.data.object.grant_id);
             break;
           case 'event.updated':
-            await handleEventUpdated(webhookData.data.object, webhookData.data.grant_id);
+            console.log('📅 Processing event.updated webhook');
+            await handleEventUpdated(webhookData.data.object, webhookData.data.object.grant_id);
             break;
           case 'event.deleted':
+            console.log('📅 Processing event.deleted webhook');
             await handleEventDeleted(webhookData.data.object);
             break;
           case 'grant.created':
+            console.log('🔑 Processing grant.created webhook');
             await handleGrantCreated(webhookData.data);
             break;
           case 'grant.updated':
+            console.log('🔑 Processing grant.updated webhook');
             await handleGrantUpdated(webhookData.data);
             break;
           case 'grant.deleted':
+            console.log('🔑 Processing grant.deleted webhook');
             await handleGrantDeleted(webhookData.data);
             break;
           case 'grant.expired':
+            console.log('🔑 Processing grant.expired webhook');
             await handleGrantExpired(webhookData.data);
             break;
           default:
-            console.log('Unhandled webhook type:', webhookData.type);
+            console.log('⚠️ Unhandled webhook type:', webhookData.type);
         }
 
+        console.log('✅ Successfully processed webhook:', webhookData.type);
+
       } catch (error) {
-        console.error('Error processing webhook:', error);
+        console.error('❌ Error processing webhook:', error);
         return new Response(
           JSON.stringify({ error: 'Error processing webhook', details: error.message }),
           { 
@@ -130,7 +130,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error processing webhook:', error);
+    console.error('❌ Fatal error processing webhook:', error);
     return new Response(
       JSON.stringify({ error: 'Internal server error', details: error.message }),
       { 
