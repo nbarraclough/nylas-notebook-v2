@@ -45,3 +45,22 @@ export const logSignatureVerification = (isValid: boolean) => {
   const timestamp = new Date().toISOString();
   console.log(`🔐 [${timestamp}] Signature verification:`, isValid ? 'valid' : 'invalid');
 };
+
+export const logWebhookProcessing = (type: string, result: any) => {
+  const timestamp = new Date().toISOString();
+  console.log(`✨ [${timestamp}] Processing ${type}:`, JSON.stringify(result, null, 2));
+};
+
+export const logWebhookError = (type: string, error: any) => {
+  const timestamp = new Date().toISOString();
+  console.error(`❌ [${timestamp}] Error processing ${type}:`, {
+    message: error.message,
+    stack: error.stack,
+    details: error
+  });
+};
+
+export const logWebhookSuccess = (type: string, data: any) => {
+  const timestamp = new Date().toISOString();
+  console.log(`✅ [${timestamp}] Successfully processed ${type}:`, JSON.stringify(data, null, 2));
+};

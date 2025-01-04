@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 import { findUserByGrant } from './user-handlers.ts';
+import { logWebhookProcessing, logWebhookError, logWebhookSuccess } from '../webhook-logger.ts';
 
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -66,130 +67,118 @@ const processEventData = (eventData: any) => {
 };
 
 export const handleEventCreated = async (objectData: any, grantId: string) => {
-  console.log('📅 Processing event.created:', {
-    eventId: objectData.id,
-    grantId,
-    title: objectData.title,
-    startTime: objectData.when?.start_time
-  });
+  logWebhookProcessing('event.created', { eventId: objectData.id, grantId });
   
-  // Find user associated with this grant
-  const profile = await findUserByGrant(grantId);
-  if (!profile) {
-    console.log(`⚠️ Skipping event.created for unknown grant: ${grantId}`);
-    return { success: false, message: `No user found for grant: ${grantId}` };
+  try {
+    // Find user associated with this grant
+    const profile = await findUserByGrant(grantId);
+    if (!profile) {
+      const error = new Error(`No user found for grant: ${grantId}`);
+      logWebhookError('event.created', error);
+      return { success: false, message: error.message };
+    }
+
+    const processedData = processEventData(objectData);
+    const eventData = {
+      user_id: profile.id,
+      nylas_event_id: objectData.id,
+      ...processedData,
+      last_updated_at: new Date().toISOString()
+    };
+
+    // Insert or update the event in our database
+    const { error: eventError } = await supabaseAdmin
+      .from('events')
+      .upsert(eventData, {
+        onConflict: 'nylas_event_id',
+        ignoreDuplicates: false
+      });
+
+    if (eventError) {
+      logWebhookError('event.created', eventError);
+      return { success: false, error: eventError };
+    }
+
+    const result = { success: true, eventId: objectData.id };
+    logWebhookSuccess('event.created', result);
+    return result;
+  } catch (error) {
+    logWebhookError('event.created', error);
+    return { success: false, error };
   }
-
-  console.log('👤 Found profile for event.created:', profile);
-
-  const processedData = processEventData(objectData);
-  const eventData = {
-    user_id: profile.id,
-    nylas_event_id: objectData.id,
-    ...processedData,
-    last_updated_at: new Date().toISOString()
-  };
-
-  // Insert or update the event in our database
-  const { error: eventError } = await supabaseAdmin
-    .from('events')
-    .upsert(eventData, {
-      onConflict: 'nylas_event_id',
-      ignoreDuplicates: false
-    });
-
-  if (eventError) {
-    console.error('❌ Error creating event:', eventError);
-    return { success: false, error: eventError };
-  }
-
-  console.log('✅ Event created successfully:', {
-    eventId: objectData.id,
-    userId: profile.id
-  });
-  
-  return { success: true, eventId: objectData.id };
 };
 
 export const handleEventUpdated = async (objectData: any, grantId: string) => {
-  console.log('🔄 Processing event.updated:', {
-    eventId: objectData.id,
-    grantId,
-    title: objectData.title
-  });
+  logWebhookProcessing('event.updated', { eventId: objectData.id, grantId });
   
-  // Find user associated with this grant
-  const profile = await findUserByGrant(grantId);
-  if (!profile) {
-    console.log(`⚠️ Skipping event.updated for unknown grant: ${grantId}`);
-    return { success: false, message: `No user found for grant: ${grantId}` };
+  try {
+    // Find user associated with this grant
+    const profile = await findUserByGrant(grantId);
+    if (!profile) {
+      const error = new Error(`No user found for grant: ${grantId}`);
+      logWebhookError('event.updated', error);
+      return { success: false, message: error.message };
+    }
+
+    const processedData = processEventData(objectData);
+    const eventData = {
+      user_id: profile.id,
+      nylas_event_id: objectData.id,
+      ...processedData,
+      last_updated_at: new Date().toISOString()
+    };
+
+    // Update the event in our database
+    const { error: eventError } = await supabaseAdmin
+      .from('events')
+      .upsert(eventData, {
+        onConflict: 'nylas_event_id',
+        ignoreDuplicates: false
+      });
+
+    if (eventError) {
+      logWebhookError('event.updated', eventError);
+      return { success: false, error: eventError };
+    }
+
+    const result = { success: true, eventId: objectData.id };
+    logWebhookSuccess('event.updated', result);
+    return result;
+  } catch (error) {
+    logWebhookError('event.updated', error);
+    return { success: false, error };
   }
-
-  console.log('👤 Found profile for event.updated:', profile);
-
-  const processedData = processEventData(objectData);
-  const eventData = {
-    user_id: profile.id,
-    nylas_event_id: objectData.id,
-    ...processedData,
-    last_updated_at: new Date().toISOString()
-  };
-
-  // Update the event in our database
-  const { error: eventError } = await supabaseAdmin
-    .from('events')
-    .upsert(eventData, {
-      onConflict: 'nylas_event_id',
-      ignoreDuplicates: false
-    });
-
-  if (eventError) {
-    console.error('❌ Error updating event:', eventError);
-    return { success: false, error: eventError };
-  }
-
-  console.log('✅ Event updated successfully:', {
-    eventId: objectData.id,
-    userId: profile.id
-  });
-  
-  return { success: true, eventId: objectData.id };
 };
 
 export const handleEventDeleted = async (objectData: any, grantId: string) => {
-  if (!objectData?.id) {
-    console.log('⚠️ No event ID in deletion webhook, skipping');
-    return { success: false, message: 'No event ID provided' };
-  }
-
-  console.log('🗑️ Processing event.deleted:', {
-    eventId: objectData.id,
-    grantId
-  });
-
-  // Find user associated with this grant
-  const profile = await findUserByGrant(grantId);
-  if (!profile) {
-    console.log(`⚠️ Skipping event.deleted for unknown grant: ${grantId}`);
-    return { success: false, message: `No user found for grant: ${grantId}` };
-  }
-
-  // Delete the event (cascade will handle queue items)
-  const { error: deleteError } = await supabaseAdmin
-    .from('events')
-    .delete()
-    .eq('nylas_event_id', objectData.id)
-    .eq('user_id', profile.id);
-
-  if (deleteError) {
-    console.error('❌ Error deleting event:', deleteError);
-    return { success: false, error: deleteError };
-  }
-
-  console.log('✅ Event and related queue items deleted successfully:', {
-    eventId: objectData.id,
-    userId: profile.id
-  });
+  logWebhookProcessing('event.deleted', { eventId: objectData.id, grantId });
   
-  return { success: true, eventId: objectData.id };
+  try {
+    // Find user associated with this grant
+    const profile = await findUserByGrant(grantId);
+    if (!profile) {
+      const error = new Error(`No user found for grant: ${grantId}`);
+      logWebhookError('event.deleted', error);
+      return { success: false, message: error.message };
+    }
+
+    // Delete the event (cascade will handle queue items)
+    const { error: deleteError } = await supabaseAdmin
+      .from('events')
+      .delete()
+      .eq('nylas_event_id', objectData.id)
+      .eq('user_id', profile.id);
+
+    if (deleteError) {
+      logWebhookError('event.deleted', deleteError);
+      return { success: false, error: deleteError };
+    }
+
+    const result = { success: true, eventId: objectData.id };
+    logWebhookSuccess('event.deleted', result);
+    return result;
+  } catch (error) {
+    logWebhookError('event.deleted', error);
+    return { success: false, error };
+  }
 };

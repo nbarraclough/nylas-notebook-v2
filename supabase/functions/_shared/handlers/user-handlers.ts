@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
+import { logWebhookProcessing, logWebhookError, logWebhookSuccess } from '../webhook-logger.ts';
 
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -12,7 +13,7 @@ const supabaseAdmin = createClient(
 );
 
 export const findUserByGrant = async (grantId: string) => {
-  console.log('🔍 Looking up user for grant ID:', grantId);
+  logWebhookProcessing('findUserByGrant', { grantId });
   
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
@@ -22,84 +23,67 @@ export const findUserByGrant = async (grantId: string) => {
 
   if (profileError) {
     if (profileError.code === 'PGRST116') {
-      console.log(`⚠️ No user found for grant ID: ${grantId}. This is expected for unknown grants.`);
+      logWebhookError('findUserByGrant', `No user found for grant ID: ${grantId}`);
       return null;
     }
-    console.error('❌ Error finding user for grant:', profileError);
+    logWebhookError('findUserByGrant', profileError);
     throw profileError;
   }
 
-  console.log('✅ Found user for grant:', profile);
+  logWebhookSuccess('findUserByGrant', profile);
   return profile;
 };
 
 export const handleGrantStatus = async (grantId: string, status: 'active' | 'revoked' | 'error' | 'expired') => {
-  console.log(`🔄 Processing grant status update for ${grantId} to ${status}`);
+  logWebhookProcessing('grantStatus', { grantId, status });
   
-  const { error: grantError } = await supabaseAdmin
-    .from('profiles')
-    .update({ 
-      grant_status: status,
-      updated_at: new Date().toISOString()
-    })
-    .eq('nylas_grant_id', grantId);
+  try {
+    const { error: grantError } = await supabaseAdmin
+      .from('profiles')
+      .update({ 
+        grant_status: status,
+        updated_at: new Date().toISOString()
+      })
+      .eq('nylas_grant_id', grantId);
 
-  if (grantError) {
-    console.error(`❌ Error updating grant status to ${status}:`, grantError);
-    return { success: false, error: grantError };
+    if (grantError) {
+      logWebhookError('grantStatus', grantError);
+      return { success: false, error: grantError };
+    }
+
+    const result = { success: true, grantId, status };
+    logWebhookSuccess('grantStatus', result);
+    return result;
+  } catch (error) {
+    logWebhookError('grantStatus', error);
+    return { success: false, error };
   }
-
-  console.log('✅ Grant status updated successfully:', {
-    grantId,
-    status
-  });
-  
-  return { success: true, grantId, status };
 };
 
 export const handleGrantCreated = async (data: any) => {
-  console.log('🔑 Processing grant.created:', {
-    grantId: data.object.grant_id,
-    provider: data.object.provider,
-    loginId: data.object.login_id
-  });
-  
+  logWebhookProcessing('grant.created', data);
   const result = await handleGrantStatus(data.object.grant_id, 'active');
-  console.log('✅ Grant created processing complete:', result);
+  logWebhookSuccess('grant.created', result);
   return result;
 };
 
 export const handleGrantUpdated = async (data: any) => {
-  console.log('🔄 Processing grant.updated:', {
-    grantId: data.object.grant_id,
-    provider: data.object.provider,
-    reauthFlag: data.object.reauthentication_flag
-  });
-  
+  logWebhookProcessing('grant.updated', data);
   const result = await handleGrantStatus(data.object.grant_id, 'active');
-  console.log('✅ Grant updated processing complete:', result);
+  logWebhookSuccess('grant.updated', result);
   return result;
 };
 
 export const handleGrantDeleted = async (data: any) => {
-  console.log('🗑️ Processing grant.deleted:', {
-    grantId: data.object.grant_id,
-    provider: data.object.provider
-  });
-  
+  logWebhookProcessing('grant.deleted', data);
   const result = await handleGrantStatus(data.object.grant_id, 'revoked');
-  console.log('✅ Grant deleted processing complete:', result);
+  logWebhookSuccess('grant.deleted', result);
   return result;
 };
 
 export const handleGrantExpired = async (data: any) => {
-  console.log('⚠️ Processing grant.expired:', {
-    grantId: data.object.grant_id,
-    provider: data.object.provider,
-    loginId: data.object.login_id
-  });
-  
+  logWebhookProcessing('grant.expired', data);
   const result = await handleGrantStatus(data.object.grant_id, 'expired');
-  console.log('✅ Grant expired processing complete:', result);
+  logWebhookSuccess('grant.expired', result);
   return result;
 };
