@@ -39,12 +39,27 @@ export const OrganizationInfo = ({
 
     setIsSubmitting(true);
     try {
-      const { error } = await supabase
-        .from('organizations')
-        .update({ name: newName.trim() })
-        .eq('id', organizationId);
+      console.log('Updating organization name:', {
+        organizationId,
+        newName: newName.trim(),
+        userRole
+      });
 
-      if (error) throw error;
+      const { data, error } = await supabase
+        .from('organizations')
+        .update({ 
+          name: newName.trim(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', organizationId)
+        .select();
+
+      if (error) {
+        console.error('Error updating organization:', error);
+        throw error;
+      }
+
+      console.log('Organization updated successfully:', data);
 
       toast({
         title: "Success",
@@ -54,6 +69,7 @@ export const OrganizationInfo = ({
       onOrganizationUpdate();
       setIsEditing(false);
     } catch (error: any) {
+      console.error('Error in handleSubmit:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to update organization name",
