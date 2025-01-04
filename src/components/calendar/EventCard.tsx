@@ -121,7 +121,7 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
 
           {sanitizedDescription && (
             <div 
-              className="text-sm text-muted-foreground prose prose-sm max-w-none"
+              className="text-sm text-muted-foreground prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_a]:text-primary [&_a]:underline [&_a]:hover:text-primary/80"
               dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
             />
           )}
