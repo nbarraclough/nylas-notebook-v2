@@ -1,0 +1,5 @@
+project_id = "xqzlejcvvtjdrabofrxs"
+
+[global.env]
+NYLAS_CLIENT_ID = "env"
+NYLAS_CLIENT_SECRET = "env"

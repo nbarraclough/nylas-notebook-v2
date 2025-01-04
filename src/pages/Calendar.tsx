@@ -21,10 +21,21 @@ export default function Calendar() {
       }
 
       // Check if user has Nylas connected
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('nylas_grant_id')
-        .single();
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching profile:', error);
+        toast({
+          title: "Error",
+          description: "Failed to check Nylas connection status.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       setIsNylasAuthenticated(!!profile?.nylas_grant_id);
     };
@@ -42,7 +53,7 @@ export default function Calendar() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, toast]);
 
   const handleNylasConnect = async () => {
     try {
@@ -59,7 +70,10 @@ export default function Calendar() {
         body: { email: user.email }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error getting Nylas auth URL:', error);
+        throw error;
+      }
       
       // Open Nylas auth URL in a new window
       window.location.href = data.authUrl;
