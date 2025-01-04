@@ -1,4 +1,4 @@
-import { createHmac } from "https://deno.land/std@0.177.0/crypto/mod.ts";
+import { HmacSha256 } from "https://deno.land/std@0.177.0/hash/hmac_sha256.ts";
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,9 +26,11 @@ export const verifyNylasWebhook = (req: Request, rawBody: string): boolean => {
     }
 
     // Create HMAC using client secret
-    const hmac = createHmac("sha256", clientSecret);
-    hmac.update(rawBody);
-    const computedSignature = hmac.digest("hex");
+    const key = new TextEncoder().encode(clientSecret);
+    const message = new TextEncoder().encode(rawBody);
+    const hmac = new HmacSha256(key);
+    hmac.update(message);
+    const computedSignature = hmac.hex();
 
     // Compare signatures
     const isValid = signature === computedSignature;
