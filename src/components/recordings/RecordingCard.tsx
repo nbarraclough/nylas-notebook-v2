@@ -36,6 +36,21 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
     }
   };
 
+  // Parse participants and organizer from JSON
+  const participants: EventParticipant[] = Array.isArray(recording.event.participants) 
+    ? recording.event.participants.map((p: any) => ({
+        name: p.name || '',
+        email: p.email || ''
+      }))
+    : [];
+
+  const organizer: EventOrganizer = typeof recording.event.organizer === 'object' && recording.event.organizer !== null
+    ? {
+        name: (recording.event.organizer as any).name || '',
+        email: (recording.event.organizer as any).email || ''
+      }
+    : { name: '', email: '' };
+
   return (
     <Card>
       <CardContent className="p-6 space-y-4">
@@ -78,8 +93,8 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
         )}
 
         <EventParticipants 
-          participants={recording.event.participants as EventParticipant[]} 
-          organizer={recording.event.organizer as EventOrganizer}
+          participants={participants}
+          organizer={organizer}
           isInternalMeeting={false}
         />
       </CardContent>
