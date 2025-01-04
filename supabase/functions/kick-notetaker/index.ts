@@ -86,32 +86,45 @@ Deno.serve(async (req) => {
     const responseText = await response.text()
     console.log('📦 Raw response body:', responseText)
 
+    if (!response.ok) {
+      console.error('❌ Nylas API error:', responseText)
+      throw new Error(`Failed to kick notetaker: ${response.status} - ${responseText}`)
+    }
+
+    // If the response is "notetaker is leaving meeting", consider it a success
+    if (responseText === 'notetaker is leaving meeting') {
+      console.log('✅ Successfully kicked notetaker:', {
+        notetakerId,
+        response: responseText
+      })
+
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          status: response.status,
+          message: responseText
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      )
+    }
+
+    // Try to parse JSON response if it's not the text message
     let responseBody = {}
-    if (responseText) {
-      try {
-        responseBody = JSON.parse(responseText)
-        console.log('✨ Parsed response body:', JSON.stringify(responseBody, null, 2))
-      } catch (e) {
-        console.error('❌ Error parsing response JSON:', e)
+    try {
+      responseBody = JSON.parse(responseText)
+      console.log('✨ Parsed response body:', JSON.stringify(responseBody, null, 2))
+    } catch (e) {
+      console.error('❌ Error parsing response JSON:', e)
+      // If we can't parse JSON but the request was successful, return the text response
+      if (response.ok) {
+        responseBody = { message: responseText }
+      } else {
         throw new Error('Invalid response from Nylas API')
       }
     }
-
-    if (!response.ok) {
-      console.error('❌ Nylas API error:', JSON.stringify(responseBody, null, 2))
-      throw new Error(`Failed to kick notetaker: ${response.status} - ${responseBody.message || 'Unknown error'}`)
-    }
-
-    // Verify we got a request_id in the response
-    if (!responseBody.request_id) {
-      console.error('❌ Missing request_id in response:', JSON.stringify(responseBody, null, 2))
-      throw new Error('Invalid response from Nylas API: missing request_id')
-    }
-
-    console.log('✅ Successfully kicked notetaker:', {
-      notetakerId,
-      requestId: responseBody.request_id
-    })
 
     return new Response(
       JSON.stringify({ 
