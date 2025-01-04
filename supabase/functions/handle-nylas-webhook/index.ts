@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { handleEventCreated, handleEventUpdated, handleEventDeleted, handleGrantStatus } from '../_shared/webhook-handlers.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -63,26 +64,42 @@ serve(async (req) => {
     );
 
     // Handle webhook types
-    if (webhookData?.type && webhookData.type.startsWith('grant.')) {
-      const grantId = webhookData.grant_id;
-      const status = webhookData.type === 'grant.created' ? 'active' : 'revoked';
-      
-      console.log('Updating grant status:', { grantId, status });
-      
-      const { error: updateError } = await supabaseAdmin
-        .from('profiles')
-        .update({ 
-          grant_status: status,
-          updated_at: new Date().toISOString()
-        })
-        .eq('nylas_grant_id', grantId);
+    if (webhookData?.type) {
+      const { type, grant_id: grantId, object_data: objectData } = webhookData;
+      console.log('Processing webhook type:', type);
 
-      if (updateError) {
-        console.error('Error updating grant status:', updateError);
-        throw updateError;
+      switch (type) {
+        // Grant webhooks
+        case 'grant.created':
+          await handleGrantStatus(grantId, 'active');
+          break;
+        case 'grant.deleted':
+        case 'grant.expired':
+          await handleGrantStatus(grantId, 'revoked');
+          break;
+
+        // Event webhooks
+        case 'event.created':
+          await handleEventCreated(objectData, grantId);
+          break;
+        case 'event.updated':
+          await handleEventUpdated(objectData, grantId);
+          break;
+        case 'event.deleted':
+          await handleEventDeleted(objectData);
+          break;
+
+        // Notetaker webhooks
+        case 'notetaker.status_updated':
+        case 'notetaker.settings_updated':
+        case 'notetaker.media_updated':
+          console.log('Received notetaker webhook:', type, objectData);
+          // These will be implemented when the notetaker functionality is added
+          break;
+
+        default:
+          console.warn('Unhandled webhook type:', type);
       }
-
-      console.log('Successfully updated grant status');
     }
 
     return new Response(
