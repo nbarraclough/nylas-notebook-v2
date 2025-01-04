@@ -15,6 +15,10 @@ Deno.serve(async (req) => {
     const { notetakerId } = await req.json()
     console.log('🎯 Received kick request for notetaker:', notetakerId)
 
+    if (!notetakerId) {
+      throw new Error('No notetaker ID provided')
+    }
+
     // Initialize Supabase client
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -61,19 +65,32 @@ Deno.serve(async (req) => {
       }
     )
 
+    let responseBody
     const responseText = await response.text()
     console.log('📡 Nylas API Response Status:', response.status)
     console.log('📡 Nylas API Response Body:', responseText)
 
+    try {
+      // Try to parse as JSON if possible
+      responseBody = responseText ? JSON.parse(responseText) : {}
+    } catch (e) {
+      // If not JSON, use the raw text
+      responseBody = { message: responseText }
+    }
+
     if (!response.ok) {
-      console.error('❌ Nylas API error:', responseText)
-      throw new Error(`Failed to kick notetaker: ${response.status}`)
+      console.error('❌ Nylas API error:', responseBody)
+      throw new Error(`Failed to kick notetaker: ${response.status} - ${responseBody.message || 'Unknown error'}`)
     }
 
     console.log('✅ Successfully kicked notetaker')
 
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ 
+        success: true,
+        status: response.status,
+        data: responseBody 
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
@@ -83,7 +100,10 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('❌ Error in kick-notetaker function:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        success: false 
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
