@@ -10,7 +10,7 @@ const corsHeaders = {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
@@ -116,9 +116,9 @@ serve(async (req) => {
       )
     }
 
-    console.log('Updating profile with grant_id for user:', userId)
+    console.log('Updating profile with nylas_grant_id for user:', userId)
 
-    // Update user's profile with grant_id using service role client
+    // Update user's profile with nylas_grant_id using service role client
     const { error: updateError } = await supabase
       .from('profiles')
       .update({ 
@@ -138,7 +138,7 @@ serve(async (req) => {
       )
     }
 
-    console.log('Successfully updated profile with grant_id')
+    console.log('Successfully updated profile with nylas_grant_id')
 
     return new Response(
       JSON.stringify({ success: true, grant_id }),
