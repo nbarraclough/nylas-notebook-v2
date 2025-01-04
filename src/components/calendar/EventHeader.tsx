@@ -8,8 +8,8 @@ interface EventHeaderProps {
   title: string;
   startTime: string;
   endTime: string;
-  participants: unknown;
-  organizer: unknown;
+  participants: EventParticipant[];
+  organizer: EventOrganizer | null;
   isInternalMeeting: boolean;
 }
 
@@ -21,33 +21,13 @@ export const EventHeader = ({
   organizer,
   isInternalMeeting 
 }: EventHeaderProps) => {
-  // Parse organizer and participants with type checking
-  const parseParticipants = (data: unknown): EventParticipant[] => {
-    if (Array.isArray(data)) {
-      return data.filter((item): item is EventParticipant => 
-        typeof item === 'object' && 
-        item !== null && 
-        'email' in item && 
-        'name' in item
-      );
-    }
-    return [];
-  };
-
-  const parseOrganizer = (data: unknown): EventOrganizer | null => {
-    if (typeof data === 'object' && data !== null && 'email' in data && 'name' in data) {
-      return data as EventOrganizer;
-    }
-    return null;
-  };
-
   return (
     <div className="flex justify-between items-start">
       <div className="flex items-start gap-3">
         <div className="mt-1">
           <EventParticipants 
-            participants={parseParticipants(participants)} 
-            organizer={parseOrganizer(organizer)}
+            participants={participants} 
+            organizer={organizer}
             isInternalMeeting={isInternalMeeting}
           />
         </div>
