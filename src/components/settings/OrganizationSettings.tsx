@@ -13,15 +13,27 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
   const { data: organizationData, refetch: refetchOrg } = useQuery({
     queryKey: ['organization', userId],
     queryFn: async () => {
-      const { data: profile } = await supabase
+      console.log('Fetching organization data for user:', userId);
+      
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('organization_id')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
-      if (!profile?.organization_id) return null;
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+        throw profileError;
+      }
 
-      const { data: org } = await supabase
+      console.log('Profile data:', profile);
+
+      if (!profile?.organization_id) {
+        console.log('No organization_id found in profile');
+        return null;
+      }
+
+      const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select(`
           *,
@@ -34,8 +46,14 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
           )
         `)
         .eq('id', profile.organization_id)
-        .single();
+        .maybeSingle();
 
+      if (orgError) {
+        console.error('Error fetching organization:', orgError);
+        throw orgError;
+      }
+
+      console.log('Organization data:', org);
       return org;
     },
     enabled: !!userId,
