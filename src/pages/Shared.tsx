@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +14,7 @@ export default function Shared() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [userId, setUserId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   // Check authentication
   useEffect(() => {
@@ -75,6 +76,9 @@ export default function Shared() {
         .eq('id', shareId);
 
       if (error) throw error;
+
+      // Invalidate the query to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['shared-videos', userId] });
 
       toast({
         title: "Access revoked",
