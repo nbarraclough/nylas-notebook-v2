@@ -18,10 +18,10 @@ export const processEvent = async (
       return;
     }
 
-    // Get conference URL from the correct location in the Nylas API response
+    // Get conference URL from the conferencing object in Nylas API response
     const conferenceUrl = event.conferencing?.details?.url || null;
     console.log('Event:', event.id, 'Raw conferencing data:', JSON.stringify(event.conferencing));
-    console.log('Conference URL for event:', event.id, conferenceUrl);
+    console.log('Conference URL extracted:', conferenceUrl);
 
     // Check if event exists and compare last_updated_at
     const existingEventLastUpdated = existingEventsMap.get(event.id);
@@ -48,7 +48,7 @@ export const processEvent = async (
       start_time: startTime,
       end_time: endTime,
       participants: Array.isArray(event.participants) ? event.participants : [],
-      conference_url: conferenceUrl,
+      conference_url: conferenceUrl, // This will now be properly set from the conferencing.details.url
       last_updated_at: eventLastUpdated,
       ical_uid: event.ical_uid || null,
       busy: event.busy === false ? false : true, // Default to true if undefined
@@ -63,6 +63,14 @@ export const processEvent = async (
       visibility: event.visibility || 'default',
       original_start_time: safeTimestampToISO(event.original_start_time),
     };
+
+    // Log the event data being upserted
+    console.log('Upserting event with data:', {
+      id: event.id,
+      title: eventData.title,
+      conference_url: eventData.conference_url,
+      start_time: eventData.start_time,
+    });
 
     const { error: upsertError } = await supabaseClient
       .from('events')
