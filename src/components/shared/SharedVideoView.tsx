@@ -65,7 +65,7 @@ export function SharedVideoView() {
         // Transform the data to match SharedRecording type
         const transformedRecording: SharedRecording = {
           id: share.recording.id,
-          video_url: share.recording.video_url,
+          video_url: share.recording.video_url || '', // Ensure video_url is never undefined
           event: {
             ...share.recording.event,
             participants: transformParticipants(share.recording.event.participants)
@@ -128,15 +128,15 @@ export function SharedVideoView() {
           <CardContent className="p-6">
             <div className="flex justify-between items-start">
               <div className="space-y-1">
-                <h1 className="text-2xl font-semibold">{recording?.event.title}</h1>
+                <h1 className="text-2xl font-semibold">{recording.event.title}</h1>
                 <p className="text-sm text-muted-foreground">
-                  {format(new Date(recording?.event.start_time || ''), "EEEE, MMMM d, yyyy 'at' h:mm a")} - {format(new Date(recording?.event.end_time || ''), "h:mm a")}
+                  {format(new Date(recording.event.start_time), "EEEE, MMMM d, yyyy 'at' h:mm a")} - {format(new Date(recording.event.end_time), "h:mm a")}
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant="secondary" className="flex items-center gap-1">
                   <Users className="w-3 h-3" />
-                  {recording?.event.participants?.length || 0} participants
+                  {recording.event.participants?.length || 0} participants
                 </Badge>
               </div>
             </div>
@@ -147,12 +147,18 @@ export function SharedVideoView() {
         <Card>
           <CardContent className="p-6">
             <div className="aspect-video mb-6">
-              <video
-                src={recording?.video_url}
-                controls
-                className="w-full h-full rounded-lg"
-                autoPlay
-              />
+              {recording.video_url ? (
+                <video
+                  src={recording.video_url}
+                  controls
+                  className="w-full h-full rounded-lg"
+                  autoPlay
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-muted rounded-lg">
+                  <p className="text-muted-foreground">Video not available</p>
+                </div>
+              )}
             </div>
 
             <Tabs defaultValue="summary" className="w-full">
@@ -163,7 +169,7 @@ export function SharedVideoView() {
               </TabsList>
               <TabsContent value="summary" className="mt-4">
                 <div className="prose prose-sm max-w-none">
-                  {recording?.event.description || 'No summary available.'}
+                  {recording.event.description || 'No summary available.'}
                 </div>
               </TabsContent>
               <TabsContent value="transcript" className="mt-4">
