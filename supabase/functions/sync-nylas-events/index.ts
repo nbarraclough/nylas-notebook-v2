@@ -79,30 +79,30 @@ serve(async (req) => {
     const { data: existingEvents, error: existingEventsError } = await supabaseAdmin
       .from('events')
       .select('ical_uid')
-      .eq('user_id', user_id);
+      .eq('user_id', user_id)
 
     if (existingEventsError) {
-      console.error('Error fetching existing events:', existingEventsError);
-      throw existingEventsError;
+      console.error('Error fetching existing events:', existingEventsError)
+      throw existingEventsError
     }
 
     // Create a Set of existing ical_uids for faster lookup
-    const existingIcalUids = new Set(existingEvents?.map(e => e.ical_uid) || []);
-    const nylasIcalUids = new Set(events.data?.map(e => e.ical_uid) || []);
+    const existingIcalUids = new Set(existingEvents?.map(e => e.ical_uid) || [])
+    const nylasIcalUids = new Set(events.data?.map(e => e.ical_uid) || [])
 
     // Delete events that no longer exist in Nylas
-    const eventsToDelete = existingEvents?.filter(e => !nylasIcalUids.has(e.ical_uid)) || [];
+    const eventsToDelete = existingEvents?.filter(e => !nylasIcalUids.has(e.ical_uid)) || []
     if (eventsToDelete.length > 0) {
-      console.log(`Deleting ${eventsToDelete.length} events that no longer exist in Nylas`);
+      console.log(`Deleting ${eventsToDelete.length} events that no longer exist in Nylas`)
       const { error: deleteError } = await supabaseAdmin
         .from('events')
         .delete()
         .eq('user_id', user_id)
-        .in('ical_uid', eventsToDelete.map(e => e.ical_uid));
+        .in('ical_uid', eventsToDelete.map(e => e.ical_uid))
 
       if (deleteError) {
-        console.error('Error deleting events:', deleteError);
-        throw deleteError;
+        console.error('Error deleting events:', deleteError)
+        throw deleteError
       }
     }
 
@@ -144,7 +144,7 @@ serve(async (req) => {
 
       if (upsertError) {
         console.error('Error upserting event:', upsertError)
-        // Continue with other events even if one fails
+        throw upsertError
       }
     }
 
