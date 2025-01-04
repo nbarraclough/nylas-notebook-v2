@@ -4,6 +4,6 @@ project_id = "xqzlejcvvtjdrabofrxs"
 NYLAS_CLIENT_ID = "env"
 NYLAS_CLIENT_SECRET = "env"
 
-[[function.handle-nylas-webhook]]
+[functions.handle-nylas-webhook]
 verify_jwt = false
 verify_webhook = false
