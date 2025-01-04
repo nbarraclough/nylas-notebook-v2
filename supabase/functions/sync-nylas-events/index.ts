@@ -57,8 +57,8 @@ serve(async (req) => {
       throw new Error('Nylas credentials not configured')
     }
 
-    // Get access token from Nylas
-    const tokenResponse = await fetch('https://api.us.nylas.com/v3/connect/token', {
+    // Get access token from Nylas using staging URL
+    const tokenResponse = await fetch('https://api-staging.us.nylas.com/v3/connect/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -74,7 +74,7 @@ serve(async (req) => {
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.text()
       console.error('Failed to get Nylas token:', errorData)
-      throw new Error('Failed to get Nylas access token')
+      throw new Error(`Failed to get Nylas access token: ${errorData}`)
     }
 
     const tokenData = await tokenResponse.json()
@@ -86,8 +86,8 @@ serve(async (req) => {
 
     console.log('Successfully obtained Nylas access token')
 
-    // Fetch events from Nylas
-    const eventsResponse = await fetch(`https://api.us.nylas.com/v3/grants/${profile.nylas_grant_id}/events?limit=100`, {
+    // Fetch events from Nylas using staging URL
+    const eventsResponse = await fetch(`https://api-staging.us.nylas.com/v3/grants/${profile.nylas_grant_id}/events?limit=100`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
