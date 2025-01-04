@@ -17,27 +17,59 @@ Deno.serve(async (req) => {
     )
 
     // Read messages from the queue
-    const { data: messages, error: queueError } = await supabaseClient.rpc(
-      'pgmq_dequeue',
-      { queue_name: 'notetaker_requests', max_count: 10 }
-    )
+    const { data: queueItems, error: queueError } = await supabaseClient
+      .from('notetaker_queue')
+      .select(`
+        *,
+        profiles!notetaker_queue_user_id_fkey (
+          nylas_grant_id,
+          notetaker_name
+        ),
+        events!notetaker_queue_event_id_fkey (
+          conference_url
+        )
+      `)
+      .eq('status', 'pending')
+      .lt('scheduled_for', new Date().toISOString())
+      .order('scheduled_for', { ascending: true })
+      .limit(10);
 
     if (queueError) {
-      console.error('Error reading from queue:', queueError)
+      console.error('Error fetching queue items:', queueError)
       throw queueError
     }
 
-    console.log(`Processing ${messages?.length || 0} messages from queue`)
+    console.log(`Processing ${queueItems?.length || 0} pending notetaker requests`)
 
-    // Process each message
-    for (const msg of messages || []) {
+    // Process each queue item
+    for (const item of queueItems || []) {
       try {
-        const payload = JSON.parse(msg.message_body)
-        console.log('Processing message:', payload)
+        const profile = item.profiles
+        const event = item.events
+
+        if (!profile?.nylas_grant_id || !event?.conference_url) {
+          console.error('Missing required data:', { 
+            grantId: profile?.nylas_grant_id, 
+            conferenceUrl: event?.conference_url 
+          })
+          continue
+        }
+
+        // Prepare the notetaker request payload
+        const notetakerPayload = {
+          meeting_link: event.conference_url,
+          notetaker_name: profile.notetaker_name || 'Nylas Notetaker',
+          join_time: Math.floor(new Date().getTime() / 1000) // Current time in Unix timestamp
+        }
+
+        console.log('Sending notetaker request:', {
+          grantId: profile.nylas_grant_id,
+          payload: notetakerPayload
+        })
 
         // Send notetaker to the meeting
         const response = await fetch(
-          `${NYLAS_API_URL}/v3/grants/${payload.grant_id}/notetakers`,
+          `${NYLAS_API_URL}/v3/grants/${profile.nylas_grant_id}/notetakers`,
           {
             method: 'POST',
             headers: {
@@ -45,22 +77,18 @@ Deno.serve(async (req) => {
               'Content-Type': 'application/json',
               'Accept': 'application/json',
             },
-            body: JSON.stringify({
-              meeting_link: payload.meeting_link,
-              notetaker_name: payload.notetaker_name,
-              join_time: payload.join_time
-            })
+            body: JSON.stringify(notetakerPayload)
           }
         )
 
+        const responseData = await response.json()
+
         if (!response.ok) {
-          const error = await response.json()
-          console.error('Nylas API error:', error)
-          throw new Error('Failed to send notetaker')
+          console.error('Nylas API error:', responseData)
+          throw new Error(responseData.message || 'Failed to send notetaker')
         }
 
-        const { data: notetakerData } = await response.json()
-        console.log('Notetaker sent successfully:', notetakerData)
+        console.log('Notetaker sent successfully:', responseData)
 
         // Update queue item status
         await supabaseClient
@@ -68,36 +96,23 @@ Deno.serve(async (req) => {
           .update({
             status: 'completed',
             last_attempt: new Date().toISOString(),
-            attempts: 1
+            attempts: (item.attempts || 0) + 1
           })
-          .eq('event_id', payload.event_id)
-
-        // Acknowledge the message
-        await supabaseClient.rpc('pgmq_ack', {
-          queue_name: 'notetaker_requests',
-          message_id: msg.message_id
-        })
+          .eq('id', item.id)
 
       } catch (error) {
-        console.error('Error processing message:', error)
+        console.error('Error processing queue item:', error)
 
         // Update queue item with error
         await supabaseClient
           .from('notetaker_queue')
           .update({
-            status: 'error',
+            status: 'failed',
             error: error.message,
             last_attempt: new Date().toISOString(),
-            attempts: 1
+            attempts: (item.attempts || 0) + 1
           })
-          .eq('event_id', payload.event_id)
-
-        // Return message to queue for retry
-        await supabaseClient.rpc('pgmq_return', {
-          queue_name: 'notetaker_requests',
-          message_id: msg.message_id,
-          visibility_timeout: 300 // 5 minutes
-        })
+          .eq('id', item.id)
       }
     }
 
