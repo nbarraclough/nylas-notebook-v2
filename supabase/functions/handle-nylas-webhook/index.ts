@@ -49,6 +49,29 @@ Deno.serve(async (req) => {
     const { delta } = webhookEvent
     const grantId = delta.grant_id
 
+    // If we have a grant_id, check if we have a matching profile
+    if (grantId) {
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('nylas_grant_id', grantId)
+        .maybeSingle()
+
+      if (profileError) {
+        console.error('Error checking profile:', profileError)
+        throw profileError
+      }
+
+      // If we don't have a matching profile, log and return early
+      if (!profile) {
+        console.log(`No profile found for grant_id: ${grantId}. Skipping webhook processing.`)
+        return new Response(
+          JSON.stringify({ message: 'No matching profile found for grant_id' }), 
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
     // Handle different webhook events
     switch (delta.type) {
       case 'event.created':
@@ -102,27 +125,10 @@ Deno.serve(async (req) => {
         break
 
       case 'grant.created':
-        if (grantId) {
-          console.log('Processing grant.created:', grantId)
-          const { error: createError } = await supabaseAdmin
-            .from('profiles')
-            .update({ 
-              grant_status: 'active',
-              updated_at: new Date().toISOString()
-            })
-            .eq('nylas_grant_id', grantId)
-
-          if (createError) {
-            console.error('Error updating grant status:', createError)
-            throw createError
-          }
-        }
-        break
-
       case 'grant.updated':
         if (grantId) {
-          console.log('Processing grant.updated:', grantId)
-          const { error: updateGrantError } = await supabaseAdmin
+          console.log(`Processing ${delta.type}:`, grantId)
+          const { error: grantError } = await supabaseAdmin
             .from('profiles')
             .update({ 
               grant_status: 'active',
@@ -130,9 +136,9 @@ Deno.serve(async (req) => {
             })
             .eq('nylas_grant_id', grantId)
 
-          if (updateGrantError) {
-            console.error('Error updating grant status:', updateGrantError)
-            throw updateGrantError
+          if (grantError) {
+            console.error(`Error updating grant status for ${delta.type}:`, grantError)
+            throw grantError
           }
         }
         break
