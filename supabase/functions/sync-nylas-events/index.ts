@@ -1,23 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 import { corsHeaders } from '../_shared/cors.ts'
+import { processEvent } from './event-processor.ts';
 
 const NYLAS_API_URL = 'https://api-staging.us.nylas.com'
-
-// Helper function to safely convert Unix timestamp to ISO string
-const safeTimestampToISO = (timestamp: number | null | undefined): string | null => {
-  if (!timestamp) return null;
-  try {
-    // Check if timestamp is within valid range (1970 to 2100)
-    if (timestamp < 0 || timestamp > 4102444800) { // 4102444800 is 2100-01-01
-      console.error('Invalid timestamp value:', timestamp);
-      return null;
-    }
-    return new Date(timestamp * 1000).toISOString();
-  } catch (error) {
-    console.error('Error converting timestamp:', timestamp, error);
-    return null;
-  }
-};
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -109,82 +94,9 @@ Deno.serve(async (req) => {
       existingEvents?.map(event => [event.nylas_event_id, new Date(event.last_updated_at)]) || []
     )
 
-    // Store events in database
+    // Process each event
     for (const event of events) {
-      try {
-        // Extract and validate start/end times from the when object
-        const startTime = safeTimestampToISO(event.when?.start_time);
-        const endTime = safeTimestampToISO(event.when?.end_time);
-
-        // Skip events without valid start/end times
-        if (!startTime || !endTime) {
-          console.warn('Skipping event due to invalid timestamps:', event.id);
-          continue;
-        }
-
-        // Get conference URL from the correct location in the Nylas API response
-        const conferenceUrl = event.conferencing?.details?.url || null;
-        console.log('Event:', event.id, 'Raw conferencing data:', JSON.stringify(event.conferencing));
-        console.log('Conference URL for event:', event.id, conferenceUrl);
-
-        // Check if event exists and compare last_updated_at
-        const existingEventLastUpdated = existingEventsMap.get(event.id);
-        const eventLastUpdated = safeTimestampToISO(event.updated_at);
-
-        if (!eventLastUpdated) {
-          console.warn('Skipping event due to invalid updated_at timestamp:', event.id);
-          continue;
-        }
-
-        // Skip if event exists and hasn't been updated
-        if (existingEventLastUpdated && new Date(eventLastUpdated) <= existingEventLastUpdated) {
-          console.log('Skipping event as it has not been updated:', event.id);
-          continue;
-        }
-
-        // Safely extract and transform event data
-        const eventData = {
-          user_id,
-          nylas_event_id: event.id,
-          title: event.title || 'Untitled Event',
-          description: event.description || null,
-          location: event.location || null,
-          start_time: startTime,
-          end_time: endTime,
-          participants: Array.isArray(event.participants) ? event.participants : [],
-          conference_url: conferenceUrl,
-          last_updated_at: eventLastUpdated,
-          ical_uid: event.ical_uid || null,
-          busy: event.busy === false ? false : true, // Default to true if undefined
-          html_link: event.html_link || null,
-          master_event_id: event.master_event_id || null,
-          organizer: event.organizer || null,
-          resources: Array.isArray(event.resources) ? event.resources : [],
-          read_only: event.read_only || false,
-          reminders: event.reminders || {},
-          recurrence: Array.isArray(event.recurrence) ? event.recurrence : null,
-          status: event.status || null,
-          visibility: event.visibility || 'default',
-          original_start_time: safeTimestampToISO(event.original_start_time),
-        };
-
-        const { error: upsertError } = await supabaseClient
-          .from('events')
-          .upsert(eventData, {
-            onConflict: 'nylas_event_id',
-          });
-
-        if (upsertError) {
-          console.error('Error upserting event:', upsertError);
-          console.error('Failed event data:', JSON.stringify(eventData, null, 2));
-        } else {
-          console.log('Successfully upserted event:', event.id);
-        }
-      } catch (error) {
-        console.error('Error processing event:', event.id, error);
-        // Continue with next event instead of failing the entire sync
-        continue;
-      }
+      await processEvent(event, existingEventsMap, user_id, supabaseClient);
     }
 
     console.log('Successfully synced events to database');
