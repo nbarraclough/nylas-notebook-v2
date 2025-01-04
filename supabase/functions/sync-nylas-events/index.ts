@@ -103,7 +103,8 @@ Deno.serve(async (req) => {
         }
 
         // Get conference URL from the correct location in the Nylas API response
-        const conferenceUrl = event.conference_data?.conference_url || null;
+        const conferenceUrl = event.conferencing?.url || null;
+        console.log('Event:', event.id, 'Raw conferencing data:', JSON.stringify(event.conferencing));
         console.log('Conference URL for event:', event.id, conferenceUrl);
 
         // Safely extract and transform event data
