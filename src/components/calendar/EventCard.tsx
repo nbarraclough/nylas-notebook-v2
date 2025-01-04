@@ -7,17 +7,27 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
 import { format } from "date-fns";
+import { useEffect, useState } from "react";
+import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import type { EventParticipant, EventOrganizer } from "@/types/calendar";
 
 type Event = Database['public']['Tables']['events']['Row'];
+type Profile = Database['public']['Tables']['profiles']['Row'];
 
 interface EventCardProps {
   event: Event;
+  userId: string;
 }
 
-export const EventCard = ({ event }: EventCardProps) => {
-  const participants = (Array.isArray(event.participants) ? event.participants : []) as EventParticipant[];
+export const EventCard = ({ event, userId }: EventCardProps) => {
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [isQueued, setIsQueued] = useState(false);
+
+  const participants = event.participants as EventParticipant[];
   const organizer = event.organizer as EventOrganizer;
   
   const isInternalMeeting = participants.every(participant => {
@@ -26,9 +36,128 @@ export const EventCard = ({ event }: EventCardProps) => {
     return organizerDomain && participantDomain && organizerDomain === participantDomain;
   });
 
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return;
+      }
+
+      setProfile(data);
+    };
+
+    const checkQueueStatus = async () => {
+      const { data, error } = await supabase
+        .from('notetaker_queue')
+        .select('id')
+        .eq('event_id', event.id)
+        .eq('user_id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error checking queue status:', error);
+        return;
+      }
+
+      setIsQueued(!!data);
+    };
+
+    fetchProfile();
+    checkQueueStatus();
+  }, [userId, event.id]);
+
+  const shouldAutoRecord = () => {
+    if (!profile) return false;
+    
+    if (isInternalMeeting && profile.record_internal_meetings) return true;
+    if (!isInternalMeeting && profile.record_external_meetings) return true;
+    
+    return false;
+  };
+
+  const handleRecordingToggle = async () => {
+    if (!event.conference_url) {
+      toast({
+        title: "Error",
+        description: "This event doesn't have a conference URL.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!profile?.nylas_grant_id) {
+      toast({
+        title: "Error",
+        description: "Nylas connection not found. Please connect your calendar first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      if (!isQueued) {
+        // Add to queue
+        const { error } = await supabase
+          .from('notetaker_queue')
+          .insert({
+            user_id: userId,
+            event_id: event.id,
+            scheduled_for: event.start_time,
+          });
+
+        if (error) throw error;
+
+        setIsQueued(true);
+        toast({
+          title: "Success",
+          description: "Meeting scheduled for recording!",
+        });
+      } else {
+        // Remove from queue
+        const { error } = await supabase
+          .from('notetaker_queue')
+          .delete()
+          .eq('event_id', event.id)
+          .eq('user_id', userId);
+
+        if (error) throw error;
+
+        setIsQueued(false);
+        toast({
+          title: "Success",
+          description: "Meeting removed from recording queue.",
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling recording:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update recording status. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const formatTimeRange = (start: string, end: string) => {
     return `${format(new Date(start), 'MMM d, yyyy, h:mm a')} - ${format(new Date(end), 'h:mm a')}`;
   };
+
+  // Auto-queue recording if rules match
+  useEffect(() => {
+    if (shouldAutoRecord() && !isQueued && event.conference_url) {
+      handleRecordingToggle();
+    }
+  }, [profile?.record_internal_meetings, profile?.record_external_meetings]);
 
   return (
     <Card className="mb-4">
@@ -74,7 +203,11 @@ export const EventCard = ({ event }: EventCardProps) => {
           
           <div className="flex items-center space-x-2">
             <span className="text-sm text-muted-foreground">Record</span>
-            <Switch />
+            <Switch 
+              checked={isQueued}
+              onCheckedChange={handleRecordingToggle}
+              disabled={isLoading || !event.conference_url}
+            />
           </div>
         </div>
       </CardContent>

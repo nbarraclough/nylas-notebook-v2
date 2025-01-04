@@ -72,7 +72,11 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents }: E
           ) : events && events.length > 0 ? (
             <div className="space-y-4">
               {events.map((event) => (
-                <EventCard key={event.id} event={event} />
+                <EventCard 
+                  key={event.id} 
+                  event={event}
+                  userId={userId}
+                />
               ))}
             </div>
           ) : (
