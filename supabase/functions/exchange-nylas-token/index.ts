@@ -45,6 +45,7 @@ serve(async (req) => {
         client_id: clientId,
         client_secret: clientSecret,
         code: code,
+        grant_type: 'authorization_code'  // Added this required parameter
       }),
     })
 
