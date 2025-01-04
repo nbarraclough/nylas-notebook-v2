@@ -10,45 +10,34 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Initialize Supabase client
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get queue items that are due to be processed
-    const { data: queueItems, error: queueError } = await supabaseClient
-      .from('notetaker_queue')
-      .select(`
-        *,
-        events (
-          conference_url,
-          start_time
-        ),
-        profiles (
-          nylas_grant_id,
-          notetaker_name
-        )
-      `)
-      .eq('status', 'pending')
-      .lte('scheduled_for', new Date().toISOString())
+    // Read messages from the queue
+    const { data: messages, error: queueError } = await supabaseClient.rpc(
+      'pgmq_dequeue',
+      { queue_name: 'notetaker_requests', max_count: 10 }
+    )
 
     if (queueError) {
-      console.error('Error fetching queue items:', queueError)
+      console.error('Error reading from queue:', queueError)
       throw queueError
     }
 
-    console.log(`Processing ${queueItems?.length || 0} queue items`)
+    console.log(`Processing ${messages?.length || 0} messages from queue`)
 
-    for (const item of queueItems || []) {
+    // Process each message
+    for (const msg of messages || []) {
       try {
-        if (!item.events?.conference_url || !item.profiles?.nylas_grant_id) {
-          console.error('Missing required data for queue item:', item.id)
-          continue
-        }
+        const payload = JSON.parse(msg.message_body)
+        console.log('Processing message:', payload)
 
         // Send notetaker to the meeting
         const response = await fetch(
-          `${NYLAS_API_URL}/v3/grants/${item.profiles.nylas_grant_id}/notetakers`,
+          `${NYLAS_API_URL}/v3/grants/${payload.grant_id}/notetakers`,
           {
             method: 'POST',
             headers: {
@@ -57,9 +46,9 @@ Deno.serve(async (req) => {
               'Accept': 'application/json',
             },
             body: JSON.stringify({
-              meeting_link: item.events.conference_url,
-              notetaker_name: item.profiles.notetaker_name || 'Nylas Notetaker',
-              join_time: Math.floor(new Date(item.events.start_time).getTime() / 1000)
+              meeting_link: payload.meeting_link,
+              notetaker_name: payload.notetaker_name,
+              join_time: payload.join_time
             })
           }
         )
@@ -71,6 +60,7 @@ Deno.serve(async (req) => {
         }
 
         const { data: notetakerData } = await response.json()
+        console.log('Notetaker sent successfully:', notetakerData)
 
         // Update queue item status
         await supabaseClient
@@ -78,14 +68,18 @@ Deno.serve(async (req) => {
           .update({
             status: 'completed',
             last_attempt: new Date().toISOString(),
-            attempts: (item.attempts || 0) + 1
+            attempts: 1
           })
-          .eq('id', item.id)
+          .eq('event_id', payload.event_id)
 
-        console.log('Successfully processed queue item:', item.id)
+        // Acknowledge the message
+        await supabaseClient.rpc('pgmq_ack', {
+          queue_name: 'notetaker_requests',
+          message_id: msg.message_id
+        })
 
       } catch (error) {
-        console.error('Error processing queue item:', item.id, error)
+        console.error('Error processing message:', error)
 
         // Update queue item with error
         await supabaseClient
@@ -94,9 +88,16 @@ Deno.serve(async (req) => {
             status: 'error',
             error: error.message,
             last_attempt: new Date().toISOString(),
-            attempts: (item.attempts || 0) + 1
+            attempts: 1
           })
-          .eq('id', item.id)
+          .eq('event_id', payload.event_id)
+
+        // Return message to queue for retry
+        await supabaseClient.rpc('pgmq_return', {
+          queue_name: 'notetaker_requests',
+          message_id: msg.message_id,
+          visibility_timeout: 300 // 5 minutes
+        })
       }
     }
 

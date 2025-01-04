@@ -235,6 +235,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      should_record_event: {
+        Args: {
+          event_organizer: Json
+          event_participants: Json
+          record_internal: boolean
+          record_external: boolean
+        }
+        Returns: boolean
+      }
       update_profile_grant_id: {
         Args: {
           p_user_id: string
