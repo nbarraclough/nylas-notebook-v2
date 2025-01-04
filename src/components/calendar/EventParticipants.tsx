@@ -8,10 +8,11 @@ import type { EventParticipant, EventOrganizer } from "@/types/calendar";
 
 interface EventParticipantsProps {
   participants: EventParticipant[];
+  organizer?: EventOrganizer;
   isInternalMeeting: boolean;
 }
 
-export const EventParticipants = ({ participants, isInternalMeeting }: EventParticipantsProps) => {
+export const EventParticipants = ({ participants, organizer, isInternalMeeting }: EventParticipantsProps) => {
   return (
     <HoverCard>
       <HoverCardTrigger>
@@ -26,6 +27,11 @@ export const EventParticipants = ({ participants, isInternalMeeting }: EventPart
       <HoverCardContent className="w-80">
         <div className="space-y-2">
           <h4 className="text-sm font-semibold">Participants</h4>
+          {organizer && (
+            <div className="text-sm text-muted-foreground font-medium">
+              Organizer: {organizer.name} ({organizer.email})
+            </div>
+          )}
           <div className="text-sm space-y-1">
             {participants.map((participant, index) => (
               <div key={index} className="text-muted-foreground">

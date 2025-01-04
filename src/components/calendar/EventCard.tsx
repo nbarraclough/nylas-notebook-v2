@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,7 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
   };
 
   // Load initial queue status
-  useState(() => {
+  useEffect(() => {
     checkQueueStatus();
   }, [event.id, userId]);
 
@@ -95,6 +95,7 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
         <EventParticipants 
           participants={event.participants as any[]} 
           organizer={event.organizer as any}
+          isInternalMeeting={false}
         />
       </CardContent>
     </Card>
