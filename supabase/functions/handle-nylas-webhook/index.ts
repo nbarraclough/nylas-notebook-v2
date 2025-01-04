@@ -35,7 +35,6 @@ serve(async (req) => {
     const webhookSecret = Deno.env.get('NYLAS_WEBHOOK_SECRET');
     if (!webhookSecret) {
       console.error('❌ NYLAS_WEBHOOK_SECRET not configured');
-      // Return 200 to acknowledge receipt even if we can't process it
       return new Response(
         JSON.stringify({ 
           success: false,
@@ -53,7 +52,6 @@ serve(async (req) => {
     const signature = req.headers.get('x-nylas-signature') || req.headers.get('X-Nylas-Signature');
     if (!signature) {
       console.error('❌ No signature in webhook request');
-      // Return 200 to acknowledge receipt even without signature
       return new Response(
         JSON.stringify({ 
           success: false,
@@ -71,7 +69,6 @@ serve(async (req) => {
     const rawBody = await req.text();
     const webhookData = logWebhookBody(rawBody);
     if (!webhookData) {
-      // Return 200 to acknowledge receipt even with invalid data
       return new Response(
         JSON.stringify({ 
           success: false,
@@ -91,7 +88,6 @@ serve(async (req) => {
 
     if (!isValid) {
       console.error('❌ Invalid webhook signature');
-      // Return 200 to acknowledge receipt even with invalid signature
       return new Response(
         JSON.stringify({ 
           success: false,
@@ -158,8 +154,8 @@ serve(async (req) => {
         }
       );
     } catch (error) {
+      // Log the error but still return 200 to acknowledge receipt
       console.error(`❌ Error processing ${webhookData.type} webhook:`, error);
-      // Return 200 to acknowledge receipt even if processing failed
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -174,9 +170,9 @@ serve(async (req) => {
     }
 
   } catch (error) {
+    // Log the error but still return 200 to acknowledge receipt
     console.error('❌ Fatal error processing webhook:', error);
     console.error('Error stack:', error.stack);
-    // Return 200 to acknowledge receipt even with fatal error
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error', 

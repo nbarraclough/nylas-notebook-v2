@@ -12,6 +12,8 @@ const supabaseAdmin = createClient(
 );
 
 export const findUserByGrant = async (grantId: string) => {
+  console.log('Looking up user for grant ID:', grantId);
+  
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
     .select('id')
@@ -19,6 +21,10 @@ export const findUserByGrant = async (grantId: string) => {
     .single();
 
   if (profileError) {
+    if (profileError.code === 'PGRST116') {
+      console.log(`No user found for grant ID: ${grantId}. This is expected for unknown grants.`);
+      return null;
+    }
     console.error('Error finding user for grant:', profileError);
     throw profileError;
   }

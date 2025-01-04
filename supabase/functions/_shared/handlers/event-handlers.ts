@@ -71,8 +71,8 @@ export const handleEventCreated = async (objectData: any, grantId: string) => {
   // Find user associated with this grant
   const profile = await findUserByGrant(grantId);
   if (!profile) {
-    console.error('No profile found for grant:', grantId);
-    throw new Error('No profile found for grant');
+    console.log(`Skipping event.created for unknown grant: ${grantId}`);
+    return;
   }
 
   console.log('Found profile for event.created:', profile);
@@ -107,8 +107,8 @@ export const handleEventUpdated = async (objectData: any, grantId: string) => {
   // Find user associated with this grant
   const profile = await findUserByGrant(grantId);
   if (!profile) {
-    console.error('No profile found for grant:', grantId);
-    throw new Error('No profile found for grant');
+    console.log(`Skipping event.updated for unknown grant: ${grantId}`);
+    return;
   }
 
   console.log('Found profile for event.updated:', profile);
@@ -148,8 +148,8 @@ export const handleEventDeleted = async (objectData: any, grantId: string) => {
   // Find user associated with this grant
   const profile = await findUserByGrant(grantId);
   if (!profile) {
-    console.error('No profile found for grant:', grantId);
-    throw new Error('No profile found for grant');
+    console.log(`Skipping event.deleted for unknown grant: ${grantId}`);
+    return;
   }
 
   // Delete the event (cascade will handle queue items)
