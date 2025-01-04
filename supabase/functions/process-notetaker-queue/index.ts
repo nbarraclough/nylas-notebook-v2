@@ -58,8 +58,7 @@ Deno.serve(async (req) => {
         // Prepare the notetaker request payload
         const notetakerPayload = {
           meeting_link: event.conference_url,
-          notetaker_name: profile.notetaker_name || 'Nylas Notetaker',
-          join_time: Math.floor(new Date().getTime() / 1000) // Current time in Unix timestamp
+          notetaker_name: profile.notetaker_name || 'Nylas Notetaker'
         }
 
         console.log('Sending notetaker request:', {
