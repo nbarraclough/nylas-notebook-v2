@@ -4,6 +4,7 @@ import { corsHeaders } from '../_shared/cors.ts'
 const NYLAS_API_URL = 'https://api.us.nylas.com'
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -14,6 +15,8 @@ Deno.serve(async (req) => {
     if (!user_id) {
       throw new Error('user_id is required')
     }
+
+    console.log('Syncing events for user:', user_id)
 
     // Initialize Supabase client
     const supabaseClient = createClient(
@@ -29,8 +32,11 @@ Deno.serve(async (req) => {
       .single()
 
     if (profileError || !profile?.nylas_grant_id) {
+      console.error('Failed to get Nylas grant_id:', profileError)
       throw new Error('Failed to get Nylas grant_id')
     }
+
+    console.log('Found Nylas grant_id:', profile.nylas_grant_id)
 
     // Calculate date range (1 day ago to 3 months from now)
     const startDate = new Date()
@@ -38,6 +44,8 @@ Deno.serve(async (req) => {
     
     const endDate = new Date()
     endDate.setMonth(endDate.getMonth() + 3)
+
+    console.log('Fetching events from', startDate.toISOString(), 'to', endDate.toISOString())
 
     // Fetch events from Nylas
     const response = await fetch(
@@ -58,6 +66,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: events } = await response.json()
+    console.log('Fetched', events.length, 'events from Nylas')
 
     // Store events in database
     for (const event of events) {
@@ -82,6 +91,8 @@ Deno.serve(async (req) => {
         console.error('Error upserting event:', upsertError)
       }
     }
+
+    console.log('Successfully synced events to database')
 
     return new Response(
       JSON.stringify({ message: 'Events synced successfully' }),
