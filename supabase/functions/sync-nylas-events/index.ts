@@ -56,9 +56,9 @@ serve(async (req) => {
       throw new Error('Nylas API key not configured')
     }
 
-    // Fetch events from Nylas
+    // Fetch events from Nylas with calendar_id=primary parameter
     console.log('Fetching events from Nylas...')
-    const eventsResponse = await fetch(`https://api-staging.us.nylas.com/v3/grants/${profile.nylas_grant_id}/events?limit=100`, {
+    const eventsResponse = await fetch(`https://api-staging.us.nylas.com/v3/grants/${profile.nylas_grant_id}/events?calendar_id=primary&limit=100`, {
       headers: {
         'Authorization': `Bearer ${NYLAS_API_KEY}`,
         'Content-Type': 'application/json',
