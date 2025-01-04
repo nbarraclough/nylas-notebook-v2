@@ -118,7 +118,10 @@ serve(async (req) => {
     // Update user's profile with grant_id
     const { error: updateError } = await supabase
       .from('profiles')
-      .update({ nylas_grant_id: grant_id })
+      .update({ 
+        nylas_grant_id: grant_id,
+        updated_at: new Date().toISOString()
+      })
       .eq('id', user.id)
 
     if (updateError) {
