@@ -111,12 +111,14 @@ Deno.serve(async (req) => {
           throw new Error(responseData.message || `Failed to send notetaker: ${response.status}`)
         }
 
-        if (!responseData.id) {
+        // Extract notetaker_id from the new response structure
+        const notetakerId = responseData.data?.notetaker_id
+        if (!notetakerId) {
           throw new Error('No notetaker ID received from Nylas')
         }
 
         console.log('Notetaker sent successfully:', {
-          notetakerId: responseData.id,
+          notetakerId,
           eventTitle: event.title
         })
 
@@ -127,7 +129,7 @@ Deno.serve(async (req) => {
             status: 'completed',
             last_attempt: new Date().toISOString(),
             attempts: (item.attempts || 0) + 1,
-            notetaker_id: responseData.id
+            notetaker_id: notetakerId
           })
           .eq('id', item.id)
 
@@ -142,7 +144,7 @@ Deno.serve(async (req) => {
           .insert({
             user_id: item.user_id,
             event_id: item.event_id,
-            notetaker_id: responseData.id,
+            notetaker_id: notetakerId,
             recording_url: '', // Will be updated when recording is ready
             status: 'pending'
           })
