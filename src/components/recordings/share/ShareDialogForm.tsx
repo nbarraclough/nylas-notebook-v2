@@ -18,9 +18,7 @@ export function ShareDialogForm({ recordingId, onSuccess }: ShareDialogFormProps
   const [externalShareUrl, setExternalShareUrl] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
   const [password, setPassword] = useState("");
-  const [expiryDate, setExpiryDate] = useState<Date | undefined>(undefined);
   const [isPasswordEnabled, setIsPasswordEnabled] = useState(false);
-  const [isExpiryEnabled, setIsExpiryEnabled] = useState(false);
 
   const handleShare = async () => {
     try {
@@ -107,8 +105,7 @@ export function ShareDialogForm({ recordingId, onSuccess }: ShareDialogFormProps
             recording_id: recordingId,
             share_type: 'external',
             shared_by: session.user.id,
-            password: isPasswordEnabled ? password : null,
-            expires_at: isExpiryEnabled ? expiryDate?.toISOString() : null
+            password: isPasswordEnabled ? password : null
           };
 
           const { data: newShare, error: externalError } = await supabase
@@ -181,10 +178,6 @@ export function ShareDialogForm({ recordingId, onSuccess }: ShareDialogFormProps
         onPasswordToggle={setIsPasswordEnabled}
         password={password}
         onPasswordChange={setPassword}
-        isExpiryEnabled={isExpiryEnabled}
-        onExpiryToggle={setIsExpiryEnabled}
-        expiryDate={expiryDate}
-        onExpiryDateChange={setExpiryDate}
         publicUrl={externalShareUrl}
         onCopyLink={handleCopyLink}
         isCopied={isCopied}

@@ -2,10 +2,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Copy, Check, Calendar } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { format } from "date-fns";
+import { Copy, Check } from "lucide-react";
 
 interface PublicLinkShareProps {
   isEnabled: boolean;
@@ -14,10 +11,6 @@ interface PublicLinkShareProps {
   onPasswordToggle: (enabled: boolean) => void;
   password: string;
   onPasswordChange: (password: string) => void;
-  isExpiryEnabled: boolean;
-  onExpiryToggle: (enabled: boolean) => void;
-  expiryDate: Date | undefined;
-  onExpiryDateChange: (date: Date | undefined) => void;
   publicUrl: string | null;
   onCopyLink: () => void;
   isCopied: boolean;
@@ -30,10 +23,6 @@ export function PublicLinkShare({
   onPasswordToggle,
   password,
   onPasswordChange,
-  isExpiryEnabled,
-  onExpiryToggle,
-  expiryDate,
-  onExpiryDateChange,
   publicUrl,
   onCopyLink,
   isCopied,
@@ -75,46 +64,6 @@ export function PublicLinkShare({
               value={password}
               onChange={(e) => onPasswordChange(e.target.value)}
             />
-          )}
-
-          <div className="flex items-center justify-between space-x-2">
-            <div className="space-y-0.5">
-              <Label>Set Expiry Date</Label>
-              <p className="text-sm text-muted-foreground">
-                Link will expire after this date
-              </p>
-            </div>
-            <Switch
-              checked={isExpiryEnabled}
-              onCheckedChange={onExpiryToggle}
-            />
-          </div>
-
-          {isExpiryEnabled && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-left font-normal"
-                >
-                  <Calendar className="mr-2 h-4 w-4" />
-                  {expiryDate ? format(expiryDate, "PPP") : "Pick a date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent 
-                className="w-auto p-0 relative z-[9999]" 
-                onPointerDownOutside={(e) => e.preventDefault()}
-                onInteractOutside={(e) => e.preventDefault()}
-              >
-                <CalendarComponent
-                  mode="single"
-                  selected={expiryDate}
-                  onSelect={onExpiryDateChange}
-                  initialFocus
-                  disabled={(date) => date < new Date()}
-                />
-              </PopoverContent>
-            </Popover>
           )}
         </div>
       )}
