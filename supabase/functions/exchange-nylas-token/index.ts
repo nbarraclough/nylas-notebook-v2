@@ -33,7 +33,7 @@ serve(async (req) => {
       )
     }
 
-    console.log('Exchanging code for nylas_grant_id...')
+    console.log('Starting Nylas token exchange process...')
 
     // Get the origin from the request headers to construct the redirect URI
     const origin = req.headers.get('origin') || 'http://localhost:5173'
@@ -41,7 +41,8 @@ serve(async (req) => {
 
     console.log('Using redirect URI:', redirectUri)
 
-    // Exchange the code for a nylas_grant_id using the correct Nylas API URL
+    // Exchange the code for a nylas_grant_id
+    console.log('Making request to Nylas token endpoint...')
     const tokenResponse = await fetch('https://api.us.nylas.com/v3/connect/token', {
       method: 'POST',
       headers: {
@@ -57,7 +58,7 @@ serve(async (req) => {
     })
 
     const tokenData = await tokenResponse.json()
-    console.log('Nylas response:', tokenData)
+    console.log('Nylas token response:', JSON.stringify(tokenData, null, 2))
 
     if (!tokenResponse.ok) {
       console.error('Nylas token exchange error:', tokenData)
@@ -82,7 +83,7 @@ serve(async (req) => {
       )
     }
 
-    console.log('Received grant_id:', grant_id)
+    console.log('Successfully received grant_id from Nylas:', grant_id)
 
     // Create Supabase admin client with service role key
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
@@ -121,12 +122,13 @@ serve(async (req) => {
       )
     }
 
-    console.log('Updating profile with nylas_grant_id for user:', userId)
+    console.log('Starting profile update process for user:', userId)
 
     // First, verify the profile exists
+    console.log('Checking if profile exists...')
     const { data: existingProfile, error: profileError } = await supabase
       .from('profiles')
-      .select('id')
+      .select('id, nylas_grant_id')
       .eq('id', userId)
       .single()
 
@@ -152,7 +154,10 @@ serve(async (req) => {
       )
     }
 
+    console.log('Current profile state:', JSON.stringify(existingProfile, null, 2))
+
     // Update user's profile with nylas_grant_id using service role client
+    console.log('Updating profile with new nylas_grant_id:', grant_id)
     const { data: updateData, error: updateError } = await supabase
       .from('profiles')
       .update({ 
@@ -173,7 +178,7 @@ serve(async (req) => {
       )
     }
 
-    console.log('Successfully updated profile:', updateData)
+    console.log('Profile update result:', JSON.stringify(updateData, null, 2))
 
     return new Response(
       JSON.stringify({ success: true, grant_id }),
