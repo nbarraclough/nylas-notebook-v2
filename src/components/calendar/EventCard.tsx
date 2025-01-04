@@ -26,19 +26,26 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
   const { data: profile } = useQuery({
     queryKey: ['profile', userId],
     queryFn: async () => {
+      console.log('Fetching profile for user:', userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('nylas_grant_id')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching profile:', error);
+        throw error;
+      }
+      
+      console.log('Profile data:', data);
       return data;
     },
   });
 
   // Check if event is already in queue
   const checkQueueStatus = async () => {
+    console.log('Checking queue status for event:', event.id);
     const { data, error } = await supabase
       .from('notetaker_queue')
       .select('id')
@@ -51,6 +58,7 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
       return;
     }
 
+    console.log('Queue status:', data ? 'Queued' : 'Not queued');
     setIsQueued(!!data);
   };
 
@@ -67,6 +75,13 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
     ALLOWED_TAGS: ['p', 'b', 'i', 'em', 'strong', 'a', 'ul', 'ol', 'li', 'br'],
     ALLOWED_ATTR: ['href', 'target', 'rel']
   }) : '';
+
+  console.log('Rendering EventCard:', {
+    eventId: event.id,
+    hasConferenceUrl: !!event.conference_url,
+    nylasGrantId: profile?.nylas_grant_id,
+    isQueued
+  });
 
   return (
     <Card>

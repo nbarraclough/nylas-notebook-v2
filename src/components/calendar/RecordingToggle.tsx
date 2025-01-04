@@ -25,8 +25,18 @@ export const RecordingToggle = ({
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
+  console.log('RecordingToggle props:', {
+    isQueued,
+    eventId,
+    hasConferenceUrl,
+    scheduledFor,
+    nylasGrantId,
+    isLoading
+  });
+
   const handleRecordingToggle = async () => {
     if (!hasConferenceUrl) {
+      console.log('Toggle blocked: No conference URL');
       toast({
         title: "Error",
         description: "This event doesn't have a conference URL.",
@@ -36,6 +46,7 @@ export const RecordingToggle = ({
     }
 
     if (!nylasGrantId) {
+      console.log('Toggle blocked: No Nylas grant ID');
       toast({
         title: "Error",
         description: "Nylas connection not found. Please connect your calendar first.",
@@ -105,7 +116,7 @@ export const RecordingToggle = ({
       <Switch 
         checked={isQueued}
         onCheckedChange={handleRecordingToggle}
-        disabled={isLoading || !hasConferenceUrl}
+        disabled={isLoading || !hasConferenceUrl || !nylasGrantId}
       />
     </div>
   );
