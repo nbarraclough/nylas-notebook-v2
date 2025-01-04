@@ -93,15 +93,17 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
               {format(new Date(event.start_time), "MMM d, yyyy 'at' h:mm a")}
             </p>
           </div>
-          <RecordingToggle
-            isQueued={isQueued}
-            eventId={event.id}
-            userId={userId}
-            hasConferenceUrl={!!event.conference_url}
-            scheduledFor={event.start_time}
-            nylasGrantId={profile?.nylas_grant_id}
-            onToggle={handleQueueToggle}
-          />
+          {event.conference_url && (
+            <RecordingToggle
+              isQueued={isQueued}
+              eventId={event.id}
+              userId={userId}
+              hasConferenceUrl={!!event.conference_url}
+              scheduledFor={event.start_time}
+              nylasGrantId={profile?.nylas_grant_id}
+              onToggle={handleQueueToggle}
+            />
+          )}
         </div>
 
         {sanitizedDescription && (
