@@ -65,6 +65,9 @@ export default function Auth() {
     };
   }, [navigate, toast]);
 
+  // Get the current site URL for redirect
+  const siteUrl = window.location.origin;
+
   return (
     <PageLayout>
       <div className="flex items-center justify-center min-h-[80vh]">
@@ -89,6 +92,7 @@ export default function Auth() {
               }}
               theme="light"
               providers={[]}
+              redirectTo={`${siteUrl}/auth/callback`}
             />
           </CardContent>
         </Card>
