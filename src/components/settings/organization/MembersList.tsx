@@ -1,4 +1,4 @@
-import { UserPlus, Shield, UserMinus } from "lucide-react";
+import { Shield, UserMinus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -19,6 +19,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Member {
   user_id: string;
@@ -31,6 +37,7 @@ interface Member {
 interface MembersListProps {
   members: Member[];
   currentUserId: string;
+  isAdmin: boolean;
   onPromoteUser: (userId: string) => Promise<void>;
   onRemoveUser: (userId: string) => Promise<void>;
 }
@@ -38,6 +45,7 @@ interface MembersListProps {
 export const MembersList = ({ 
   members, 
   currentUserId, 
+  isAdmin,
   onPromoteUser, 
   onRemoveUser 
 }: MembersListProps) => {
@@ -47,7 +55,7 @@ export const MembersList = ({
         <TableRow>
           <TableHead>Email</TableHead>
           <TableHead>Role</TableHead>
-          <TableHead className="text-right">Actions</TableHead>
+          {isAdmin && <TableHead className="text-right">Actions</TableHead>}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -55,18 +63,26 @@ export const MembersList = ({
           <TableRow key={member.user_id}>
             <TableCell>{member.profiles.email}</TableCell>
             <TableCell>{member.role}</TableCell>
-            <TableCell className="text-right">
-              <div className="flex justify-end gap-2">
-                {member.role !== 'admin' && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onPromoteUser(member.user_id)}
-                  >
-                    <Shield className="h-4 w-4" />
-                  </Button>
-                )}
-                {member.user_id !== currentUserId && (
+            {isAdmin && member.user_id !== currentUserId && (
+              <TableCell className="text-right">
+                <div className="flex justify-end gap-2">
+                  {member.role !== 'admin' && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                        >
+                          <Shield className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => onPromoteUser(member.user_id)}>
+                          Promote to Admin
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
@@ -94,9 +110,9 @@ export const MembersList = ({
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
-                )}
-              </div>
-            </TableCell>
+                </div>
+              </TableCell>
+            )}
           </TableRow>
         ))}
       </TableBody>
