@@ -8,27 +8,37 @@ export const processEvent = async (
   supabaseAdmin: ReturnType<typeof createClient>
 ) => {
   try {
-    // Extract and validate start/end times from the when object
-    const startTime = safeTimestampToISO(event.when?.start_time);
-    const endTime = safeTimestampToISO(event.when?.end_time);
+    console.log('Processing event:', event.id, 'Raw event data:', JSON.stringify(event));
+
+    // For events from database, use start_time/end_time directly
+    // For events from Nylas API, use when object
+    const startTime = event.when ? safeTimestampToISO(event.when.start_time) : event.start_time;
+    const endTime = event.when ? safeTimestampToISO(event.when.end_time) : event.end_time;
 
     // Skip events without valid start/end times
     if (!startTime || !endTime) {
-      console.warn('Skipping event due to invalid timestamps:', event.id);
+      console.error('Skipping event due to invalid timestamps:', event.id, {
+        startTime,
+        endTime,
+        rawStartTime: event.when?.start_time || event.start_time,
+        rawEndTime: event.when?.end_time || event.end_time
+      });
       return;
     }
 
     // Get conference URL from the conferencing object in Nylas API response
-    const conferenceUrl = event.conferencing?.details?.url || null;
-    console.log('Event:', event.id, 'Raw conferencing data:', JSON.stringify(event.conferencing));
-    console.log('Conference URL extracted:', conferenceUrl);
+    // or use existing conference_url for database events
+    const conferenceUrl = event.conferencing?.details?.url || event.conference_url || null;
+    console.log('Event:', event.id, 'Conference URL:', conferenceUrl);
 
     // Check if event exists and compare last_updated_at
     const existingEventLastUpdated = existingEventsMap.get(event.id);
-    const eventLastUpdated = safeTimestampToISO(event.updated_at);
+    const eventLastUpdated = event.updated_at ? 
+      (event.when ? safeTimestampToISO(event.updated_at) : event.updated_at) : 
+      event.last_updated_at;
 
     if (!eventLastUpdated) {
-      console.warn('Skipping event due to invalid updated_at timestamp:', event.id);
+      console.error('Skipping event due to invalid updated_at timestamp:', event.id);
       return;
     }
 
@@ -61,7 +71,9 @@ export const processEvent = async (
       recurrence: Array.isArray(event.recurrence) ? event.recurrence : null,
       status: event.status || null,
       visibility: event.visibility || 'default',
-      original_start_time: safeTimestampToISO(event.original_start_time),
+      original_start_time: event.original_start_time ? 
+        (event.when ? safeTimestampToISO(event.original_start_time) : event.original_start_time) : 
+        null,
     };
 
     // Log the event data being upserted
@@ -70,6 +82,7 @@ export const processEvent = async (
       title: eventData.title,
       conference_url: eventData.conference_url,
       start_time: eventData.start_time,
+      end_time: eventData.end_time,
     });
 
     const { error: upsertError } = await supabaseAdmin
