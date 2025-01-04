@@ -8,6 +8,7 @@ import Calendar from "./pages/Calendar";
 import Queue from "./pages/Queue";
 import Recordings from "./pages/Recordings";
 import Settings from "./pages/Settings";
+import Shared from "./pages/Shared";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/queue" element={<Queue />} />
           <Route path="/recordings" element={<Recordings />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/shared" element={<Shared />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
