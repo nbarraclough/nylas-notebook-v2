@@ -1,13 +1,30 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { Users } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { EventParticipant } from "@/types/calendar";
+
+interface SharedRecording {
+  video_url: string;
+  id: string;
+  event: {
+    title: string;
+    description: string | null;
+    start_time: string;
+    end_time: string;
+    participants: EventParticipant[];
+  };
+}
 
 export function SharedVideoView() {
   const { token } = useParams();
   const { toast } = useToast();
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [recording, setRecording] = useState<SharedRecording | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -17,11 +34,14 @@ export function SharedVideoView() {
           .from('video_shares')
           .select(`
             recording:recordings (
+              id,
               video_url,
               event:events (
                 title,
                 description,
-                start_time
+                start_time,
+                end_time,
+                participants
               )
             )
           `)
@@ -29,7 +49,7 @@ export function SharedVideoView() {
           .maybeSingle();
 
         if (shareError) throw shareError;
-        if (!share) throw new Error('Share not found');
+        if (!share?.recording) throw new Error('Share not found');
 
         // Record the view
         await supabase
@@ -39,7 +59,7 @@ export function SharedVideoView() {
             external_viewer_ip: 'anonymous'
           });
 
-        setVideoUrl(share.recording.video_url);
+        setRecording(share.recording as SharedRecording);
       } catch (error) {
         console.error('Error fetching shared video:', error);
         toast({
@@ -65,7 +85,7 @@ export function SharedVideoView() {
     );
   }
 
-  if (!videoUrl) {
+  if (!recording) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Card className="w-full max-w-lg">
@@ -80,19 +100,65 @@ export function SharedVideoView() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-4xl">
-        <CardContent className="p-6">
-          <div className="aspect-video">
-            <video
-              src={videoUrl}
-              controls
-              className="w-full h-full rounded-lg"
-              autoPlay
-            />
-          </div>
-        </CardContent>
-      </Card>
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* Event Card */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex justify-between items-start">
+              <div className="space-y-1">
+                <h1 className="text-2xl font-semibold">{recording.event.title}</h1>
+                <p className="text-sm text-muted-foreground">
+                  {format(new Date(recording.event.start_time), "EEEE, MMMM d, yyyy 'at' h:mm a")} - {format(new Date(recording.event.end_time), "h:mm a")}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  {recording.event.participants?.length || 0} participants
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Video and Content Tabs */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="aspect-video mb-6">
+              <video
+                src={recording.video_url}
+                controls
+                className="w-full h-full rounded-lg"
+                autoPlay
+              />
+            </div>
+
+            <Tabs defaultValue="summary" className="w-full">
+              <TabsList>
+                <TabsTrigger value="summary">Summary</TabsTrigger>
+                <TabsTrigger value="transcript">Transcript</TabsTrigger>
+                <TabsTrigger value="action-items">Action Items</TabsTrigger>
+              </TabsList>
+              <TabsContent value="summary" className="mt-4">
+                <div className="prose prose-sm max-w-none">
+                  {recording.event.description || 'No summary available.'}
+                </div>
+              </TabsContent>
+              <TabsContent value="transcript" className="mt-4">
+                <div className="text-muted-foreground">
+                  Transcript will be available soon.
+                </div>
+              </TabsContent>
+              <TabsContent value="action-items" className="mt-4">
+                <div className="text-muted-foreground">
+                  No action items have been identified yet.
+                </div>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
