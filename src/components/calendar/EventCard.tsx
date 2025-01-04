@@ -13,6 +13,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import type { EventParticipant, EventOrganizer } from "@/types/calendar";
 
 type Event = Database['public']['Tables']['events']['Row'];
 
@@ -31,9 +32,12 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
 
   // Determine if meeting is internal
   const isInternalMeeting = (() => {
-    if (!event.organizer?.email || !event.participants?.length) return true;
-    const organizerDomain = event.organizer.email.split('@')[1];
-    return event.participants.every(participant => 
+    const organizer = event.organizer as EventOrganizer | null;
+    const participants = event.participants as EventParticipant[] | null;
+    
+    if (!organizer?.email || !participants?.length) return true;
+    const organizerDomain = organizer.email.split('@')[1];
+    return participants.every(participant => 
       participant.email.split('@')[1] === organizerDomain
     );
   })();
@@ -124,8 +128,8 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
             <div className="flex items-start gap-3">
               <div className="mt-1">
                 <EventParticipants 
-                  participants={event.participants as any[]} 
-                  organizer={event.organizer as any}
+                  participants={event.participants as EventParticipant[]} 
+                  organizer={event.organizer as EventOrganizer}
                   isInternalMeeting={isInternalMeeting}
                 />
               </div>
