@@ -31,6 +31,7 @@ export const CreateOrganization = ({ userId, userEmail, onOrganizationUpdate }: 
         return;
       }
 
+      // First create the organization
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .insert([{ name: orgName, domain }])
@@ -40,6 +41,15 @@ export const CreateOrganization = ({ userId, userEmail, onOrganizationUpdate }: 
       if (orgError) throw orgError;
       if (!org) throw new Error('Failed to create organization');
 
+      // Then update the user's profile with the organization ID
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ organization_id: org.id })
+        .eq('id', userId);
+
+      if (profileError) throw profileError;
+
+      // Finally add the user as an admin member
       const { error: memberError } = await supabase
         .from('organization_members')
         .insert([{
@@ -49,13 +59,6 @@ export const CreateOrganization = ({ userId, userEmail, onOrganizationUpdate }: 
         }]);
 
       if (memberError) throw memberError;
-
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ organization_id: org.id })
-        .eq('id', userId);
-
-      if (profileError) throw profileError;
 
       await onOrganizationUpdate();
       toast({
