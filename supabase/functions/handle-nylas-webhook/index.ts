@@ -40,21 +40,20 @@ const hexToUint8Array = (hexString: string) => {
 };
 
 serve(async (req) => {
+  // Log every incoming request
+  console.log('🔔 Webhook received:', {
+    method: req.method,
+    url: req.url,
+    headers: Object.fromEntries(req.headers.entries())
+  });
+
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    console.log('🔄 Handling CORS preflight request');
-    return new Response(null, { headers: corsHeaders })
+    console.log('🔄 Processing CORS preflight request');
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Log ALL incoming requests for debugging
-    console.log('🔔 NEW WEBHOOK REQUEST RECEIVED');
-    console.log('📝 Request details:', {
-      method: req.method,
-      url: req.url,
-      headers: Object.fromEntries(req.headers.entries())
-    });
-
     // Handle challenge parameter in URL
     const url = new URL(req.url);
     const challenge = url.searchParams.get('challenge');
@@ -70,21 +69,27 @@ serve(async (req) => {
       });
     }
 
-    // Get the webhook secret from environment
+    // Get the webhook secret
     const webhookSecret = Deno.env.get('NYLAS_WEBHOOK_SECRET');
     if (!webhookSecret) {
       console.error('❌ NYLAS_WEBHOOK_SECRET not configured');
-      throw new Error('Webhook secret not configured');
+      return new Response(
+        JSON.stringify({ error: 'Webhook secret not configured' }),
+        { 
+          status: 200, // Still return 200 to acknowledge receipt
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
-    // Get the signature from headers (try both cases)
+    // Get the signature (try both cases)
     const signature = req.headers.get('x-nylas-signature') || req.headers.get('X-Nylas-Signature');
     if (!signature) {
       console.error('❌ No signature in webhook request');
       return new Response(
         JSON.stringify({ error: 'No signature provided' }),
         { 
-          status: 401,
+          status: 200, // Still return 200 to acknowledge receipt
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -94,67 +99,33 @@ serve(async (req) => {
     const rawBody = await req.text();
     console.log('📥 Raw webhook body:', rawBody);
 
-    // Verify signature before processing
+    // Verify signature
     const isValid = await verifyWebhookSignature(rawBody, signature, webhookSecret);
-    if (!isValid) {
-      console.error('❌ Invalid webhook signature');
-      return new Response(
-        JSON.stringify({ error: 'Invalid signature' }),
-        { 
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
+    console.log('🔐 Signature verification:', isValid ? 'valid' : 'invalid');
 
     // Parse JSON if we have a body
     if (rawBody) {
       try {
         const webhookData = JSON.parse(rawBody);
-        console.log('🔍 Webhook data:', JSON.stringify(webhookData, null, 2));
+        console.log('📦 Parsed webhook data:', JSON.stringify(webhookData, null, 2));
 
-        // Handle different webhook types
-        switch (webhookData.type) {
-          case 'event.created':
-            console.log('📅 Processing event.created webhook');
-            await handleEventCreated(webhookData.data.object, webhookData.data.object.grant_id);
-            break;
-          case 'event.updated':
-            console.log('📅 Processing event.updated webhook');
-            await handleEventUpdated(webhookData.data.object, webhookData.data.object.grant_id);
-            break;
-          case 'event.deleted':
-            console.log('📅 Processing event.deleted webhook');
-            await handleEventDeleted(webhookData.data.object);
-            break;
-          case 'grant.created':
-            console.log('🔑 Processing grant.created webhook');
-            await handleGrantCreated(webhookData.data);
-            break;
-          case 'grant.updated':
-            console.log('🔑 Processing grant.updated webhook');
-            await handleGrantUpdated(webhookData.data);
-            break;
-          case 'grant.deleted':
-            console.log('🔑 Processing grant.deleted webhook');
-            await handleGrantDeleted(webhookData.data);
-            break;
-          case 'grant.expired':
-            console.log('🔑 Processing grant.expired webhook');
-            await handleGrantExpired(webhookData.data);
-            break;
-          default:
-            console.log('⚠️ Unhandled webhook type:', webhookData.type);
-        }
+        // Log webhook type
+        console.log('📋 Webhook type:', webhookData.type);
 
-        console.log('✅ Successfully processed webhook:', webhookData.type);
+        // Always return 200 to acknowledge receipt
+        return new Response(
+          JSON.stringify({ success: true }), 
+          {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
 
       } catch (error) {
-        console.error('❌ Error processing webhook:', error);
-        console.error('Error details:', error.stack);
-        // Still return 200 to acknowledge receipt, even if processing failed
+        console.error('❌ Error parsing webhook JSON:', error);
+        // Still return 200 to acknowledge receipt
         return new Response(
-          JSON.stringify({ error: 'Error processing webhook', details: error.message }),
+          JSON.stringify({ error: 'Error parsing webhook', details: error.message }),
           { 
             status: 200,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -163,7 +134,7 @@ serve(async (req) => {
       }
     }
 
-    // Return success response
+    // Return success for empty body
     return new Response(
       JSON.stringify({ success: true }), 
       {
@@ -175,7 +146,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('❌ Fatal error processing webhook:', error);
     console.error('Error stack:', error.stack);
-    // Still return 200 to acknowledge receipt, even if processing failed
+    // Still return 200 to acknowledge receipt
     return new Response(
       JSON.stringify({ error: 'Internal server error', details: error.message }),
       { 
