@@ -25,7 +25,7 @@ export const RecordingActions = ({
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
-        {videoUrl && status === 'completed' && (
+        {videoUrl && (
           <VideoPlayerDialog videoUrl={videoUrl} title={title} />
         )}
         {notetakerId && (
