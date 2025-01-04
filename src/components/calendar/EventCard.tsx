@@ -19,11 +19,20 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isQueued, setIsQueued] = useState(false);
 
-  const participants = event.participants as EventParticipant[];
-  const organizer = event.organizer as EventOrganizer;
+  // Type assertion for participants and organizer
+  const participants = (event.participants as any[] || []).map(p => ({
+    name: p.name || '',
+    email: p.email || ''
+  })) as EventParticipant[];
+
+  const organizer = event.organizer ? {
+    name: (event.organizer as any).name || '',
+    email: (event.organizer as any).email || ''
+  } as EventOrganizer : null;
   
   const isInternalMeeting = participants.every(participant => {
-    const organizerDomain = organizer?.email?.split('@')[1];
+    if (!organizer) return false;
+    const organizerDomain = organizer.email?.split('@')[1];
     const participantDomain = participant.email?.split('@')[1];
     return organizerDomain && participantDomain && organizerDomain === participantDomain;
   });
