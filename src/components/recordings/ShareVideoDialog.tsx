@@ -53,22 +53,38 @@ export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('organization_id')
-        .single();
+        .eq('id', session.user.id)
+        .maybeSingle();
 
       if (profileError) throw profileError;
 
       // Handle internal organization sharing
       if (isInternalEnabled && profile?.organization_id) {
-        const { error: internalError } = await supabase
+        // Check if internal share already exists
+        const { data: existingShare, error: checkError } = await supabase
           .from('video_shares')
-          .insert({
+          .select('id')
+          .match({
             recording_id: recordingId,
             share_type: 'internal',
-            organization_id: profile.organization_id,
-            shared_by: session.user.id
-          });
+            organization_id: profile.organization_id
+          })
+          .maybeSingle();
 
-        if (internalError) throw internalError;
+        if (checkError) throw checkError;
+
+        if (!existingShare) {
+          const { error: internalError } = await supabase
+            .from('video_shares')
+            .insert({
+              recording_id: recordingId,
+              share_type: 'internal',
+              organization_id: profile.organization_id,
+              shared_by: session.user.id
+            });
+
+          if (internalError) throw internalError;
+        }
 
         toast({
           title: "Shared with organization",
@@ -78,24 +94,45 @@ export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
 
       // Handle external sharing with public link
       if (isExternalEnabled) {
-        const shareData = {
-          recording_id: recordingId,
-          share_type: 'external',
-          shared_by: session.user.id,
-          password: isPasswordEnabled ? password : null,
-          expires_at: isExpiryEnabled ? expiryDate?.toISOString() : null
-        };
-
-        const { data: newShare, error: externalError } = await supabase
+        // Check if external share already exists
+        const { data: existingShare, error: checkError } = await supabase
           .from('video_shares')
-          .insert(shareData)
           .select('external_token')
-          .single();
+          .match({
+            recording_id: recordingId,
+            share_type: 'external'
+          })
+          .maybeSingle();
 
-        if (externalError) throw externalError;
+        if (checkError) throw checkError;
 
-        if (newShare?.external_token) {
-          const shareUrl = `${window.location.origin}/shared/${newShare.external_token}`;
+        let externalToken;
+
+        if (existingShare) {
+          externalToken = existingShare.external_token;
+        } else {
+          const shareData = {
+            recording_id: recordingId,
+            share_type: 'external',
+            shared_by: session.user.id,
+            password: isPasswordEnabled ? password : null,
+            expires_at: isExpiryEnabled ? expiryDate?.toISOString() : null
+          };
+
+          const { data: newShare, error: externalError } = await supabase
+            .from('video_shares')
+            .insert(shareData)
+            .select('external_token')
+            .maybeSingle();
+
+          if (externalError) throw externalError;
+          if (!newShare) throw new Error('Failed to create share');
+          
+          externalToken = newShare.external_token;
+        }
+
+        if (externalToken) {
+          const shareUrl = `${window.location.origin}/shared/${externalToken}`;
           setExternalShareUrl(shareUrl);
           toast({
             title: "Public link created",
