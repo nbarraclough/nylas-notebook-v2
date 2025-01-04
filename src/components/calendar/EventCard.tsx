@@ -74,10 +74,27 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
     setIsQueued(newState);
   };
 
-  const sanitizedDescription = event.description ? DOMPurify.sanitize(event.description, {
-    ALLOWED_TAGS: ['p', 'b', 'i', 'em', 'strong', 'a', 'ul', 'ol', 'li', 'br'],
-    ALLOWED_ATTR: ['href', 'target', 'rel']
-  }) : '';
+  // Format description text to handle URLs and preserve formatting
+  const formatDescription = (text: string | null) => {
+    if (!text) return '';
+    
+    // Convert URLs to anchor tags
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const textWithLinks = text.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+    
+    // Convert line breaks to <br> tags and preserve spacing
+    const textWithBreaks = textWithLinks
+      .replace(/\n/g, '<br>')
+      .replace(/\s{2,}/g, match => '&nbsp;'.repeat(match.length));
+
+    return DOMPurify.sanitize(textWithBreaks, {
+      ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'em', 'strong', 'a', 'ul', 'ol', 'li'],
+      ALLOWED_ATTR: ['href', 'target', 'rel'],
+      ALLOW_DATA_ATTR: false,
+    });
+  };
+
+  const sanitizedDescription = formatDescription(event.description);
 
   console.log('Rendering EventCard:', {
     eventId: event.id,
@@ -121,7 +138,7 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
 
           {sanitizedDescription && (
             <div 
-              className="text-sm text-muted-foreground prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_a]:text-primary [&_a]:underline [&_a]:hover:text-primary/80"
+              className="text-sm text-muted-foreground prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_a]:text-primary [&_a]:underline [&_a]:hover:text-primary/80 whitespace-pre-line"
               dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
             />
           )}
