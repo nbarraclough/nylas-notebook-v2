@@ -148,7 +148,7 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="mt-2 border-primary hover:bg-primary/5"
+                  className="mt-2 hover:bg-accent"
                   onClick={() => setIsExpanded(!isExpanded)}
                 >
                   {isExpanded ? (
@@ -170,7 +170,7 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
               <Button 
                 variant="outline"
                 size="sm"
-                className="border-primary hover:bg-primary/5"
+                className="hover:bg-accent"
                 asChild
               >
                 <a 
