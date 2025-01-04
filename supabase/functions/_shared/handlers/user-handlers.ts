@@ -1,5 +1,4 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
-import { logWebhookProcessing, logWebhookError, logWebhookSuccess } from '../webhook-logger.ts';
 
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -13,8 +12,6 @@ const supabaseAdmin = createClient(
 );
 
 export const findUserByGrant = async (grantId: string) => {
-  logWebhookProcessing('findUserByGrant', { grantId });
-  
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
     .select('id')
@@ -22,68 +19,65 @@ export const findUserByGrant = async (grantId: string) => {
     .single();
 
   if (profileError) {
-    if (profileError.code === 'PGRST116') {
-      logWebhookError('findUserByGrant', `No user found for grant ID: ${grantId}`);
-      return null;
-    }
-    logWebhookError('findUserByGrant', profileError);
+    console.error('Error finding user for grant:', profileError);
     throw profileError;
   }
 
-  logWebhookSuccess('findUserByGrant', profile);
   return profile;
 };
 
 export const handleGrantStatus = async (grantId: string, status: 'active' | 'revoked' | 'error' | 'expired') => {
-  logWebhookProcessing('grantStatus', { grantId, status });
+  console.log(`Processing grant status update for ${grantId} to ${status}`);
   
-  try {
-    const { error: grantError } = await supabaseAdmin
-      .from('profiles')
-      .update({ 
-        grant_status: status,
-        updated_at: new Date().toISOString()
-      })
-      .eq('nylas_grant_id', grantId);
+  const { error: grantError } = await supabaseAdmin
+    .from('profiles')
+    .update({ 
+      grant_status: status,
+      updated_at: new Date().toISOString()
+    })
+    .eq('nylas_grant_id', grantId);
 
-    if (grantError) {
-      logWebhookError('grantStatus', grantError);
-      return { success: false, error: grantError };
-    }
-
-    const result = { success: true, grantId, status };
-    logWebhookSuccess('grantStatus', result);
-    return result;
-  } catch (error) {
-    logWebhookError('grantStatus', error);
-    return { success: false, error };
+  if (grantError) {
+    console.error(`Error updating grant status to ${status}:`, grantError);
+    throw grantError;
   }
 };
 
 export const handleGrantCreated = async (data: any) => {
-  logWebhookProcessing('grant.created', data);
-  const result = await handleGrantStatus(data.object.grant_id, 'active');
-  logWebhookSuccess('grant.created', result);
-  return result;
+  console.log('Processing grant.created:', {
+    grantId: data.object.grant_id,
+    provider: data.object.provider,
+    loginId: data.object.login_id
+  });
+  
+  await handleGrantStatus(data.object.grant_id, 'active');
 };
 
 export const handleGrantUpdated = async (data: any) => {
-  logWebhookProcessing('grant.updated', data);
-  const result = await handleGrantStatus(data.object.grant_id, 'active');
-  logWebhookSuccess('grant.updated', result);
-  return result;
+  console.log('Processing grant.updated:', {
+    grantId: data.object.grant_id,
+    provider: data.object.provider,
+    reauthFlag: data.object.reauthentication_flag
+  });
+  
+  await handleGrantStatus(data.object.grant_id, 'active');
 };
 
 export const handleGrantDeleted = async (data: any) => {
-  logWebhookProcessing('grant.deleted', data);
-  const result = await handleGrantStatus(data.object.grant_id, 'revoked');
-  logWebhookSuccess('grant.deleted', result);
-  return result;
+  console.log('Processing grant.deleted:', {
+    grantId: data.object.grant_id,
+    provider: data.object.provider
+  });
+  
+  await handleGrantStatus(data.object.grant_id, 'revoked');
 };
 
 export const handleGrantExpired = async (data: any) => {
-  logWebhookProcessing('grant.expired', data);
-  const result = await handleGrantStatus(data.object.grant_id, 'expired');
-  logWebhookSuccess('grant.expired', result);
-  return result;
+  console.log('Processing grant.expired:', {
+    grantId: data.object.grant_id,
+    provider: data.object.provider,
+    loginId: data.object.login_id
+  });
+  
+  await handleGrantStatus(data.object.grant_id, 'expired');
 };
