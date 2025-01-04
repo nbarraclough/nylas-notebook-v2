@@ -7,7 +7,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Eye, Link2, Trash2 } from "lucide-react";
+import { Eye, Link2, Trash2, Calendar } from "lucide-react";
+import { format } from "date-fns";
 
 export default function Shared() {
   const { toast } = useToast();
@@ -28,7 +29,7 @@ export default function Shared() {
     checkAuth();
   }, [navigate]);
 
-  // Fetch shared videos
+  // Fetch shared videos with recording and event details
   const { data: sharedVideos, isLoading } = useQuery({
     queryKey: ['shared-videos', userId],
     queryFn: async () => {
@@ -40,9 +41,15 @@ export default function Shared() {
           recording:recordings (
             id,
             recording_url,
+            video_url,
+            status,
             event:events (
               title,
-              start_time
+              description,
+              start_time,
+              end_time,
+              participants,
+              organizer
             ),
             views:video_views (
               id,
@@ -61,24 +68,26 @@ export default function Shared() {
   });
 
   const handleRevokeAccess = async (shareId: string) => {
-    const { error } = await supabase
-      .from('video_shares')
-      .delete()
-      .eq('id', shareId);
+    try {
+      const { error } = await supabase
+        .from('video_shares')
+        .delete()
+        .eq('id', shareId);
 
-    if (error) {
+      if (error) throw error;
+
       toast({
-        title: "Error revoking access",
-        description: "There was a problem revoking access to this video.",
+        title: "Access revoked",
+        description: "The video share has been revoked successfully.",
+      });
+    } catch (error) {
+      console.error('Error revoking access:', error);
+      toast({
+        title: "Error",
+        description: "Failed to revoke access. Please try again.",
         variant: "destructive",
       });
-      return;
     }
-
-    toast({
-      title: "Access revoked",
-      description: "The video share has been revoked successfully.",
-    });
   };
 
   const renderVideoCard = (share: any) => (
@@ -87,15 +96,22 @@ export default function Shared() {
         <CardTitle className="text-lg">
           {share.recording?.event?.title}
         </CardTitle>
-        <div className="text-sm text-muted-foreground">
-          Shared on {new Date(share.created_at).toLocaleDateString()}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Calendar className="h-4 w-4" />
+          {format(new Date(share.recording?.event?.start_time), "PPP")}
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        {share.recording?.event?.description && (
+          <p className="text-sm text-muted-foreground">
+            {share.recording.event.description}
+          </p>
+        )}
+        
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Eye className="h-4 w-4" />
-            <span>{share.recording?.views?.length || 0} views</span>
+            <span className="text-sm">{share.recording?.views?.length || 0} views</span>
           </div>
           <div className="flex items-center space-x-2">
             {share.share_type === 'external' && (
@@ -104,9 +120,8 @@ export default function Shared() {
                 size="sm"
                 className="flex items-center"
                 onClick={() => {
-                  navigator.clipboard.writeText(
-                    `${window.location.origin}/shared/${share.external_token}`
-                  );
+                  const shareUrl = `${window.location.origin}/shared/${share.external_token}`;
+                  navigator.clipboard.writeText(shareUrl);
                   toast({
                     title: "Link copied",
                     description: "The sharing link has been copied to your clipboard.",
@@ -125,6 +140,28 @@ export default function Shared() {
               <Trash2 className="h-4 w-4 mr-2" />
               Revoke Access
             </Button>
+          </div>
+        </div>
+
+        {share.share_type === 'external' && (
+          <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+            <input
+              type="text"
+              value={`${window.location.origin}/shared/${share.external_token}`}
+              readOnly
+              className="flex-1 bg-transparent border-none focus:outline-none text-sm"
+            />
+          </div>
+        )}
+
+        <div className="text-sm space-y-1">
+          <div className="font-medium">Participants:</div>
+          <div className="text-muted-foreground">
+            {share.recording?.event?.participants?.map((participant: any, index: number) => (
+              <div key={index}>
+                {participant.name} ({participant.email})
+              </div>
+            ))}
           </div>
         </div>
       </CardContent>
