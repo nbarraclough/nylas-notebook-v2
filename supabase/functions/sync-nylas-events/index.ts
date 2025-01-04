@@ -49,18 +49,18 @@ serve(async (req) => {
 
     console.log('Found Nylas grant ID:', profile.nylas_grant_id)
 
-    // Get Nylas API key from environment variables
-    const NYLAS_API_KEY = Deno.env.get('NYLAS_API_KEY')
-    if (!NYLAS_API_KEY) {
-      console.error('NYLAS_API_KEY environment variable is not set')
-      throw new Error('Nylas API key not configured')
+    // Get Nylas client secret from environment variables
+    const NYLAS_CLIENT_SECRET = Deno.env.get('NYLAS_CLIENT_SECRET')
+    if (!NYLAS_CLIENT_SECRET) {
+      console.error('NYLAS_CLIENT_SECRET environment variable is not set')
+      throw new Error('Nylas client secret not configured')
     }
 
     // Fetch events from Nylas with calendar_id=primary parameter
     console.log('Fetching events from Nylas...')
     const eventsResponse = await fetch(`https://api-staging.us.nylas.com/v3/grants/${profile.nylas_grant_id}/events?calendar_id=primary&limit=100`, {
       headers: {
-        'Authorization': `Bearer ${NYLAS_API_KEY}`,
+        'Authorization': `Bearer ${NYLAS_CLIENT_SECRET}`,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
