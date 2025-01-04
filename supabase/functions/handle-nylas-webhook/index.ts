@@ -26,21 +26,20 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Handle Nylas webhook challenge
+    // Handle Nylas webhook challenge - this must be handled before signature verification
     const url = new URL(req.url);
-    const challenge = url.searchParams.get('challenge')
+    const challenge = url.searchParams.get('challenge');
     if (challenge) {
-      console.log('Responding to Nylas webhook challenge:', challenge)
+      console.log('Responding to Nylas webhook challenge:', challenge);
       return new Response(challenge, {
         headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
-      })
+      });
     }
 
-    // Clone the request to get the raw body for signature verification
+    // For non-challenge requests, verify the webhook signature
     const clonedReq = req.clone();
     const rawBody = await clonedReq.text();
     
-    // Verify webhook signature
     if (!verifyNylasWebhook(req, rawBody)) {
       console.error('Invalid webhook signature');
       return new Response(
@@ -61,6 +60,17 @@ Deno.serve(async (req) => {
 
     // If we have a grant_id, check if we have a matching profile
     if (grantId) {
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false
+          }
+        }
+      );
+
       const { data: profile, error: profileError } = await supabaseAdmin
         .from('profiles')
         .select('id')
