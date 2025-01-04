@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useSession } from "@supabase/auth-helpers-react";
 import { OrganizationShare } from "./share/OrganizationShare";
 import { PublicLinkShare } from "./share/PublicLinkShare";
 
@@ -14,7 +13,6 @@ interface ShareVideoDialogProps {
 
 export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
   const { toast } = useToast();
-  const session = useSession();
   const [isInternalEnabled, setIsInternalEnabled] = useState(false);
   const [isExternalEnabled, setIsExternalEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -27,7 +25,10 @@ export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const handleShare = async () => {
-    if (!session?.user) {
+    // Get the current session directly from supabase
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !session?.user) {
       toast({
         title: "Authentication required",
         description: "Please sign in to share recordings.",
