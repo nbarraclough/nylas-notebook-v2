@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get user's Nylas grant_id with better error handling
+    // Get user's Nylas grant_id
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
       .select('nylas_grant_id')
@@ -50,11 +50,16 @@ Deno.serve(async (req) => {
     const endDate = new Date()
     endDate.setMonth(endDate.getMonth() + 3)
 
-    console.log('Fetching events from', startDate.toISOString(), 'to', endDate.toISOString())
+    // Convert to Unix timestamps (seconds)
+    const startTimestamp = Math.floor(startDate.getTime() / 1000)
+    const endTimestamp = Math.floor(endDate.getTime() / 1000)
 
-    // Fetch events from Nylas
+    console.log('Fetching events from', startDate.toISOString(), 'to', endDate.toISOString())
+    console.log('Using timestamps:', startTimestamp, 'to', endTimestamp)
+
+    // Fetch events from Nylas using Unix timestamps
     const response = await fetch(
-      `${NYLAS_API_URL}/v3/grants/${profile.nylas_grant_id}/events?start=${startDate.toISOString()}&end=${endDate.toISOString()}&calendar_id=primary`,
+      `${NYLAS_API_URL}/v3/grants/${profile.nylas_grant_id}/events?start=${startTimestamp}&end=${endTimestamp}&calendar_id=primary`,
       {
         headers: {
           'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
