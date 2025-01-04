@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { EventCard } from "./EventCard";
 import { Progress } from "@/components/ui/progress";
-import { format, isSameDay } from "date-fns";
+import { format, isSameDay, isPast } from "date-fns";
 import type { QueryObserverResult, RefetchOptions } from "@tanstack/react-query";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -16,13 +16,14 @@ interface EventsListProps {
   isLoadingEvents: boolean;
   userId: string;
   refetchEvents: (options?: RefetchOptions) => Promise<QueryObserverResult<Event[], Error>>;
+  filter: "upcoming" | "past";
 }
 
 interface GroupedEvents {
   [key: string]: Event[];
 }
 
-export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents }: EventsListProps) => {
+export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, filter }: EventsListProps) => {
   const { toast } = useToast();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
@@ -66,9 +67,15 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents }: E
     }
   };
 
-  // Group events by date
+  // Filter and group events by date
   const groupEventsByDate = (events: Event[]): GroupedEvents => {
-    return events.reduce((groups: GroupedEvents, event) => {
+    const now = new Date();
+    const filteredEvents = events.filter(event => {
+      const endTime = new Date(event.end_time);
+      return filter === "upcoming" ? !isPast(endTime) : isPast(endTime);
+    });
+
+    return filteredEvents.reduce((groups: GroupedEvents, event) => {
       const date = format(new Date(event.start_time), 'yyyy-MM-dd');
       if (!groups[date]) {
         groups[date] = [];
@@ -97,8 +104,7 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents }: E
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Your Calendar</h1>
+        <div className="flex justify-end">
           <Button 
             onClick={syncEvents} 
             disabled={isSyncing}
@@ -138,6 +144,7 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents }: E
                         key={event.id} 
                         event={event}
                         userId={userId}
+                        isPast={isPast(new Date(event.end_time))}
                       />
                     ))}
                   </div>
@@ -146,7 +153,7 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents }: E
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              No events found. Click "Sync Events" to fetch your calendar events.
+              No {filter} events found. Click "Sync Events" to fetch your calendar events.
             </div>
           )}
         </CardContent>

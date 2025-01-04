@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { ConnectNylas } from "@/components/calendar/ConnectNylas";
 import { EventsList } from "@/components/calendar/EventsList";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Calendar() {
   const navigate = useNavigate();
@@ -13,8 +14,8 @@ export default function Calendar() {
   const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
 
-  // Fetch events from our database
   const { data: events, refetch: refetchEvents, isLoading: isLoadingEvents } = useQuery({
     queryKey: ['events', userId],
     queryFn: async () => {
@@ -153,12 +154,35 @@ export default function Calendar() {
       {!profile?.nylas_grant_id ? (
         <ConnectNylas />
       ) : (
-        <EventsList 
-          events={events || []} 
-          isLoadingEvents={isLoadingEvents}
-          userId={userId || ''}
-          refetchEvents={refetchEvents}
-        />
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "upcoming" | "past")}>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h1 className="text-2xl font-bold">Your Calendar</h1>
+              <TabsList>
+                <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+                <TabsTrigger value="past">Past</TabsTrigger>
+              </TabsList>
+            </div>
+            <TabsContent value="upcoming">
+              <EventsList 
+                events={events || []} 
+                isLoadingEvents={isLoadingEvents}
+                userId={userId || ''}
+                refetchEvents={refetchEvents}
+                filter="upcoming"
+              />
+            </TabsContent>
+            <TabsContent value="past">
+              <EventsList 
+                events={events || []} 
+                isLoadingEvents={isLoadingEvents}
+                userId={userId || ''}
+                refetchEvents={refetchEvents}
+                filter="past"
+              />
+            </TabsContent>
+          </div>
+        </Tabs>
       )}
     </PageLayout>
   );

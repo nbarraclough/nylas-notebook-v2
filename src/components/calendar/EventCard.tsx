@@ -20,9 +20,10 @@ type Event = Database['public']['Tables']['events']['Row'];
 interface EventCardProps {
   event: Event;
   userId: string;
+  isPast: boolean;
 }
 
-export const EventCard = ({ event, userId }: EventCardProps) => {
+export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isQueued, setIsQueued] = useState(false);
@@ -141,7 +142,7 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
   });
 
   return (
-    <Card>
+    <Card className={isPast ? "opacity-60" : ""}>
       <CardContent className="p-6">
         <div className="flex flex-col space-y-4">
           <div className="flex justify-between items-start">
@@ -161,7 +162,7 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
               </div>
             </div>
             <div className="flex flex-col items-end gap-2">
-              {event.conference_url && (
+              {event.conference_url && !isPast && (
                 <RecordingToggle
                   isQueued={isQueued}
                   eventId={event.id}
@@ -218,7 +219,7 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
             </div>
           )}
 
-          {event.conference_url && isCalendarRoute && (
+          {event.conference_url && !isPast && isCalendarRoute && (
             <div className="flex justify-start">
               <Button 
                 variant="outline"
