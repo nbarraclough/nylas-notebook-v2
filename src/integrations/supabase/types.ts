@@ -274,8 +274,11 @@ export type Database = {
           notetaker_id: string | null
           recording_url: string
           status: string
+          transcript_content: Json | null
+          transcript_url: string | null
           updated_at: string
           user_id: string
+          video_url: string | null
         }
         Insert: {
           created_at?: string
@@ -285,8 +288,11 @@ export type Database = {
           notetaker_id?: string | null
           recording_url: string
           status?: string
+          transcript_content?: Json | null
+          transcript_url?: string | null
           updated_at?: string
           user_id: string
+          video_url?: string | null
         }
         Update: {
           created_at?: string
@@ -296,8 +302,11 @@ export type Database = {
           notetaker_id?: string | null
           recording_url?: string
           status?: string
+          transcript_content?: Json | null
+          transcript_url?: string | null
           updated_at?: string
           user_id?: string
+          video_url?: string | null
         }
         Relationships: [
           {
