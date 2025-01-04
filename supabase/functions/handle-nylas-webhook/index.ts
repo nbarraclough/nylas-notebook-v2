@@ -1,103 +1,67 @@
-import { corsHeaders, verifyNylasWebhook } from '../_shared/nylas-auth.ts'
-import { 
-  handleEventCreated, 
-  handleEventUpdated, 
-  handleEventDeleted,
-  handleGrantStatus 
-} from '../_shared/webhook-handlers.ts'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { corsHeaders, verifyNylasWebhook } from "../_shared/nylas-auth.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
-Deno.serve(async (req) => {
-  // Log incoming request details
-  console.log('Received webhook request:', {
-    method: req.method,
-    url: req.url,
-    headers: Object.fromEntries(req.headers.entries())
-  });
-
-  // Handle CORS preflight requests
+serve(async (req) => {
+  // Handle CORS
   if (req.method === 'OPTIONS') {
-    return new Response(null, { 
-      status: 200,
-      headers: corsHeaders 
-    });
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    // First, check for the challenge parameter
-    const url = new URL(req.url);
-    const challenge = url.searchParams.get('challenge');
-    
-    if (challenge) {
-      console.log('Received Nylas challenge:', challenge);
-      return new Response(challenge, {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'text/plain',
-          'Content-Length': challenge.length.toString(),
-        },
-      });
-    }
-
-    // For non-challenge requests, get the raw body
+    // Get the raw body as text for signature verification
     const rawBody = await req.text();
-    console.log('Received webhook payload:', rawBody);
+    console.log('Received webhook payload:', rawBody.slice(0, 100) + '...'); // Log first 100 chars
 
-    // Skip signature verification for now as we're debugging
-    const webhookEvent = JSON.parse(rawBody);
-    console.log('Processing webhook event:', webhookEvent);
-
-    const { delta } = webhookEvent;
-    const grantId = delta.grant_id;
-
-    // Handle different webhook events
-    switch (delta.type) {
-      case 'event.created':
-        if (delta.object_data && grantId) {
-          await handleEventCreated(delta.object_data, grantId);
+    // Verify the webhook signature
+    const isValid = await verifyNylasWebhook(req, rawBody);
+    if (!isValid) {
+      console.error('Invalid webhook signature');
+      return new Response(
+        JSON.stringify({ error: 'Invalid signature' }),
+        { 
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
-        break;
-
-      case 'event.updated':
-        if (delta.object_data && grantId) {
-          await handleEventUpdated(delta.object_data, grantId);
-        }
-        break;
-
-      case 'event.deleted':
-        if (delta.object_data) {
-          await handleEventDeleted(delta.object_data);
-        }
-        break;
-
-      case 'grant.created':
-      case 'grant.updated':
-        if (grantId) {
-          await handleGrantStatus(grantId, 'active');
-        }
-        break;
-
-      case 'grant.deleted':
-        if (grantId) {
-          await handleGrantStatus(grantId, 'revoked');
-        }
-        break;
-
-      case 'grant.expired':
-        if (grantId) {
-          await handleGrantStatus(grantId, 'error');
-        }
-        break;
-
-      default:
-        console.log('Unhandled webhook type:', delta.type);
+      );
     }
+
+    // Parse the body as JSON after verification
+    const webhookData = JSON.parse(rawBody);
+    console.log('Webhook data:', webhookData);
+
+    // Handle Nylas challenge request
+    if (webhookData.challenge) {
+      return new Response(
+        JSON.stringify({ challenge: webhookData.challenge }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      );
+    }
+
+    // Initialize Supabase client
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
+    // Process the webhook based on its type
+    // Add your webhook handling logic here
+    console.log('Processing webhook:', webhookData.type);
 
     return new Response(
-      JSON.stringify({ success: true }), 
+      JSON.stringify({ success: true }),
       { 
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200
       }
     );
 
@@ -106,9 +70,9 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500
       }
     );
   }
-});
+})

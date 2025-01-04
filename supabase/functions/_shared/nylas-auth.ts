@@ -1,11 +1,9 @@
-import { crypto } from "https://deno.land/std@0.177.0/crypto/mod.ts";
-
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-export const verifyNylasWebhook = (req: Request, rawBody: string): boolean => {
+export const verifyNylasWebhook = async (req: Request, rawBody: string): Promise<boolean> => {
   try {
     // For challenge requests, bypass signature verification
     const url = new URL(req.url);
@@ -28,6 +26,8 @@ export const verifyNylasWebhook = (req: Request, rawBody: string): boolean => {
     // Create HMAC using client secret
     const key = new TextEncoder().encode(clientSecret);
     const message = new TextEncoder().encode(rawBody);
+
+    // Import key for HMAC
     const hmacKey = await crypto.subtle.importKey(
       "raw",
       key,
@@ -36,13 +36,14 @@ export const verifyNylasWebhook = (req: Request, rawBody: string): boolean => {
       ["sign"]
     );
     
+    // Generate signature
     const signatureBuffer = await crypto.subtle.sign(
       "HMAC",
       hmacKey,
       message
     );
-    
-    // Convert to hex string
+
+    // Convert the signature to hex string
     const computedSignature = Array.from(new Uint8Array(signatureBuffer))
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
@@ -52,10 +53,12 @@ export const verifyNylasWebhook = (req: Request, rawBody: string): boolean => {
     if (!isValid) {
       console.error('Signature mismatch:', {
         received: signature,
-        computed: computedSignature
+        computed: computedSignature,
+        rawBody: rawBody.slice(0, 100) + '...' // Log first 100 chars of body for debugging
       });
     }
     return isValid;
+
   } catch (error) {
     console.error('Error verifying webhook:', error);
     return false;
