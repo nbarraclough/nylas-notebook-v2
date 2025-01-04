@@ -17,8 +17,9 @@ serve(async (req) => {
   }
 
   try {
-    // Log request details for debugging
-    console.log('Webhook Request:', {
+    // Log ALL incoming requests for debugging
+    console.log('🔔 NEW WEBHOOK REQUEST RECEIVED');
+    console.log('📝 Request details:', {
       method: req.method,
       url: req.url,
       headers: Object.fromEntries(req.headers.entries())
@@ -29,7 +30,7 @@ serve(async (req) => {
     const challenge = url.searchParams.get('challenge');
     
     if (challenge) {
-      console.log('Challenge request received:', challenge);
+      console.log('🎯 Challenge request received:', challenge);
       return new Response(challenge, {
         status: 200,
         headers: {
@@ -42,35 +43,26 @@ serve(async (req) => {
     // Get the webhook secret from environment
     const webhookSecret = Deno.env.get('NYLAS_WEBHOOK_SECRET');
     if (!webhookSecret) {
-      console.error('NYLAS_WEBHOOK_SECRET not configured');
+      console.error('❌ NYLAS_WEBHOOK_SECRET not configured');
       throw new Error('Webhook secret not configured');
     }
 
     // Get the signature from headers
     const signature = req.headers.get('x-nylas-signature');
     if (!signature) {
-      console.error('No signature in webhook request');
+      console.error('❌ No signature in webhook request');
       throw new Error('No signature provided');
     }
 
-    // Get the raw request body and log it
+    // Get and log the raw request body
     const rawBody = await req.text();
-    console.log('📥 Incoming Webhook Raw Body:', rawBody);
+    console.log('📥 Raw webhook body:', rawBody);
 
     // Parse JSON if we have a body
     if (rawBody) {
       try {
         const webhookData = JSON.parse(rawBody);
-        console.log('🔍 Processing Webhook:', {
-          type: webhookData.type,
-          source: webhookData.source,
-          timestamp: new Date(webhookData.time * 1000).toISOString(),
-          data: {
-            application_id: webhookData.data?.application_id,
-            object: webhookData.data?.object,
-            grant_id: webhookData.data?.object?.grant_id,
-          }
-        });
+        console.log('🔍 Webhook data:', JSON.stringify(webhookData, null, 2));
 
         // Handle different webhook types
         switch (webhookData.type) {
@@ -110,6 +102,7 @@ serve(async (req) => {
 
       } catch (error) {
         console.error('❌ Error processing webhook:', error);
+        console.error('Error details:', error.stack);
         return new Response(
           JSON.stringify({ error: 'Error processing webhook', details: error.message }),
           { 
@@ -131,6 +124,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('❌ Fatal error processing webhook:', error);
+    console.error('Error stack:', error.stack);
     return new Response(
       JSON.stringify({ error: 'Internal server error', details: error.message }),
       { 
