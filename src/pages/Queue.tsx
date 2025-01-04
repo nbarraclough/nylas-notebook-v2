@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { QueueCard } from "@/components/queue/QueueCard";
 import { useQuery } from "@tanstack/react-query";
-import type { NotetakerQueue } from "@/integrations/supabase/types";
+import type { NotetakerQueue } from "@/integrations/supabase/types/notetaker-queue";
 
 export default function Queue() {
   const navigate = useNavigate();

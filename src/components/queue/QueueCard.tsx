@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { format } from "date-fns";
 import { Clock, AlertCircle, Check, Loader } from "lucide-react";
-import type { NotetakerQueue } from "@/integrations/supabase/types";
+import type { NotetakerQueue } from "@/integrations/supabase/types/notetaker-queue";
 import type { EventParticipant, EventOrganizer } from "@/types/calendar";
 
 interface QueueCardProps {
