@@ -8,6 +8,7 @@ import { Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { EventParticipant } from "@/types/calendar";
+import type { Json } from "@/integrations/supabase/types/json";
 
 interface SharedRecording {
   video_url: string;
@@ -20,6 +21,15 @@ interface SharedRecording {
     participants: EventParticipant[];
   };
 }
+
+// Helper function to transform Json to EventParticipant[]
+const transformParticipants = (participants: Json): EventParticipant[] => {
+  if (!Array.isArray(participants)) return [];
+  return participants.map(p => ({
+    name: (p as any)?.name || 'Unknown',
+    email: (p as any)?.email || ''
+  }));
+};
 
 export function SharedVideoView() {
   const { token } = useParams();
@@ -51,6 +61,16 @@ export function SharedVideoView() {
         if (shareError) throw shareError;
         if (!share?.recording) throw new Error('Share not found');
 
+        // Transform the data to match SharedRecording type
+        const transformedRecording: SharedRecording = {
+          id: share.recording.id,
+          video_url: share.recording.video_url,
+          event: {
+            ...share.recording.event,
+            participants: transformParticipants(share.recording.event.participants)
+          }
+        };
+
         // Record the view
         await supabase
           .from('video_views')
@@ -59,7 +79,7 @@ export function SharedVideoView() {
             external_viewer_ip: 'anonymous'
           });
 
-        setRecording(share.recording as SharedRecording);
+        setRecording(transformedRecording);
       } catch (error) {
         console.error('Error fetching shared video:', error);
         toast({
@@ -107,15 +127,15 @@ export function SharedVideoView() {
           <CardContent className="p-6">
             <div className="flex justify-between items-start">
               <div className="space-y-1">
-                <h1 className="text-2xl font-semibold">{recording.event.title}</h1>
+                <h1 className="text-2xl font-semibold">{recording?.event.title}</h1>
                 <p className="text-sm text-muted-foreground">
-                  {format(new Date(recording.event.start_time), "EEEE, MMMM d, yyyy 'at' h:mm a")} - {format(new Date(recording.event.end_time), "h:mm a")}
+                  {format(new Date(recording?.event.start_time || ''), "EEEE, MMMM d, yyyy 'at' h:mm a")} - {format(new Date(recording?.event.end_time || ''), "h:mm a")}
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant="secondary" className="flex items-center gap-1">
                   <Users className="w-3 h-3" />
-                  {recording.event.participants?.length || 0} participants
+                  {recording?.event.participants?.length || 0} participants
                 </Badge>
               </div>
             </div>
@@ -127,7 +147,7 @@ export function SharedVideoView() {
           <CardContent className="p-6">
             <div className="aspect-video mb-6">
               <video
-                src={recording.video_url}
+                src={recording?.video_url}
                 controls
                 className="w-full h-full rounded-lg"
                 autoPlay
@@ -142,7 +162,7 @@ export function SharedVideoView() {
               </TabsList>
               <TabsContent value="summary" className="mt-4">
                 <div className="prose prose-sm max-w-none">
-                  {recording.event.description || 'No summary available.'}
+                  {recording?.event.description || 'No summary available.'}
                 </div>
               </TabsContent>
               <TabsContent value="transcript" className="mt-4">
