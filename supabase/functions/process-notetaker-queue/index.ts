@@ -28,7 +28,8 @@ Deno.serve(async (req) => {
           notetaker_name
         ),
         events!notetaker_queue_event_id_fkey (
-          conference_url
+          conference_url,
+          title
         )
       `)
       .eq('status', 'pending')
@@ -42,7 +43,6 @@ Deno.serve(async (req) => {
     }
 
     console.log(`Found ${queueItems?.length || 0} pending notetaker requests to process`)
-    console.log('Queue items:', JSON.stringify(queueItems, null, 2))
 
     // Process each queue item
     for (const item of queueItems || []) {
@@ -55,15 +55,24 @@ Deno.serve(async (req) => {
           eventId: item.event_id,
           scheduledFor: item.scheduled_for,
           grantId: profile?.nylas_grant_id,
-          conferenceUrl: event?.conference_url
+          conferenceUrl: event?.conference_url,
+          eventTitle: event?.title
         })
 
-        if (!profile?.nylas_grant_id || !event?.conference_url) {
-          console.error('Missing required data:', { 
-            grantId: profile?.nylas_grant_id, 
-            conferenceUrl: event?.conference_url 
-          })
-          continue
+        if (!profile) {
+          throw new Error('Profile not found')
+        }
+
+        if (!profile.nylas_grant_id) {
+          throw new Error('Nylas grant ID not found')
+        }
+
+        if (!event) {
+          throw new Error('Event not found')
+        }
+
+        if (!event.conference_url) {
+          throw new Error('Conference URL not found')
         }
 
         // Prepare the notetaker request payload
@@ -92,14 +101,24 @@ Deno.serve(async (req) => {
         )
 
         const responseData = await response.json()
-        console.log('Nylas API response:', responseData)
+        console.log('Nylas API response:', {
+          status: response.status,
+          data: responseData
+        })
 
         if (!response.ok) {
           console.error('Nylas API error:', responseData)
-          throw new Error(responseData.message || 'Failed to send notetaker')
+          throw new Error(responseData.message || `Failed to send notetaker: ${response.status}`)
         }
 
-        console.log('Notetaker sent successfully:', responseData)
+        if (!responseData.id) {
+          throw new Error('No notetaker ID received from Nylas')
+        }
+
+        console.log('Notetaker sent successfully:', {
+          notetakerId: responseData.id,
+          eventTitle: event.title
+        })
 
         // Update queue item status and save notetaker_id
         const { error: updateError } = await supabaseClient
@@ -114,6 +133,7 @@ Deno.serve(async (req) => {
 
         if (updateError) {
           console.error('Error updating queue item:', updateError)
+          throw updateError
         }
 
         // Create a new recording entry
@@ -129,6 +149,7 @@ Deno.serve(async (req) => {
 
         if (recordingError) {
           console.error('Error creating recording entry:', recordingError)
+          throw recordingError
         }
 
       } catch (error) {
