@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
           payload: notetakerPayload
         })
 
-        // Send notetaker to the meeting
+        // Send notetaker to the meeting with correct headers
         const response = await fetch(
           `${NYLAS_API_URL}/v3/grants/${profile.nylas_grant_id}/notetakers`,
           {
@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
             headers: {
               'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
               'Content-Type': 'application/json',
-              'Accept': 'application/json',
+              'Accept': 'application/json, application/gzip'
             },
             body: JSON.stringify(notetakerPayload)
           }
