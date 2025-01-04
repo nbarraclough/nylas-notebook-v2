@@ -27,24 +27,46 @@ export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const handleShare = async () => {
-    if (!session?.user) return;
+    if (!session?.user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to share recordings.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!isInternalEnabled && !isExternalEnabled) {
+      toast({
+        title: "Select sharing option",
+        description: "Please select at least one sharing option.",
+        variant: "destructive"
+      });
+      return;
+    }
     
     try {
       setIsLoading(true);
       
       // Get current user's organization
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('organization_id')
         .single();
 
+      if (profileError) throw profileError;
+
       if (isInternalEnabled && profile?.organization_id) {
-        await supabase.from('video_shares').insert({
-          recording_id: recordingId,
-          share_type: 'internal',
-          organization_id: profile.organization_id,
-          shared_by: session.user.id
-        });
+        const { error: internalError } = await supabase
+          .from('video_shares')
+          .insert({
+            recording_id: recordingId,
+            share_type: 'internal',
+            organization_id: profile.organization_id,
+            shared_by: session.user.id
+          });
+
+        if (internalError) throw internalError;
 
         toast({
           title: "Shared with organization",
@@ -61,13 +83,13 @@ export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
           expires_at: isExpiryEnabled ? expiryDate?.toISOString() : null
         };
 
-        const { data: newShare, error } = await supabase
+        const { data: newShare, error: externalError } = await supabase
           .from('video_shares')
           .insert(shareData)
           .select('external_token')
           .single();
 
-        if (error) throw error;
+        if (externalError) throw externalError;
 
         if (newShare?.external_token) {
           const shareUrl = `${window.location.origin}/shared/${newShare.external_token}`;
@@ -78,6 +100,9 @@ export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
           });
         }
       }
+
+      // Close dialog after successful share
+      setIsOpen(false);
     } catch (error) {
       console.error('Error sharing video:', error);
       toast({
