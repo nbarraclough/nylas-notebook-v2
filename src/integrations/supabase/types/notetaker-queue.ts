@@ -8,6 +8,15 @@ export type NotetakerQueue = {
   error: string | null;
   created_at: string;
   scheduled_for: string;
+  event?: {
+    title: string;
+    description: string | null;
+    start_time: string;
+    end_time: string;
+    conference_url: string | null;
+    participants: any[];
+    organizer: any;
+  };
 };
 
 export type NotetakerQueueInsert = {
