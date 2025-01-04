@@ -131,6 +131,12 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
     member => member.user_id === userId && member.role === 'admin'
   );
 
+  const handleOrganizationUpdate = () => {
+    queryClient.invalidateQueries({
+      queryKey: ['organization_data', userId],
+    });
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -141,6 +147,8 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
           name={organizationData.organization.name}
           domain={organizationData.organization.domain}
           userRole={organizationData.members.find(m => m.user_id === userId)?.role || 'user'}
+          organizationId={organizationData.organization.id}
+          onOrganizationUpdate={handleOrganizationUpdate}
         />
 
         <div>
