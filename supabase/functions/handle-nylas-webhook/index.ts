@@ -14,6 +14,7 @@ serve(async (req) => {
   }
 
   try {
+    // Log request details for debugging
     console.log('Received webhook request:', {
       method: req.method,
       url: req.url,
