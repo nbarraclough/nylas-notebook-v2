@@ -10,10 +10,17 @@ export const processEvent = async (
   try {
     console.log('Processing event:', {
       id: event.id,
+      ical_uid: event.ical_uid,
       rawStartTime: event.when?.start_time || event.start_time,
       rawEndTime: event.when?.end_time || event.end_time,
       source: event.when ? 'Nylas API' : 'Database'
     });
+
+    // Skip events without ical_uid as they might be temporary or draft events
+    if (!event.ical_uid) {
+      console.log('Skipping event without ical_uid:', event.id);
+      return;
+    }
 
     // Handle timestamps based on source (Nylas API vs Database)
     const startTime = event.when ? 
@@ -41,7 +48,7 @@ export const processEvent = async (
     console.log('Event:', event.id, 'Conference URL:', conferenceUrl);
 
     // Handle last_updated_at timestamp
-    const existingEventLastUpdated = existingEventsMap.get(event.id);
+    const existingEventLastUpdated = existingEventsMap.get(event.ical_uid);
     const eventLastUpdated = event.updated_at ? 
       (event.when ? safeTimestampToISO(event.updated_at) : ensureValidTimestamp(event.updated_at)) : 
       ensureValidTimestamp(event.last_updated_at);
@@ -61,6 +68,7 @@ export const processEvent = async (
     const eventData = {
       user_id: userId,
       nylas_event_id: event.id,
+      ical_uid: event.ical_uid,
       title: event.title || 'Untitled Event',
       description: event.description || null,
       location: event.location || null,
@@ -69,7 +77,6 @@ export const processEvent = async (
       participants: Array.isArray(event.participants) ? event.participants : [],
       conference_url: conferenceUrl,
       last_updated_at: eventLastUpdated,
-      ical_uid: event.ical_uid || null,
       busy: event.busy === false ? false : true,
       html_link: event.html_link || null,
       master_event_id: event.master_event_id || null,
@@ -88,25 +95,34 @@ export const processEvent = async (
     // Log the event data being upserted
     console.log('Upserting event with data:', {
       id: event.id,
+      ical_uid: event.ical_uid,
       title: eventData.title,
       conference_url: eventData.conference_url,
       start_time: eventData.start_time,
       end_time: eventData.end_time,
     });
 
-    const { error: upsertError } = await supabaseAdmin
+    // First try to update existing event
+    const { error: updateError } = await supabaseAdmin
       .from('events')
-      .upsert(eventData, {
-        onConflict: 'nylas_event_id',
-      });
+      .update(eventData)
+      .eq('ical_uid', event.ical_uid);
 
-    if (upsertError) {
-      console.error('Error upserting event:', upsertError);
-      console.error('Failed event data:', JSON.stringify(eventData, null, 2));
-      throw upsertError;
+    if (updateError) {
+      // If update fails (no existing record), try to insert
+      const { error: insertError } = await supabaseAdmin
+        .from('events')
+        .insert(eventData);
+
+      if (insertError) {
+        console.error('Error inserting event:', insertError);
+        throw insertError;
+      }
+      console.log('Successfully inserted new event:', event.ical_uid);
     } else {
-      console.log('Successfully upserted event:', event.id);
+      console.log('Successfully updated existing event:', event.ical_uid);
     }
+
   } catch (error) {
     console.error('Error processing event:', event.id, error);
     throw error;

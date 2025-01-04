@@ -50,7 +50,7 @@ serve(async (req) => {
 
       // Create a map of existing events for comparison
       const existingEventsMap = new Map(
-        events.map(event => [event.nylas_event_id, new Date(event.last_updated_at)])
+        events.map(event => [event.ical_uid, new Date(event.last_updated_at)])
       )
 
       // Re-process each event
@@ -94,16 +94,16 @@ serve(async (req) => {
     // Get existing events from database
     const { data: existingEvents, error: existingEventsError } = await supabaseAdmin
       .from('events')
-      .select('nylas_event_id, last_updated_at')
+      .select('ical_uid, last_updated_at')
       .eq('user_id', user_id)
 
     if (existingEventsError) {
       throw new Error('Failed to fetch existing events')
     }
 
-    // Create a map of existing events for comparison
+    // Create a map of existing events for comparison using ical_uid
     const existingEventsMap = new Map(
-      existingEvents.map(event => [event.nylas_event_id, new Date(event.last_updated_at)])
+      existingEvents.map(event => [event.ical_uid, new Date(event.last_updated_at)])
     )
 
     // Process each event
