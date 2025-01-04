@@ -1,9 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders } from "../_shared/nylas-auth.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 serve(async (req) => {
-  // Handle CORS
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -30,9 +34,27 @@ serve(async (req) => {
       });
     }
 
-    // For non-challenge requests, parse the webhook payload
-    const webhookData = await req.json();
-    console.log('Webhook payload:', webhookData);
+    // Get the raw request body as a string
+    const rawBody = await req.text();
+    console.log('Raw webhook body:', rawBody);
+
+    // Only parse as JSON if we have a body
+    let webhookData;
+    if (rawBody) {
+      try {
+        webhookData = JSON.parse(rawBody);
+        console.log('Parsed webhook data:', webhookData);
+      } catch (error) {
+        console.error('Error parsing webhook body:', error);
+        return new Response(
+          JSON.stringify({ error: 'Invalid JSON payload' }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+    }
 
     // Initialize Supabase client
     const supabaseAdmin = createClient(
@@ -41,9 +63,11 @@ serve(async (req) => {
     );
 
     // Handle webhook types
-    if (webhookData.type && webhookData.type.startsWith('grant.')) {
+    if (webhookData?.type && webhookData.type.startsWith('grant.')) {
       const grantId = webhookData.grant_id;
       const status = webhookData.type === 'grant.created' ? 'active' : 'revoked';
+      
+      console.log('Updating grant status:', { grantId, status });
       
       const { error: updateError } = await supabaseAdmin
         .from('profiles')
@@ -57,20 +81,25 @@ serve(async (req) => {
         console.error('Error updating grant status:', updateError);
         throw updateError;
       }
+
+      console.log('Successfully updated grant status');
     }
 
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200
-    });
+    return new Response(
+      JSON.stringify({ success: true }), 
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
 
   } catch (error) {
     console.error('Error processing webhook:', error);
     return new Response(
       JSON.stringify({ error: 'Internal server error', details: error.message }),
       { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }
