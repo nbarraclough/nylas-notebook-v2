@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { EventCard } from "./EventCard";
+import { Progress } from "@/components/ui/progress";
 import type { QueryObserverResult, RefetchOptions } from "@tanstack/react-query";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -18,23 +19,28 @@ interface EventsListProps {
 
 export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents }: EventsListProps) => {
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
 
   const syncEvents = async () => {
     if (!userId) return;
 
     try {
-      setIsLoading(true);
+      setIsSyncing(true);
+      setSyncProgress(25);
       console.log('Syncing events...');
       
-      // Invoke the sync-nylas-events function to fetch and sync events
+      // Start the sync process
       const { error } = await supabase.functions.invoke('sync-nylas-events', {
         body: { user_id: userId }
       });
 
       if (error) throw error;
 
+      setSyncProgress(75);
       await refetchEvents();
+      setSyncProgress(100);
+
       toast({
         title: "Success",
         description: "Calendar events synced successfully!",
@@ -47,7 +53,11 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents }: E
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      // Reset the progress after a short delay to show the completion
+      setTimeout(() => {
+        setIsSyncing(false);
+        setSyncProgress(0);
+      }, 1000);
     }
   };
 
@@ -58,14 +68,25 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents }: E
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Your Calendar</h1>
-        <Button 
-          onClick={syncEvents} 
-          disabled={isLoading}
-        >
-          {isLoading ? "Syncing..." : "Sync Events"}
-        </Button>
+      <div className="flex flex-col gap-4">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Your Calendar</h1>
+          <Button 
+            onClick={syncEvents} 
+            disabled={isSyncing}
+          >
+            {isSyncing ? "Syncing..." : "Sync Events"}
+          </Button>
+        </div>
+        
+        {isSyncing && (
+          <div className="space-y-2">
+            <Progress value={syncProgress} className="w-full" />
+            <p className="text-sm text-muted-foreground text-center">
+              Syncing your calendar events...
+            </p>
+          </div>
+        )}
       </div>
 
       <Card>
