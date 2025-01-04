@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 import { corsHeaders } from '../_shared/cors.ts'
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -9,6 +9,8 @@ serve(async (req) => {
 
   try {
     const { event_id, user_id, scheduled_for } = await req.json()
+    
+    console.log('Received request:', { event_id, user_id, scheduled_for })
     
     if (!event_id || !user_id || !scheduled_for) {
       throw new Error('event_id, user_id, and scheduled_for are required')
@@ -33,8 +35,13 @@ serve(async (req) => {
       .eq('id', user_id)
       .single()
 
-    if (profileError || !profile?.nylas_grant_id) {
-      throw new Error('Failed to get user profile or Nylas grant ID not found')
+    if (profileError) {
+      console.error('Profile error:', profileError)
+      throw new Error('Failed to get user profile')
+    }
+
+    if (!profile?.nylas_grant_id) {
+      throw new Error('Nylas grant ID not found')
     }
 
     const { data: event, error: eventError } = await supabaseAdmin
@@ -43,8 +50,13 @@ serve(async (req) => {
       .eq('id', event_id)
       .single()
 
-    if (eventError || !event?.conference_url) {
-      throw new Error('Failed to get event or conference URL not found')
+    if (eventError) {
+      console.error('Event error:', eventError)
+      throw new Error('Failed to get event')
+    }
+
+    if (!event?.conference_url) {
+      throw new Error('Conference URL not found')
     }
 
     // Prepare message for the queue
@@ -69,6 +81,20 @@ serve(async (req) => {
       scheduled_for
     })
 
+    // Add to notetaker_queue table for tracking first
+    const { error: insertError } = await supabaseAdmin
+      .from('notetaker_queue')
+      .insert({
+        user_id,
+        event_id,
+        scheduled_for
+      })
+
+    if (insertError) {
+      console.error('Error inserting queue record:', insertError)
+      throw insertError
+    }
+
     // Queue the request using pgmq
     const { error: queueError } = await supabaseAdmin.rpc(
       'pgmq_send',
@@ -81,21 +107,13 @@ serve(async (req) => {
 
     if (queueError) {
       console.error('Error queueing request:', queueError)
+      // If queueing fails, remove from notetaker_queue
+      await supabaseAdmin
+        .from('notetaker_queue')
+        .delete()
+        .eq('event_id', event_id)
+        .eq('user_id', user_id)
       throw queueError
-    }
-
-    // Add to notetaker_queue table for tracking
-    const { error: insertError } = await supabaseAdmin
-      .from('notetaker_queue')
-      .insert({
-        user_id,
-        event_id,
-        scheduled_for
-      })
-
-    if (insertError) {
-      console.error('Error inserting queue record:', insertError)
-      throw insertError
     }
 
     return new Response(

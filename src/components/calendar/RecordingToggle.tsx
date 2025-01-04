@@ -60,8 +60,8 @@ export const RecordingToggle = ({
       console.log('Toggling recording for event:', eventId, 'Current state:', isQueued);
 
       if (!isQueued) {
-        // Add to queue using the new Edge Function
-        const { error } = await supabase.functions.invoke('queue-event-recording', {
+        // Add to queue using the Edge Function
+        const { data, error } = await supabase.functions.invoke('queue-event-recording', {
           body: {
             event_id: eventId,
             user_id: userId,
@@ -98,11 +98,11 @@ export const RecordingToggle = ({
           description: "Meeting removed from recording queue.",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error toggling recording:', error);
       toast({
         title: "Error",
-        description: "Failed to update recording status. Please try again.",
+        description: error.message || "Failed to update recording status. Please try again.",
         variant: "destructive",
       });
     } finally {
