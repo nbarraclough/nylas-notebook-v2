@@ -15,36 +15,13 @@ serve(async (req) => {
       headers: Object.fromEntries(req.headers.entries())
     });
 
-    // Check for challenge parameter in URL
-    const url = new URL(req.url);
-    const challenge = url.searchParams.get('challenge');
+    // Verify the request and check for challenge
+    const { isValid, challenge } = await verifyNylasWebhook(req);
     
-    if (challenge) {
-      console.log('Received challenge request:', challenge);
-      // Return ONLY the challenge parameter in the response
-      return new Response(challenge, { 
-        headers: { ...corsHeaders, 'Content-Type': 'text/plain' },
-        status: 200
-      });
-    }
-
-    // For non-challenge requests, proceed with signature verification
-    const rawBody = await req.text();
-    console.log('Received webhook payload:', rawBody.slice(0, 100) + '...'); // Log first 100 chars
-
-    // Log the client secret being used (first few characters only for security)
-    const clientSecret = Deno.env.get('NYLAS_CLIENT_SECRET');
-    console.log('Using client secret (first 4 chars):', clientSecret?.slice(0, 4));
-
-    // Verify the webhook signature
-    const isValid = await verifyNylasWebhook(req, rawBody);
     if (!isValid) {
-      console.error('Invalid webhook signature');
+      console.error('Invalid webhook request');
       return new Response(
-        JSON.stringify({ 
-          error: 'Invalid signature',
-          message: 'The webhook signature verification failed'
-        }),
+        JSON.stringify({ error: 'Invalid request' }),
         { 
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -52,18 +29,30 @@ serve(async (req) => {
       );
     }
 
-    // Parse the body as JSON after verification
+    // Handle challenge request - must return ONLY the challenge string
+    if (challenge) {
+      console.log('Responding to challenge request with:', challenge);
+      return new Response(challenge, {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/plain',
+        }
+      });
+    }
+
+    // For non-challenge requests, parse the webhook payload
+    const rawBody = await req.text();
+    console.log('Webhook payload:', rawBody);
+
     let webhookData;
     try {
       webhookData = JSON.parse(rawBody);
-      console.log('Webhook data:', webhookData);
+      console.log('Parsed webhook data:', webhookData);
     } catch (error) {
       console.error('Error parsing webhook data:', error);
       return new Response(
-        JSON.stringify({ 
-          error: 'Invalid JSON',
-          message: 'Failed to parse webhook payload as JSON'
-        }),
+        JSON.stringify({ error: 'Invalid JSON payload' }),
         { 
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -71,7 +60,7 @@ serve(async (req) => {
       );
     }
 
-    // Initialize Supabase client
+    // Initialize Supabase client for database operations
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -83,8 +72,36 @@ serve(async (req) => {
       }
     );
 
-    // Process the webhook based on its type
-    console.log('Processing webhook:', webhookData.type);
+    // Process webhook based on type
+    const webhookType = webhookData.type;
+    console.log('Processing webhook type:', webhookType);
+
+    // Handle different webhook types
+    switch (webhookType) {
+      case 'grant.created':
+      case 'grant.deleted':
+      case 'grant.expired':
+        // Update grant status in profiles table
+        const grantId = webhookData.grant_id;
+        const status = webhookType === 'grant.created' ? 'active' : 'revoked';
+        
+        const { error: updateError } = await supabaseAdmin
+          .from('profiles')
+          .update({ 
+            grant_status: status,
+            updated_at: new Date().toISOString()
+          })
+          .eq('nylas_grant_id', grantId);
+
+        if (updateError) {
+          console.error('Error updating grant status:', updateError);
+          throw updateError;
+        }
+        break;
+
+      default:
+        console.log('Unhandled webhook type:', webhookType);
+    }
 
     return new Response(
       JSON.stringify({ success: true }),
