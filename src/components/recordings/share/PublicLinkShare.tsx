@@ -101,12 +101,17 @@ export function PublicLinkShare({
                   {expiryDate ? format(expiryDate, "PPP") : "Pick a date"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
+              <PopoverContent 
+                className="w-auto p-0" 
+                onPointerDownOutside={(e) => e.preventDefault()}
+                onInteractOutside={(e) => e.preventDefault()}
+              >
                 <CalendarComponent
                   mode="single"
                   selected={expiryDate}
                   onSelect={onExpiryDateChange}
                   initialFocus
+                  disabled={(date) => date < new Date()}
                 />
               </PopoverContent>
             </Popover>
