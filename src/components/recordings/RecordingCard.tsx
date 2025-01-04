@@ -10,6 +10,7 @@ import type { EventParticipant, EventOrganizer } from "@/types/calendar";
 import { RecordingStatus } from "./RecordingStatus";
 import { RecordingActions } from "./RecordingActions";
 import { Loader } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 type Recording = Database['public']['Tables']['recordings']['Row'] & {
   event: {
@@ -30,6 +31,26 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
   const { toast } = useToast();
   const [isKicking, setIsKicking] = useState(false);
   const [isRetrievingMedia, setIsRetrievingMedia] = useState(false);
+
+  // Fetch public share URL if it exists
+  const { data: publicShare } = useQuery({
+    queryKey: ['publicShare', recording.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('video_shares')
+        .select('external_token')
+        .eq('recording_id', recording.id)
+        .eq('share_type', 'external')
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching public share:', error);
+        return null;
+      }
+
+      return data ? `${window.location.origin}/shared/${data.external_token}` : null;
+    },
+  });
 
   const handleManualKick = async () => {
     try {
@@ -133,6 +154,30 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
         {recording.event.description && (
           <div className="text-sm text-muted-foreground">
             {recording.event.description}
+          </div>
+        )}
+
+        {publicShare && (
+          <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+            <input
+              type="text"
+              value={publicShare}
+              readOnly
+              className="flex-1 bg-transparent border-none focus:outline-none text-sm"
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                navigator.clipboard.writeText(publicShare);
+                toast({
+                  title: "Link copied",
+                  description: "The public link has been copied to your clipboard."
+                });
+              }}
+            >
+              Copy Link
+            </Button>
           </div>
         )}
 
