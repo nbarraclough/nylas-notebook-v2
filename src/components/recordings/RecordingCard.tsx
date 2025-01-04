@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import { Video, Clock, Check, X, Loader } from "lucide-react";
 import { EventParticipants } from "../calendar/EventParticipants";
+import { ShareVideoDialog } from "./ShareVideoDialog";
 import type { Database } from "@/integrations/supabase/types";
 import type { Json } from "@/integrations/supabase/types/json";
 import type { EventParticipant, EventOrganizer } from "@/types/calendar";
@@ -78,19 +79,24 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
           </div>
         )}
 
-        {recording.recording_url && recording.status === 'completed' && (
-          <div className="text-sm">
-            <a 
-              href={recording.recording_url} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-primary hover:underline flex items-center gap-2"
-            >
-              <Video className="h-4 w-4" />
-              View Recording
-            </a>
-          </div>
-        )}
+        <div className="flex items-center justify-between">
+          {recording.recording_url && recording.status === 'completed' && (
+            <div className="text-sm">
+              <a 
+                href={recording.recording_url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-primary hover:underline flex items-center gap-2"
+              >
+                <Video className="h-4 w-4" />
+                View Recording
+              </a>
+            </div>
+          )}
+          {recording.status === 'completed' && (
+            <ShareVideoDialog recordingId={recording.id} />
+          )}
+        </div>
 
         <EventParticipants 
           participants={participants}
