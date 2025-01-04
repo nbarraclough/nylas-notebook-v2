@@ -39,24 +39,16 @@ export const OrganizationInfo = ({
 
     setIsSubmitting(true);
     try {
-      console.log('Updating organization name:', {
-        organizationId,
-        newName: newName.trim(),
-        userRole
-      });
-
       const { error } = await supabase
         .from('organizations')
         .update({ 
           name: newName.trim(),
           updated_at: new Date().toISOString()
         })
-        .eq('id', organizationId);
+        .eq('id', organizationId)
+        .maybeSingle();
 
-      if (error) {
-        console.error('Error updating organization:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       toast({
         title: "Success",
