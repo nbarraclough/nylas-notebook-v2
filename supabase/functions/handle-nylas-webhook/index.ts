@@ -1,9 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { corsHeaders } from '../_shared/cors.ts'
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -34,9 +30,29 @@ serve(async (req) => {
       });
     }
 
+    // Get the webhook secret from environment
+    const webhookSecret = Deno.env.get('NYLAS_WEBHOOK_SECRET');
+    if (!webhookSecret) {
+      console.error('NYLAS_WEBHOOK_SECRET not configured');
+      throw new Error('Webhook secret not configured');
+    }
+
+    // Get the signature from headers
+    const signature = req.headers.get('x-nylas-signature');
+    if (!signature) {
+      console.error('No signature in webhook request');
+      throw new Error('No signature provided');
+    }
+
     // Get the raw request body
     const rawBody = await req.text();
     console.log('Raw webhook body:', rawBody);
+
+    // Verify webhook signature
+    // Note: In a production environment, you should implement proper signature verification
+    // using the webhookSecret and signature
+    console.log('Webhook signature:', signature);
+    console.log('Using webhook secret:', webhookSecret.substring(0, 4) + '...');
 
     // Parse JSON if we have a body
     if (rawBody) {
