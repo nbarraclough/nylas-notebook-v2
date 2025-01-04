@@ -11,7 +11,7 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
   const { toast } = useToast();
 
   // Fetch user's organization details including members
-  const { data: organizationData, refetch: refetchOrg } = useQuery({
+  const { data: organizationData, refetch: refetchOrgQuery } = useQuery({
     queryKey: ['organization', userId],
     queryFn: async () => {
       const { data: profile } = await supabase
@@ -41,6 +41,11 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
     },
     enabled: !!userId,
   });
+
+  // Wrap the refetch function to match the expected Promise<void> type
+  const refetchOrg = async () => {
+    await refetchOrgQuery();
+  };
 
   const isAdmin = organizationData?.organization_members?.some(
     member => member.user_id === userId && member.role === 'admin'
