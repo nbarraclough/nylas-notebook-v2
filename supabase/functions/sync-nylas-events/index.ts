@@ -102,6 +102,10 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // Get conference URL from the correct location in the Nylas API response
+        const conferenceUrl = event.conference_data?.conference_url || null;
+        console.log('Conference URL for event:', event.id, conferenceUrl);
+
         // Safely extract and transform event data
         const eventData = {
           user_id,
@@ -112,7 +116,7 @@ Deno.serve(async (req) => {
           start_time: startTime,
           end_time: endTime,
           participants: Array.isArray(event.participants) ? event.participants : [],
-          conference_url: event.conferencing?.url || null,
+          conference_url: conferenceUrl,
           last_updated_at: new Date().toISOString(),
           ical_uid: event.ical_uid || null,
           busy: event.busy === false ? false : true, // Default to true if undefined
