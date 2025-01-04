@@ -122,22 +122,6 @@ Deno.serve(async (req) => {
           eventTitle: event.title
         })
 
-        // Update queue item status and save notetaker_id
-        const { error: updateError } = await supabaseClient
-          .from('notetaker_queue')
-          .update({
-            status: 'completed',
-            last_attempt: new Date().toISOString(),
-            attempts: (item.attempts || 0) + 1,
-            notetaker_id: notetakerId
-          })
-          .eq('id', item.id)
-
-        if (updateError) {
-          console.error('Error updating queue item:', updateError)
-          throw updateError
-        }
-
         // Create a new recording entry
         const { error: recordingError } = await supabaseClient
           .from('recordings')
@@ -153,6 +137,24 @@ Deno.serve(async (req) => {
           console.error('Error creating recording entry:', recordingError)
           throw recordingError
         }
+
+        // Delete the queue item after successful processing
+        const { error: deleteError } = await supabaseClient
+          .from('notetaker_queue')
+          .delete()
+          .eq('id', item.id)
+
+        if (deleteError) {
+          console.error('Error deleting queue item:', deleteError)
+          // Don't throw here, as the main operation was successful
+          // Just log the error and continue
+        }
+
+        console.log('Queue item processed and deleted successfully:', {
+          queueId: item.id,
+          eventId: item.event_id,
+          notetakerId
+        })
 
       } catch (error) {
         console.error('Error processing queue item:', error)
