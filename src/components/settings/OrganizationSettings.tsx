@@ -15,24 +15,21 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
     queryFn: async () => {
       console.log('Fetching organization data for user:', userId);
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error('No session');
-
-      const response = await fetch(
-        'https://xqzlejcvvtjdrabofrxs.supabase.co/functions/v1/get-organization-data',
-        {
-          headers: {
-            Authorization: `Bearer ${userId}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        console.error('Error fetching organization data:', error);
-        throw new Error(error.message || 'Failed to fetch organization data');
+      if (!session?.access_token) {
+        throw new Error('No session found');
       }
 
-      const data = await response.json();
+      const { data, error } = await supabase.functions.invoke('get-organization-data', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) {
+        console.error('Error fetching organization data:', error);
+        throw error;
+      }
+
       console.log('Organization data:', data);
       return data;
     },
@@ -49,7 +46,6 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
 
       if (error) throw error;
 
-      // Invalidate the query to refresh the data
       await queryClient.invalidateQueries({
         queryKey: ['organization_data', userId],
       });
@@ -85,7 +81,6 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
 
       if (profileError) throw profileError;
 
-      // Invalidate the query to refresh the data
       await queryClient.invalidateQueries({
         queryKey: ['organization_data', userId],
       });

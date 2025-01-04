@@ -1,34 +1,15 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
 import { corsHeaders } from '../_shared/cors.ts'
 
-interface OrganizationData {
-  organization: {
-    id: string;
-    name: string;
-    domain: string;
-  } | null;
-  members: Array<{
-    user_id: string;
-    role: string;
-    profile: {
-      email: string;
-    };
-  }>;
-}
-
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-
-    // Get the user ID from the authorization header
-    const authHeader = req.headers.get('Authorization')?.split('Bearer ')[1]
+    // Get the JWT token from the request headers
+    const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(
         JSON.stringify({ error: 'No authorization header' }),
@@ -36,14 +17,33 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Create Supabase client with service role key
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    // Verify the JWT token and get the user
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    )
+
+    if (authError || !user) {
+      console.error('Auth error:', authError)
+      return new Response(
+        JSON.stringify({ error: 'Invalid JWT' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Get user's profile to find their organization
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('organization_id')
-      .eq('id', authHeader)
-      .maybeSingle()
+      .eq('id', user.id)
+      .single()
 
-    if (!profile?.organization_id) {
+    if (profileError || !profile?.organization_id) {
       return new Response(
         JSON.stringify({ organization: null, members: [] }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -51,14 +51,18 @@ Deno.serve(async (req) => {
     }
 
     // Get organization details
-    const { data: organization } = await supabase
+    const { data: organization, error: orgError } = await supabaseAdmin
       .from('organizations')
       .select('*')
       .eq('id', profile.organization_id)
-      .maybeSingle()
+      .single()
 
-    // Get organization members
-    const { data: members } = await supabase
+    if (orgError) {
+      throw orgError
+    }
+
+    // Get organization members with their profiles
+    const { data: members, error: membersError } = await supabaseAdmin
       .from('organization_members')
       .select(`
         user_id,
@@ -69,7 +73,11 @@ Deno.serve(async (req) => {
       `)
       .eq('organization_id', profile.organization_id)
 
-    const response: OrganizationData = {
+    if (membersError) {
+      throw membersError
+    }
+
+    const response = {
       organization,
       members: members || []
     }
@@ -79,6 +87,7 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
+    console.error('Error:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
