@@ -78,8 +78,13 @@ Deno.serve(async (req) => {
     const { data: events } = await response.json()
     console.log('Fetched', events.length, 'events from Nylas')
 
-    // Store events in database
+    // Store events in database with all new fields
     for (const event of events) {
+      const conferenceUrl = event.conferencing?.url || null;
+      const originalStartTime = event.original_start_time 
+        ? new Date(event.original_start_time * 1000).toISOString()
+        : null;
+
       const { error: upsertError } = await supabaseClient
         .from('events')
         .upsert({
@@ -88,11 +93,24 @@ Deno.serve(async (req) => {
           title: event.title || 'Untitled Event',
           description: event.description,
           location: event.location,
-          start_time: event.start,
-          end_time: event.end,
+          start_time: new Date(event.when.start_time * 1000).toISOString(),
+          end_time: new Date(event.when.end_time * 1000).toISOString(),
           participants: event.participants || [],
-          conference_url: event.conferencing?.url,
-          last_updated_at: new Date().toISOString()
+          conference_url: conferenceUrl,
+          last_updated_at: new Date().toISOString(),
+          // New fields
+          ical_uid: event.ical_uid,
+          busy: event.busy,
+          html_link: event.html_link,
+          master_event_id: event.master_event_id,
+          organizer: event.organizer || {},
+          resources: event.resources || [],
+          read_only: event.read_only,
+          reminders: event.reminders || {},
+          recurrence: event.recurrence,
+          status: event.status,
+          visibility: event.visibility,
+          original_start_time: originalStartTime,
         }, {
           onConflict: 'nylas_event_id',
         })

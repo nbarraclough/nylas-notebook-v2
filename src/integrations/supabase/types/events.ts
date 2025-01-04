@@ -1,0 +1,55 @@
+export type Event = {
+  id: string;
+  user_id: string;
+  nylas_event_id: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  start_time: string;
+  end_time: string;
+  participants: any[];
+  conference_url: string | null;
+  last_updated_at: string;
+  created_at: string;
+  ical_uid: string | null;
+  busy: boolean | null;
+  html_link: string | null;
+  master_event_id: string | null;
+  organizer: Record<string, any> | null;
+  resources: any[];
+  read_only: boolean | null;
+  reminders: Record<string, any>;
+  recurrence: string[] | null;
+  status: string | null;
+  visibility: string | null;
+  original_start_time: string | null;
+};
+
+export type EventInsert = {
+  id?: string;
+  user_id: string;
+  nylas_event_id: string;
+  title: string;
+  description?: string | null;
+  location?: string | null;
+  start_time: string;
+  end_time: string;
+  participants?: any[];
+  conference_url?: string | null;
+  last_updated_at?: string;
+  created_at?: string;
+  ical_uid?: string | null;
+  busy?: boolean | null;
+  html_link?: string | null;
+  master_event_id?: string | null;
+  organizer?: Record<string, any> | null;
+  resources?: any[];
+  read_only?: boolean | null;
+  reminders?: Record<string, any>;
+  recurrence?: string[] | null;
+  status?: string | null;
+  visibility?: string | null;
+  original_start_time?: string | null;
+};
+
+export type EventUpdate = Partial<EventInsert>;

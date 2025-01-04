@@ -11,46 +11,82 @@ export type Database = {
     Tables: {
       events: {
         Row: {
+          busy: boolean | null
           conference_url: string | null
           created_at: string
           description: string | null
           end_time: string
+          html_link: string | null
+          ical_uid: string | null
           id: string
           last_updated_at: string
           location: string | null
+          master_event_id: string | null
           nylas_event_id: string
+          organizer: Json | null
+          original_start_time: string | null
           participants: Json
+          read_only: boolean | null
+          recurrence: string[] | null
+          reminders: Json | null
+          resources: Json | null
           start_time: string
+          status: string | null
           title: string
           user_id: string
+          visibility: string | null
         }
         Insert: {
+          busy?: boolean | null
           conference_url?: string | null
           created_at?: string
           description?: string | null
           end_time: string
+          html_link?: string | null
+          ical_uid?: string | null
           id?: string
           last_updated_at?: string
           location?: string | null
+          master_event_id?: string | null
           nylas_event_id: string
+          organizer?: Json | null
+          original_start_time?: string | null
           participants?: Json
+          read_only?: boolean | null
+          recurrence?: string[] | null
+          reminders?: Json | null
+          resources?: Json | null
           start_time: string
+          status?: string | null
           title: string
           user_id: string
+          visibility?: string | null
         }
         Update: {
+          busy?: boolean | null
           conference_url?: string | null
           created_at?: string
           description?: string | null
           end_time?: string
+          html_link?: string | null
+          ical_uid?: string | null
           id?: string
           last_updated_at?: string
           location?: string | null
+          master_event_id?: string | null
           nylas_event_id?: string
+          organizer?: Json | null
+          original_start_time?: string | null
           participants?: Json
+          read_only?: boolean | null
+          recurrence?: string[] | null
+          reminders?: Json | null
+          resources?: Json | null
           start_time?: string
+          status?: string | null
           title?: string
           user_id?: string
+          visibility?: string | null
         }
         Relationships: [
           {
