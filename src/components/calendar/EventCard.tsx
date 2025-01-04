@@ -103,13 +103,6 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
     setIsQueued(newState);
   };
 
-  console.log('Rendering EventCard:', {
-    eventId: event.id,
-    hasConferenceUrl: !!event.conference_url,
-    nylasGrantId: profile?.nylas_grant_id,
-    isQueued
-  });
-
   return (
     <Card className={isPast ? "opacity-60" : ""}>
       <CardContent className="p-6">
@@ -121,11 +114,6 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
             participants={parseParticipants(event.participants)}
             organizer={parseOrganizer(event.organizer)}
             isInternalMeeting={isInternalMeeting}
-          />
-
-          <EventDescription description={event.description} />
-
-          <EventActions 
             conferenceUrl={event.conference_url}
             isQueued={isQueued}
             eventId={event.id}
@@ -134,7 +122,14 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
             nylasGrantId={profile?.nylas_grant_id}
             onToggle={handleQueueToggle}
             isPast={isPast}
+          />
+
+          <EventDescription description={event.description} />
+
+          <EventActions 
+            conferenceUrl={event.conference_url}
             isCalendarRoute={isCalendarRoute}
+            isPast={isPast}
           />
         </div>
       </CardContent>

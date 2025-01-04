@@ -2,6 +2,7 @@ import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Globe, Shield } from "lucide-react";
 import { EventParticipants } from "./EventParticipants";
+import { RecordingToggle } from "./RecordingToggle";
 import type { EventParticipant, EventOrganizer } from "@/types/calendar";
 
 interface EventHeaderProps {
@@ -11,6 +12,14 @@ interface EventHeaderProps {
   participants: EventParticipant[];
   organizer: EventOrganizer | null;
   isInternalMeeting: boolean;
+  conferenceUrl: string | null;
+  isQueued: boolean;
+  eventId: string;
+  userId: string;
+  scheduledFor: string;
+  nylasGrantId?: string | null;
+  onToggle: (newState: boolean) => void;
+  isPast: boolean;
 }
 
 export const EventHeader = ({ 
@@ -19,7 +28,15 @@ export const EventHeader = ({
   endTime, 
   participants, 
   organizer,
-  isInternalMeeting 
+  isInternalMeeting,
+  conferenceUrl,
+  isQueued,
+  eventId,
+  userId,
+  scheduledFor,
+  nylasGrantId,
+  onToggle,
+  isPast
 }: EventHeaderProps) => {
   return (
     <div className="flex justify-between items-start">
@@ -38,22 +55,35 @@ export const EventHeader = ({
           </p>
         </div>
       </div>
-      <Badge 
-        variant={isInternalMeeting ? "secondary" : "outline"}
-        className={`text-xs ${isInternalMeeting ? 'bg-purple-100 hover:bg-purple-100 text-purple-800' : 'border-blue-200 text-blue-700 hover:bg-blue-50'}`}
-      >
-        {isInternalMeeting ? (
-          <>
-            <Shield className="w-3 h-3 mr-1" />
-            Internal
-          </>
-        ) : (
-          <>
-            <Globe className="w-3 h-3 mr-1" />
-            External
-          </>
+      <div className="flex flex-col items-end gap-2">
+        <Badge 
+          variant={isInternalMeeting ? "secondary" : "outline"}
+          className={`text-xs ${isInternalMeeting ? 'bg-purple-100 hover:bg-purple-100 text-purple-800' : 'border-blue-200 text-blue-700 hover:bg-blue-50'}`}
+        >
+          {isInternalMeeting ? (
+            <>
+              <Shield className="w-3 h-3 mr-1" />
+              Internal
+            </>
+          ) : (
+            <>
+              <Globe className="w-3 h-3 mr-1" />
+              External
+            </>
+          )}
+        </Badge>
+        {!isPast && conferenceUrl && (
+          <RecordingToggle
+            isQueued={isQueued}
+            eventId={eventId}
+            userId={userId}
+            hasConferenceUrl={!!conferenceUrl}
+            scheduledFor={scheduledFor}
+            nylasGrantId={nylasGrantId}
+            onToggle={onToggle}
+          />
         )}
-      </Badge>
+      </div>
     </div>
   );
 };
