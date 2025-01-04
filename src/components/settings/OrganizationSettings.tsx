@@ -114,8 +114,6 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
           name={organizationData.organization.name}
           domain={organizationData.organization.domain}
           userRole={organizationData.members.find(m => m.user_id === userId)?.role || 'user'}
-          organizationId={organizationData.organization.id}
-          onOrganizationUpdate={handleOrganizationUpdate}
         />
 
         <div>
