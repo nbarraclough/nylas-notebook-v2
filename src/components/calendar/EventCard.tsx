@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/hover-card";
 import { format } from "date-fns";
 import type { Database } from "@/integrations/supabase/types";
+import type { EventParticipant, EventOrganizer } from "@/types/calendar";
 
 type Event = Database['public']['Tables']['events']['Row'];
 
@@ -16,9 +17,11 @@ interface EventCardProps {
 }
 
 export const EventCard = ({ event }: EventCardProps) => {
-  const participants = Array.isArray(event.participants) ? event.participants : [];
+  const participants = (Array.isArray(event.participants) ? event.participants : []) as EventParticipant[];
+  const organizer = event.organizer as EventOrganizer;
+  
   const isInternalMeeting = participants.every(participant => {
-    const organizerDomain = event.organizer?.email?.split('@')[1];
+    const organizerDomain = organizer?.email?.split('@')[1];
     const participantDomain = participant.email?.split('@')[1];
     return organizerDomain && participantDomain && organizerDomain === participantDomain;
   });
