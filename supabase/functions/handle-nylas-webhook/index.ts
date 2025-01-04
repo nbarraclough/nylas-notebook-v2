@@ -16,12 +16,12 @@ serve(async (req) => {
   }
 
   try {
-    // Handle challenge parameter in URL
+    // Handle challenge parameter in URL - this is required for Nylas webhook verification
     const url = new URL(req.url);
     const challenge = url.searchParams.get('challenge');
     
     if (challenge) {
-      console.log('🎯 Challenge request received:', challenge);
+      console.log('🎯 Nylas webhook challenge received:', challenge);
       return new Response(challenge, {
         status: 200,
         headers: {
@@ -35,8 +35,13 @@ serve(async (req) => {
     const webhookSecret = Deno.env.get('NYLAS_WEBHOOK_SECRET');
     if (!webhookSecret) {
       console.error('❌ NYLAS_WEBHOOK_SECRET not configured');
+      // Return 200 to acknowledge receipt even if we can't process it
       return new Response(
-        JSON.stringify({ error: 'Webhook secret not configured' }),
+        JSON.stringify({ 
+          success: false,
+          message: 'Webhook received but secret not configured',
+          status: 'acknowledged'
+        }),
         { 
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -48,8 +53,13 @@ serve(async (req) => {
     const signature = req.headers.get('x-nylas-signature') || req.headers.get('X-Nylas-Signature');
     if (!signature) {
       console.error('❌ No signature in webhook request');
+      // Return 200 to acknowledge receipt even without signature
       return new Response(
-        JSON.stringify({ error: 'No signature provided' }),
+        JSON.stringify({ 
+          success: false,
+          message: 'Webhook received but no signature provided',
+          status: 'acknowledged'
+        }),
         { 
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -61,8 +71,13 @@ serve(async (req) => {
     const rawBody = await req.text();
     const webhookData = logWebhookBody(rawBody);
     if (!webhookData) {
+      // Return 200 to acknowledge receipt even with invalid data
       return new Response(
-        JSON.stringify({ error: 'Invalid webhook data' }),
+        JSON.stringify({ 
+          success: false,
+          message: 'Webhook received but data invalid',
+          status: 'acknowledged'
+        }),
         { 
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -76,8 +91,13 @@ serve(async (req) => {
 
     if (!isValid) {
       console.error('❌ Invalid webhook signature');
+      // Return 200 to acknowledge receipt even with invalid signature
       return new Response(
-        JSON.stringify({ error: 'Invalid signature' }),
+        JSON.stringify({ 
+          success: false,
+          message: 'Webhook received but signature invalid',
+          status: 'acknowledged'
+        }),
         { 
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -125,9 +145,13 @@ serve(async (req) => {
 
       console.log('✅ Successfully processed webhook:', webhookData.type);
       
-      // Always return 200 to acknowledge receipt
+      // Return 200 with success message to properly acknowledge webhook
       return new Response(
-        JSON.stringify({ success: true }), 
+        JSON.stringify({ 
+          success: true,
+          message: `Successfully processed ${webhookData.type} webhook`,
+          status: 'acknowledged'
+        }), 
         {
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -135,11 +159,12 @@ serve(async (req) => {
       );
     } catch (error) {
       console.error(`❌ Error processing ${webhookData.type} webhook:`, error);
-      // Still return 200 to acknowledge receipt
+      // Return 200 to acknowledge receipt even if processing failed
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: `Error processing ${webhookData.type} webhook: ${error.message}` 
+          error: `Error processing ${webhookData.type} webhook: ${error.message}`,
+          status: 'acknowledged'
         }), 
         {
           status: 200,
@@ -151,9 +176,13 @@ serve(async (req) => {
   } catch (error) {
     console.error('❌ Fatal error processing webhook:', error);
     console.error('Error stack:', error.stack);
-    // Still return 200 to acknowledge receipt
+    // Return 200 to acknowledge receipt even with fatal error
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
+      JSON.stringify({ 
+        error: 'Internal server error', 
+        details: error.message,
+        status: 'acknowledged'
+      }),
       { 
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
