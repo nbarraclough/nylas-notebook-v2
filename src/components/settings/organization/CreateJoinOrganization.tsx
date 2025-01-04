@@ -15,9 +15,12 @@ export const CreateJoinOrganization = ({ userId, onOrganizationUpdate }: CreateJ
   const { toast } = useToast();
   const [orgName, setOrgName] = useState("");
   const [orgDomain, setOrgDomain] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleCreateOrg = async () => {
     try {
+      setIsLoading(true);
+      
       // Create organization
       const { data: org, error: orgError } = await supabase
         .from('organizations')
@@ -26,6 +29,7 @@ export const CreateJoinOrganization = ({ userId, onOrganizationUpdate }: CreateJ
         .single();
 
       if (orgError) throw orgError;
+      if (!org) throw new Error('Failed to create organization');
 
       // Add user as admin
       const { error: memberError } = await supabase
@@ -58,11 +62,15 @@ export const CreateJoinOrganization = ({ userId, onOrganizationUpdate }: CreateJ
         description: error.message || "Failed to create organization. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleJoinOrg = async () => {
     try {
+      setIsLoading(true);
+      
       // Find organization by domain
       const { data: org, error: orgError } = await supabase
         .from('organizations')
@@ -71,6 +79,7 @@ export const CreateJoinOrganization = ({ userId, onOrganizationUpdate }: CreateJ
         .single();
 
       if (orgError) throw orgError;
+      if (!org) throw new Error('Organization not found');
 
       // Add user as member
       const { error: memberError } = await supabase
@@ -103,6 +112,8 @@ export const CreateJoinOrganization = ({ userId, onOrganizationUpdate }: CreateJ
         description: error.message || "Failed to join organization. Please check the domain and try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -120,6 +131,7 @@ export const CreateJoinOrganization = ({ userId, onOrganizationUpdate }: CreateJ
               value={orgName}
               onChange={(e) => setOrgName(e.target.value)}
               placeholder="Enter organization name"
+              disabled={isLoading}
             />
           </div>
           <div>
@@ -129,21 +141,22 @@ export const CreateJoinOrganization = ({ userId, onOrganizationUpdate }: CreateJ
               value={orgDomain}
               onChange={(e) => setOrgDomain(e.target.value)}
               placeholder="e.g., company.com"
+              disabled={isLoading}
             />
           </div>
           <div className="flex gap-4">
             <Button 
               onClick={handleCreateOrg}
-              disabled={!orgName || !orgDomain}
+              disabled={!orgName || !orgDomain || isLoading}
             >
-              Create Organization
+              {isLoading ? "Creating..." : "Create Organization"}
             </Button>
             <Button 
               onClick={handleJoinOrg}
-              disabled={!orgDomain}
+              disabled={!orgDomain || isLoading}
               variant="outline"
             >
-              Join Organization
+              {isLoading ? "Joining..." : "Join Organization"}
             </Button>
           </div>
         </div>
