@@ -105,26 +105,20 @@ export const processEvent = async (
       forceProcess
     });
 
-    // First try to update existing event
-    const { error: updateError } = await supabaseAdmin
+    // Use upsert with on_conflict to handle both insert and update cases
+    const { error } = await supabaseAdmin
       .from('events')
-      .update(eventData)
-      .eq('ical_uid', event.ical_uid);
+      .upsert(eventData, {
+        onConflict: 'user_id,nylas_event_id',
+        ignoreDuplicates: false
+      });
 
-    if (updateError) {
-      // If update fails (no existing record), try to insert
-      const { error: insertError } = await supabaseAdmin
-        .from('events')
-        .insert(eventData);
-
-      if (insertError) {
-        console.error('Error inserting event:', insertError);
-        throw insertError;
-      }
-      console.log('Successfully inserted new event:', event.ical_uid);
-    } else {
-      console.log('Successfully updated existing event:', event.ical_uid);
+    if (error) {
+      console.error('Error upserting event:', error);
+      throw error;
     }
+
+    console.log('Successfully upserted event:', event.id);
 
   } catch (error) {
     console.error('Error processing event:', event.id, error);
