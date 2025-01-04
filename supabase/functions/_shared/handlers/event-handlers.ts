@@ -24,6 +24,25 @@ export const handleEventCreated = async (objectData: any, grantId: string) => {
 
   console.log('Found profile for event.created:', profile);
 
+  // Log participant data for debugging
+  console.log('Event participants:', objectData.participants);
+  console.log('Event organizer:', objectData.organizer);
+
+  // Ensure participants is an array and contains all required fields
+  const participants = Array.isArray(objectData.participants) 
+    ? objectData.participants.map(p => ({
+        email: p.email,
+        name: p.name || p.email.split('@')[0],
+        status: p.status || 'none'
+      }))
+    : [];
+
+  // Ensure organizer has all required fields
+  const organizer = objectData.organizer ? {
+    email: objectData.organizer.email,
+    name: objectData.organizer.name || objectData.organizer.email.split('@')[0]
+  } : null;
+
   // Insert or update the event in our database
   const { error: eventError } = await supabaseAdmin
     .from('events')
@@ -35,16 +54,16 @@ export const handleEventCreated = async (objectData: any, grantId: string) => {
       location: objectData.location,
       start_time: new Date(objectData.when.start_time * 1000).toISOString(),
       end_time: new Date(objectData.when.end_time * 1000).toISOString(),
-      participants: objectData.participants,
+      participants: participants,
       conference_url: objectData.conferencing?.details?.url,
       ical_uid: objectData.ical_uid,
       busy: objectData.busy,
       html_link: objectData.html_link,
       master_event_id: objectData.master_event_id,
-      organizer: objectData.organizer,
-      resources: objectData.resources,
+      organizer: organizer,
+      resources: objectData.resources || [],
       read_only: objectData.read_only,
-      reminders: objectData.reminders,
+      reminders: objectData.reminders || {},
       recurrence: objectData.recurrence,
       status: objectData.status,
       visibility: objectData.visibility,
@@ -67,13 +86,24 @@ export const handleEventUpdated = async (objectData: any, grantId: string) => {
   // Find user associated with this grant
   const profile = await findUserByGrant(grantId);
 
-  // Check if we have this event
-  const { data: existingEvent } = await supabaseAdmin
-    .from('events')
-    .select('id')
-    .eq('nylas_event_id', objectData.id)
-    .eq('user_id', profile.id)
-    .maybeSingle();
+  // Log participant data for debugging
+  console.log('Event participants:', objectData.participants);
+  console.log('Event organizer:', objectData.organizer);
+
+  // Ensure participants is an array and contains all required fields
+  const participants = Array.isArray(objectData.participants) 
+    ? objectData.participants.map(p => ({
+        email: p.email,
+        name: p.name || p.email.split('@')[0],
+        status: p.status || 'none'
+      }))
+    : [];
+
+  // Ensure organizer has all required fields
+  const organizer = objectData.organizer ? {
+    email: objectData.organizer.email,
+    name: objectData.organizer.name || objectData.organizer.email.split('@')[0]
+  } : null;
 
   // Prepare event data
   const eventData = {
@@ -84,16 +114,16 @@ export const handleEventUpdated = async (objectData: any, grantId: string) => {
     location: objectData.location,
     start_time: new Date(objectData.when.start_time * 1000).toISOString(),
     end_time: new Date(objectData.when.end_time * 1000).toISOString(),
-    participants: objectData.participants,
+    participants: participants,
     conference_url: objectData.conferencing?.details?.url,
     ical_uid: objectData.ical_uid,
     busy: objectData.busy,
     html_link: objectData.html_link,
     master_event_id: objectData.master_event_id,
-    organizer: objectData.organizer,
-    resources: objectData.resources,
+    organizer: organizer,
+    resources: objectData.resources || [],
     read_only: objectData.read_only,
-    reminders: objectData.reminders,
+    reminders: objectData.reminders || {},
     recurrence: objectData.recurrence,
     status: objectData.status,
     visibility: objectData.visibility,
