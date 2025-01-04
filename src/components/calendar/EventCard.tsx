@@ -10,6 +10,7 @@ import DOMPurify from "dompurify";
 import type { Database } from "@/integrations/supabase/types";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 type Event = Database['public']['Tables']['events']['Row'];
 
@@ -22,6 +23,7 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isQueued, setIsQueued] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const location = useLocation();
   const isCalendarRoute = location.pathname === "/calendar";
 
@@ -137,10 +139,30 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
           </div>
 
           {sanitizedDescription && (
-            <div 
-              className="text-sm text-muted-foreground prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_a]:text-primary [&_a]:underline [&_a]:hover:text-primary/80 whitespace-pre-line"
-              dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
-            />
+            <div className="relative">
+              <div 
+                className={`text-sm text-muted-foreground prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_a]:text-primary [&_a]:underline [&_a]:hover:text-primary/80 whitespace-pre-line ${!isExpanded ? 'line-clamp-5' : ''}`}
+                dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
+              />
+              {sanitizedDescription.split('<br>').length > 5 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => setIsExpanded(!isExpanded)}
+                >
+                  {isExpanded ? (
+                    <>
+                      Show less <ChevronUp className="ml-1 h-4 w-4" />
+                    </>
+                  ) : (
+                    <>
+                      Show more <ChevronDown className="ml-1 h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           )}
 
           {event.conference_url && isCalendarRoute && (
