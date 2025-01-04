@@ -27,18 +27,7 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents }: E
       setIsLoading(true);
       console.log('Syncing events...');
       
-      // First, mark all events as potentially stale
-      const { error: updateError } = await supabase
-        .from('events')
-        .update({ last_updated_at: new Date().toISOString() })
-        .eq('user_id', userId);
-
-      if (updateError) {
-        console.error('Error marking events as stale:', updateError);
-        throw updateError;
-      }
-
-      // Then sync with Nylas
+      // Invoke the sync-nylas-events function to fetch and sync events
       const { error } = await supabase.functions.invoke('sync-nylas-events', {
         body: { user_id: userId }
       });
