@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
       throw new Error('event_id, user_id, and scheduled_for are required')
     }
 
-    // Initialize Supabase clients
+    // Initialize Supabase client
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
       now: now.toISOString()
     })
 
-    // Add to PGMQ queue using our wrapper function
+    // Add to PGMQ queue with the calculated delay
     const { data: queueData, error: queueError } = await supabaseAdmin.rpc(
       'queue_notetaker_request',
       {
