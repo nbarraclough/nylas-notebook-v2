@@ -20,9 +20,9 @@ serve(async (req) => {
     const clientId = Deno.env.get('NYLAS_CLIENT_ID')
     const clientSecret = Deno.env.get('NYLAS_CLIENT_SECRET')
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
-    if (!clientId || !clientSecret || !supabaseUrl || !supabaseKey) {
+    if (!clientId || !clientSecret || !supabaseUrl || !supabaseServiceKey) {
       console.error('Missing required environment variables')
       return new Response(
         JSON.stringify({ error: 'Missing required environment variables' }),
@@ -84,10 +84,10 @@ serve(async (req) => {
 
     console.log('Received grant_id:', grant_id)
 
-    // Create Supabase client
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    // Create Supabase admin client with service role key
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Get user from auth header
+    // Get user ID from auth header
     const authHeader = req.headers.get('Authorization')?.split(' ')[1]
     if (!authHeader) {
       console.error('No authorization header')
@@ -100,12 +100,15 @@ serve(async (req) => {
       )
     }
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader)
+    // Decode the JWT to get the user ID
+    const jwt = authHeader
+    const payload = JSON.parse(atob(jwt.split('.')[1]))
+    const userId = payload.sub
 
-    if (userError || !user) {
-      console.error('Error getting user:', userError)
+    if (!userId) {
+      console.error('No user ID found in token')
       return new Response(
-        JSON.stringify({ error: 'Unauthorized', details: userError }),
+        JSON.stringify({ error: 'No user ID found in token' }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 401,
@@ -113,16 +116,16 @@ serve(async (req) => {
       )
     }
 
-    console.log('Updating profile with grant_id for user:', user.id)
+    console.log('Updating profile with grant_id for user:', userId)
 
-    // Update user's profile with grant_id
+    // Update user's profile with grant_id using service role client
     const { error: updateError } = await supabase
       .from('profiles')
       .update({ 
         nylas_grant_id: grant_id,
         updated_at: new Date().toISOString()
       })
-      .eq('id', user.id)
+      .eq('id', userId)
 
     if (updateError) {
       console.error('Error updating profile:', updateError)
