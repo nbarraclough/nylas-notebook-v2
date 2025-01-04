@@ -45,6 +45,7 @@ Deno.serve(async (req) => {
     // For non-challenge requests, verify the webhook signature
     const clonedReq = req.clone();
     const rawBody = await clonedReq.text();
+    console.log('Received webhook payload:', rawBody);
     
     if (!verifyNylasWebhook(req, rawBody)) {
       console.error('Invalid webhook signature');
