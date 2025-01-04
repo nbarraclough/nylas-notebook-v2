@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ConnectNylas } from "@/components/calendar/ConnectNylas";
 import { EventsList } from "@/components/calendar/EventsList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useRealtimeUpdates } from "@/hooks/use-realtime-updates";
 
 export default function Calendar() {
   const navigate = useNavigate();
@@ -30,6 +31,9 @@ export default function Calendar() {
     },
     enabled: !!userId,
   });
+
+  // Set up realtime listeners
+  useRealtimeUpdates(userId);
 
   // Fetch user profile to check Nylas connection
   const { data: profile, isLoading: isLoadingProfile } = useQuery({
