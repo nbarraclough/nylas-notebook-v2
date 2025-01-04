@@ -26,12 +26,12 @@ Deno.serve(async (req) => {
   
   if (challenge) {
     console.log('Received Nylas webhook challenge:', challenge);
-    // Return only the challenge value, no additional content or formatting
+    // Return ONLY the raw challenge value without any formatting or additional content
     return new Response(challenge, {
       headers: {
         'Content-Type': 'text/plain',
         'Transfer-Encoding': 'identity', // Prevent chunked encoding
-        ...corsHeaders,
+        'Content-Length': challenge.length.toString(), // Explicitly set content length
       },
     });
   }
