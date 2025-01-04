@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
-import { safeTimestampToISO } from './timestamp-utils.ts';
+import { safeTimestampToISO, ensureValidTimestamp } from './timestamp-utils.ts';
 
 export const processEvent = async (
   event: any, 
@@ -10,10 +10,14 @@ export const processEvent = async (
   try {
     console.log('Processing event:', event.id, 'Raw event data:', JSON.stringify(event));
 
-    // For events from database, use start_time/end_time directly
-    // For events from Nylas API, use when object
-    const startTime = event.when ? safeTimestampToISO(event.when.start_time) : event.start_time;
-    const endTime = event.when ? safeTimestampToISO(event.when.end_time) : event.end_time;
+    // Handle timestamps based on event source (Nylas API vs Database)
+    const startTime = event.when ? 
+      safeTimestampToISO(event.when.start_time) : 
+      ensureValidTimestamp(event.start_time);
+    
+    const endTime = event.when ? 
+      safeTimestampToISO(event.when.end_time) : 
+      ensureValidTimestamp(event.end_time);
 
     // Skip events without valid start/end times
     if (!startTime || !endTime) {
@@ -26,16 +30,15 @@ export const processEvent = async (
       return;
     }
 
-    // Get conference URL from the conferencing object in Nylas API response
-    // or use existing conference_url for database events
+    // Get conference URL from either source
     const conferenceUrl = event.conferencing?.details?.url || event.conference_url || null;
     console.log('Event:', event.id, 'Conference URL:', conferenceUrl);
 
-    // Check if event exists and compare last_updated_at
+    // Handle last_updated_at timestamp
     const existingEventLastUpdated = existingEventsMap.get(event.id);
     const eventLastUpdated = event.updated_at ? 
-      (event.when ? safeTimestampToISO(event.updated_at) : event.updated_at) : 
-      event.last_updated_at;
+      (event.when ? safeTimestampToISO(event.updated_at) : ensureValidTimestamp(event.updated_at)) : 
+      ensureValidTimestamp(event.last_updated_at);
 
     if (!eventLastUpdated) {
       console.error('Skipping event due to invalid updated_at timestamp:', event.id);
@@ -72,7 +75,7 @@ export const processEvent = async (
       status: event.status || null,
       visibility: event.visibility || 'default',
       original_start_time: event.original_start_time ? 
-        (event.when ? safeTimestampToISO(event.original_start_time) : event.original_start_time) : 
+        (event.when ? safeTimestampToISO(event.original_start_time) : ensureValidTimestamp(event.original_start_time)) : 
         null,
     };
 
