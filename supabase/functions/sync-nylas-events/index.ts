@@ -49,10 +49,12 @@ serve(async (req) => {
 
     console.log('Found Nylas grant ID:', profile.nylas_grant_id)
 
-    // Get Nylas API key
-    const nylasApiKey = Deno.env.get('NYLAS_API_KEY')
+    // Get Nylas API key from environment variables
+    const NYLAS_API_KEY = Deno.env.get('NYLAS_API_KEY')
+    console.log('Checking Nylas API key:', NYLAS_API_KEY ? 'Found' : 'Not found')
 
-    if (!nylasApiKey) {
+    if (!NYLAS_API_KEY) {
+      console.error('Nylas API key not found in environment variables')
       throw new Error('Nylas API key not configured')
     }
 
@@ -60,7 +62,7 @@ serve(async (req) => {
     console.log('Fetching events from Nylas...')
     const eventsResponse = await fetch(`https://api-staging.us.nylas.com/v3/grants/${profile.nylas_grant_id}/events?limit=100`, {
       headers: {
-        'Authorization': `Bearer ${nylasApiKey}`,
+        'Authorization': `Bearer ${NYLAS_API_KEY}`,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
@@ -89,7 +91,6 @@ serve(async (req) => {
         participants: event.participants || [],
         conference_url: event.conferencing?.details?.url || null,
         last_updated_at: event.updated_at ? new Date(event.updated_at * 1000).toISOString() : new Date().toISOString(),
-        ical_uid: event.ical_uid,
         busy: event.busy !== false,
         html_link: event.html_link,
         master_event_id: event.master_event_id,
