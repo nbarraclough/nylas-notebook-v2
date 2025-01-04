@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Users } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { EventParticipant } from "@/types/calendar";
 import type { Json } from "@/integrations/supabase/types/json";
+import { SharedEventHeader } from "./SharedEventHeader";
+import { SharedVideoPlayer } from "./SharedVideoPlayer";
+import { SharedContentTabs } from "./SharedContentTabs";
 
 interface SharedRecording {
-  video_url: string;
+  video_url: string | null;
+  recording_url: string | null;
   id: string;
   event: {
     title: string;
@@ -49,6 +49,7 @@ export function SharedVideoView() {
             recording:recordings!inner (
               id,
               video_url,
+              recording_url,
               event:events!inner (
                 title,
                 description,
@@ -76,7 +77,8 @@ export function SharedVideoView() {
         // Transform the data to match SharedRecording type
         const transformedRecording: SharedRecording = {
           id: share.recording.id,
-          video_url: share.recording.video_url || '', // Ensure video_url is never undefined
+          video_url: share.recording.video_url,
+          recording_url: share.recording.recording_url,
           event: {
             ...share.recording.event,
             participants: transformParticipants(share.recording.event.participants)
@@ -134,66 +136,23 @@ export function SharedVideoView() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
-        {/* Event Card */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex justify-between items-start">
-              <div className="space-y-1">
-                <h1 className="text-2xl font-semibold">{recording.event.title}</h1>
-                <p className="text-sm text-muted-foreground">
-                  {format(new Date(recording.event.start_time), "EEEE, MMMM d, yyyy 'at' h:mm a")} - {format(new Date(recording.event.end_time), "h:mm a")}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  <Users className="w-3 h-3" />
-                  {recording.event.participants?.length || 0} participants
-                </Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <SharedEventHeader
+          title={recording.event.title}
+          startTime={recording.event.start_time}
+          endTime={recording.event.end_time}
+          participants={recording.event.participants}
+        />
 
-        {/* Video and Content Tabs */}
         <Card>
           <CardContent className="p-6">
             <div className="aspect-video mb-6">
-              {recording.video_url ? (
-                <video
-                  src={recording.video_url}
-                  controls
-                  className="w-full h-full rounded-lg"
-                  autoPlay
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-muted rounded-lg">
-                  <p className="text-muted-foreground">Video not available</p>
-                </div>
-              )}
+              <SharedVideoPlayer
+                videoUrl={recording.video_url}
+                recordingUrl={recording.recording_url}
+              />
             </div>
 
-            <Tabs defaultValue="summary" className="w-full">
-              <TabsList>
-                <TabsTrigger value="summary">Summary</TabsTrigger>
-                <TabsTrigger value="transcript">Transcript</TabsTrigger>
-                <TabsTrigger value="action-items">Action Items</TabsTrigger>
-              </TabsList>
-              <TabsContent value="summary" className="mt-4">
-                <div className="prose prose-sm max-w-none">
-                  {recording.event.description || 'No summary available.'}
-                </div>
-              </TabsContent>
-              <TabsContent value="transcript" className="mt-4">
-                <div className="text-muted-foreground">
-                  Transcript will be available soon.
-                </div>
-              </TabsContent>
-              <TabsContent value="action-items" className="mt-4">
-                <div className="text-muted-foreground">
-                  No action items have been identified yet.
-                </div>
-              </TabsContent>
-            </Tabs>
+            <SharedContentTabs description={recording.event.description} />
           </CardContent>
         </Card>
       </div>
