@@ -156,7 +156,7 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
               <div>
                 <h3 className="font-semibold leading-snug">{event.title}</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {format(new Date(event.start_time), "MMM d, yyyy 'at' h:mm a")}
+                  {format(new Date(event.start_time), "MMM d, yyyy 'at' h:mm a")} - {format(new Date(event.end_time), "h:mm a")}
                 </p>
               </div>
             </div>
