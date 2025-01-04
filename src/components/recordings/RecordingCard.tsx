@@ -5,6 +5,7 @@ import { Video, Clock, Check, X, Loader } from "lucide-react";
 import { EventParticipants } from "../calendar/EventParticipants";
 import type { Database } from "@/integrations/supabase/types";
 import type { Json } from "@/integrations/supabase/types/json";
+import type { EventParticipant, EventOrganizer } from "@/types/calendar";
 
 type Recording = Database['public']['Tables']['recordings']['Row'] & {
   event: {
@@ -77,8 +78,8 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
         )}
 
         <EventParticipants 
-          participants={recording.event.participants} 
-          organizer={recording.event.organizer}
+          participants={recording.event.participants as EventParticipant[]} 
+          organizer={recording.event.organizer as EventOrganizer}
           isInternalMeeting={false}
         />
       </CardContent>
