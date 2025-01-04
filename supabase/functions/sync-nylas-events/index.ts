@@ -1,111 +1,115 @@
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
-import { corsHeaders } from '../_shared/cors.ts'
-import { processEvent } from './event-processor.ts';
+import { processEvent } from './event-processor.ts'
 
-const NYLAS_API_URL = 'https://api-staging.us.nylas.com'
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
-Deno.serve(async (req) => {
-  // Handle CORS preflight requests
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { user_id } = await req.json()
+    const { user_id, force_recording_rules } = await req.json()
     
     if (!user_id) {
       throw new Error('user_id is required')
     }
 
-    console.log('Syncing events for user:', user_id)
-
     // Initialize Supabase client with service role key
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-        }
-      }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get user's Nylas grant_id
+    // Get user's Nylas grant ID
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('nylas_grant_id')
       .eq('id', user_id)
       .single()
 
-    if (profileError) {
-      console.error('Failed to fetch profile:', profileError)
-      throw new Error('Failed to fetch profile')
+    if (profileError || !profile?.nylas_grant_id) {
+      throw new Error('Failed to get Nylas grant ID')
     }
 
-    if (!profile?.nylas_grant_id) {
-      console.error('No Nylas grant_id found for user:', user_id)
-      throw new Error('No Nylas grant_id found for user')
-    }
+    // If force_recording_rules is true, we'll re-process all events
+    if (force_recording_rules) {
+      console.log('Force recording rules enabled, fetching all events')
+      const { data: events, error: eventsError } = await supabaseAdmin
+        .from('events')
+        .select('*')
+        .eq('user_id', user_id)
 
-    console.log('Found Nylas grant_id:', profile.nylas_grant_id)
-
-    // Calculate date range (1 day ago to 3 months from now)
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - 1)
-    
-    const endDate = new Date()
-    endDate.setMonth(endDate.getMonth() + 3)
-
-    // Convert to Unix timestamps (seconds)
-    const startTimestamp = Math.floor(startDate.getTime() / 1000)
-    const endTimestamp = Math.floor(endDate.getTime() / 1000)
-
-    console.log('Fetching events from', startDate.toISOString(), 'to', endDate.toISOString())
-
-    // Fetch events from Nylas
-    const response = await fetch(
-      `${NYLAS_API_URL}/v3/grants/${profile.nylas_grant_id}/events?start=${startTimestamp}&end=${endTimestamp}&calendar_id=primary`,
-      {
-        headers: {
-          'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+      if (eventsError) {
+        throw new Error('Failed to fetch events')
       }
+
+      // Create a map of existing events for comparison
+      const existingEventsMap = new Map(
+        events.map(event => [event.nylas_event_id, new Date(event.last_updated_at)])
+      )
+
+      // Re-process each event
+      for (const event of events) {
+        await processEvent(event, existingEventsMap, user_id, supabaseAdmin)
+      }
+
+      return new Response(
+        JSON.stringify({ message: 'Events re-processed successfully' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      )
+    }
+
+    // Get Nylas access token
+    const { data: nylasToken, error: nylasTokenError } = await supabaseAdmin.functions.invoke(
+      'get-nylas-access-token',
+      { body: { grant_id: profile.nylas_grant_id } }
     )
 
-    if (!response.ok) {
-      const error = await response.json()
-      console.error('Nylas API error:', error)
-      throw new Error('Failed to fetch events from Nylas')
+    if (nylasTokenError || !nylasToken?.access_token) {
+      throw new Error('Failed to get Nylas access token')
     }
 
-    const { data: events } = await response.json()
-    console.log('Fetched', events.length, 'events from Nylas')
+    // Fetch events from Nylas
+    const nylasResponse = await fetch('https://api.nylas.com/events?limit=100', {
+      headers: {
+        Authorization: `Bearer ${nylasToken.access_token}`,
+        'Content-Type': 'application/json',
+      },
+    })
 
-    // Get existing events to compare last_updated_at
+    if (!nylasResponse.ok) {
+      throw new Error(`Nylas API error: ${nylasResponse.statusText}`)
+    }
+
+    const events = await nylasResponse.json()
+
+    // Get existing events from database
     const { data: existingEvents, error: existingEventsError } = await supabaseAdmin
       .from('events')
       .select('nylas_event_id, last_updated_at')
       .eq('user_id', user_id)
 
     if (existingEventsError) {
-      console.error('Error fetching existing events:', existingEventsError)
       throw new Error('Failed to fetch existing events')
     }
 
-    // Create a map of existing events for quick lookup
+    // Create a map of existing events for comparison
     const existingEventsMap = new Map(
-      existingEvents?.map(event => [event.nylas_event_id, new Date(event.last_updated_at)]) || []
+      existingEvents.map(event => [event.nylas_event_id, new Date(event.last_updated_at)])
     )
 
     // Process each event
     for (const event of events) {
-      await processEvent(event, existingEventsMap, user_id, supabaseAdmin);
+      await processEvent(event, existingEventsMap, user_id, supabaseAdmin)
     }
-
-    console.log('Successfully synced events to database');
 
     return new Response(
       JSON.stringify({ message: 'Events synced successfully' }),
@@ -113,16 +117,15 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       }
-    );
-
+    )
   } catch (error) {
-    console.error('Error in sync-nylas-events:', error);
+    console.error('Error:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
+        status: 400,
       }
-    );
+    )
   }
-});
+})

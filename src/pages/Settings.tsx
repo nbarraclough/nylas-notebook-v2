@@ -34,7 +34,7 @@ export default function Settings() {
     enabled: !!userId,
   });
 
-  // Update profile settings
+  // Update profile settings and trigger event re-evaluation
   const updateProfile = useMutation({
     mutationFn: async (updates: {
       notetaker_name?: string;
@@ -42,12 +42,27 @@ export default function Settings() {
       record_internal_meetings?: boolean;
     }) => {
       if (!userId) throw new Error('No user ID');
-      const { error } = await supabase
+      
+      // Update profile
+      const { error: profileError } = await supabase
         .from('profiles')
         .update(updates)
         .eq('id', userId);
 
-      if (error) throw error;
+      if (profileError) throw profileError;
+
+      // If recording rules changed, trigger re-evaluation
+      if ('record_external_meetings' in updates || 'record_internal_meetings' in updates) {
+        console.log('Recording rules changed, triggering event re-evaluation');
+        const { error: evalError } = await supabase.functions.invoke('sync-nylas-events', {
+          body: { 
+            user_id: userId,
+            force_recording_rules: true 
+          }
+        });
+
+        if (evalError) throw evalError;
+      }
     },
     onSuccess: () => {
       toast({
