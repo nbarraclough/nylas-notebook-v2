@@ -9,43 +9,37 @@ import { OrganizationInfo } from "./organization/OrganizationInfo";
 export const OrganizationSettings = ({ userId }: { userId: string }) => {
   const { toast } = useToast();
 
-  // Fetch user's organization details including members
-  const { data: organizationData, refetch: refetchOrg } = useQuery({
-    queryKey: ['organization', userId],
+  // First query: Get user's organization ID
+  const { data: profile } = useQuery({
+    queryKey: ['profile', userId],
     queryFn: async () => {
-      console.log('Fetching organization data for user:', userId);
-      
-      const { data: profile, error: profileError } = await supabase
+      console.log('Fetching profile for user:', userId);
+      const { data, error } = await supabase
         .from('profiles')
         .select('organization_id')
         .eq('id', userId)
         .maybeSingle();
 
-      if (profileError) {
-        console.error('Error fetching profile:', profileError);
-        throw profileError;
+      if (error) {
+        console.error('Error fetching profile:', error);
+        throw error;
       }
 
-      console.log('Profile data:', profile);
+      console.log('Profile data:', data);
+      return data;
+    },
+    enabled: !!userId,
+  });
 
-      if (!profile?.organization_id) {
-        console.log('No organization_id found in profile');
-        return null;
-      }
-
+  // Second query: Get organization details
+  const { data: organization } = useQuery({
+    queryKey: ['organization', profile?.organization_id],
+    queryFn: async () => {
+      console.log('Fetching organization:', profile?.organization_id);
       const { data: org, error: orgError } = await supabase
         .from('organizations')
-        .select(`
-          *,
-          organization_members(
-            user_id,
-            role,
-            profiles(
-              email
-            )
-          )
-        `)
-        .eq('id', profile.organization_id)
+        .select('*')
+        .eq('id', profile?.organization_id)
         .maybeSingle();
 
       if (orgError) {
@@ -56,10 +50,37 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
       console.log('Organization data:', org);
       return org;
     },
-    enabled: !!userId,
+    enabled: !!profile?.organization_id,
   });
 
-  const isAdmin = organizationData?.organization_members?.some(
+  // Third query: Get organization members
+  const { data: members } = useQuery({
+    queryKey: ['organization_members', profile?.organization_id],
+    queryFn: async () => {
+      console.log('Fetching organization members');
+      const { data: members, error: membersError } = await supabase
+        .from('organization_members')
+        .select(`
+          user_id,
+          role,
+          profiles (
+            email
+          )
+        `)
+        .eq('organization_id', profile?.organization_id);
+
+      if (membersError) {
+        console.error('Error fetching members:', membersError);
+        throw membersError;
+      }
+
+      console.log('Members data:', members);
+      return members;
+    },
+    enabled: !!profile?.organization_id,
+  });
+
+  const isAdmin = members?.some(
     member => member.user_id === userId && member.role === 'admin'
   );
 
@@ -69,11 +90,15 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
         .from('organization_members')
         .update({ role: 'admin' })
         .eq('user_id', memberId)
-        .eq('organization_id', organizationData.id);
+        .eq('organization_id', profile?.organization_id);
 
       if (error) throw error;
 
-      await refetchOrg();
+      // Invalidate the members query to refresh the data
+      await queryClient.invalidateQueries({
+        queryKey: ['organization_members', profile?.organization_id],
+      });
+
       toast({
         title: "Success",
         description: "User promoted to admin successfully!",
@@ -94,7 +119,7 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
         .from('organization_members')
         .delete()
         .eq('user_id', memberId)
-        .eq('organization_id', organizationData.id);
+        .eq('organization_id', profile?.organization_id);
 
       if (memberError) throw memberError;
 
@@ -105,7 +130,11 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
 
       if (profileError) throw profileError;
 
-      await refetchOrg();
+      // Invalidate the members query to refresh the data
+      await queryClient.invalidateQueries({
+        queryKey: ['organization_members', profile?.organization_id],
+      });
+
       toast({
         title: "Success",
         description: "User removed successfully!",
@@ -120,7 +149,7 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
     }
   };
 
-  if (!organizationData) {
+  if (!organization || !members) {
     return (
       <Card>
         <CardHeader>
@@ -142,15 +171,15 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
       </CardHeader>
       <CardContent className="space-y-4">
         <OrganizationInfo
-          name={organizationData.name}
-          domain={organizationData.domain}
-          userRole={organizationData.organization_members.find(m => m.user_id === userId)?.role || 'user'}
+          name={organization.name}
+          domain={organization.domain}
+          userRole={members.find(m => m.user_id === userId)?.role || 'user'}
         />
 
         <div>
           <Label>Members</Label>
           <MembersList
-            members={organizationData.organization_members}
+            members={members}
             currentUserId={userId}
             isAdmin={isAdmin}
             onPromoteUser={handlePromoteUser}
