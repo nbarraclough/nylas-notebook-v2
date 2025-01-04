@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
       url: nylasApiUrl,
       method: 'DELETE',
       headers: {
-        'Accept': 'application/json, application/gzip',
+        'Accept': 'application/json',
         'Authorization': 'Bearer [REDACTED]'
       }
     })
@@ -71,32 +71,30 @@ Deno.serve(async (req) => {
       {
         method: 'DELETE',
         headers: {
-          'Accept': 'application/json, application/gzip',
+          'Accept': 'application/json',
           'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
         },
       }
     )
 
-    const responseText = await response.text()
     console.log('📡 Nylas API Response:', {
       status: response.status,
       statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries()),
-      body: responseText || '(empty response)'
+      headers: Object.fromEntries(response.headers.entries())
     })
 
-    // For 204 No Content or empty responses, don't try to parse JSON
+    const responseText = await response.text()
+    console.log('📦 Raw response body:', responseText)
+
     let responseBody = {}
     if (responseText) {
       try {
         responseBody = JSON.parse(responseText)
-        console.log('📦 Parsed response body:', JSON.stringify(responseBody, null, 2))
+        console.log('✨ Parsed response body:', JSON.stringify(responseBody, null, 2))
       } catch (e) {
-        console.log('⚠️ Response was not JSON, using raw text')
-        responseBody = { message: responseText }
+        console.error('❌ Error parsing response JSON:', e)
+        throw new Error('Invalid response from Nylas API')
       }
-    } else {
-      console.log('ℹ️ Empty response body (expected for DELETE request)')
     }
 
     if (!response.ok) {
@@ -104,7 +102,16 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to kick notetaker: ${response.status} - ${responseBody.message || 'Unknown error'}`)
     }
 
-    console.log('✅ Successfully kicked notetaker')
+    // Verify we got a request_id in the response
+    if (!responseBody.request_id) {
+      console.error('❌ Missing request_id in response:', JSON.stringify(responseBody, null, 2))
+      throw new Error('Invalid response from Nylas API: missing request_id')
+    }
+
+    console.log('✅ Successfully kicked notetaker:', {
+      notetakerId,
+      requestId: responseBody.request_id
+    })
 
     return new Response(
       JSON.stringify({ 
