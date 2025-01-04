@@ -45,21 +45,18 @@ export const OrganizationInfo = ({
         userRole
       });
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('organizations')
         .update({ 
           name: newName.trim(),
           updated_at: new Date().toISOString()
         })
-        .eq('id', organizationId)
-        .select();
+        .eq('id', organizationId);
 
       if (error) {
         console.error('Error updating organization:', error);
         throw error;
       }
-
-      console.log('Organization updated successfully:', data);
 
       toast({
         title: "Success",
