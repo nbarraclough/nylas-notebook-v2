@@ -1,17 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { CreateJoinOrganization } from "./organization/CreateJoinOrganization";
 import { MembersList } from "./organization/MembersList";
 import { AddMemberForm } from "./organization/AddMemberForm";
+import { OrganizationInfo } from "./organization/OrganizationInfo";
 
 export const OrganizationSettings = ({ userId }: { userId: string }) => {
   const { toast } = useToast();
 
   // Fetch user's organization details including members
-  const { data: organizationData, refetch: refetchOrgQuery } = useQuery({
+  const { data: organizationData, refetch: refetchOrg } = useQuery({
     queryKey: ['organization', userId],
     queryFn: async () => {
       const { data: profile } = await supabase
@@ -42,18 +41,12 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
     enabled: !!userId,
   });
 
-  // Wrap the refetch function to match the expected Promise<void> type
-  const refetchOrg = async () => {
-    await refetchOrgQuery();
-  };
-
   const isAdmin = organizationData?.organization_members?.some(
     member => member.user_id === userId && member.role === 'admin'
   );
 
   const handleAddUser = async (email: string) => {
     try {
-      // First get the user's profile
       const { data: userProfile, error: profileError } = await supabase
         .from('profiles')
         .select('id')
@@ -62,7 +55,6 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
 
       if (profileError) throw new Error('User not found');
 
-      // Add user as member
       const { error: memberError } = await supabase
         .from('organization_members')
         .insert([{
@@ -73,7 +65,6 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
 
       if (memberError) throw memberError;
 
-      // Update user's profile with organization
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ organization_id: organizationData.id })
@@ -123,7 +114,6 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
 
   const handleRemoveUser = async (memberId: string) => {
     try {
-      // Remove from organization_members
       const { error: memberError } = await supabase
         .from('organization_members')
         .delete()
@@ -132,7 +122,6 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
 
       if (memberError) throw memberError;
 
-      // Update user's profile to remove organization
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ organization_id: null })
@@ -156,7 +145,18 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
   };
 
   if (!organizationData) {
-    return <CreateJoinOrganization userId={userId} onOrganizationUpdate={refetchOrg} />;
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Organization</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            No organization found. Please contact your administrator.
+          </p>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
@@ -165,22 +165,11 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
         <CardTitle>Organization</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <div>
-            <Label>Organization Name</Label>
-            <p className="text-sm text-muted-foreground">{organizationData.name}</p>
-          </div>
-          <div>
-            <Label>Domain</Label>
-            <p className="text-sm text-muted-foreground">{organizationData.domain}</p>
-          </div>
-          <div>
-            <Label>Role</Label>
-            <p className="text-sm text-muted-foreground">
-              {organizationData.organization_members.find(m => m.user_id === userId)?.role === 'admin' ? 'Admin' : 'Member'}
-            </p>
-          </div>
-        </div>
+        <OrganizationInfo
+          name={organizationData.name}
+          domain={organizationData.domain}
+          userRole={organizationData.organization_members.find(m => m.user_id === userId)?.role || 'user'}
+        />
 
         {isAdmin && (
           <div className="space-y-4">
