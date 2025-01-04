@@ -35,6 +35,12 @@ serve(async (req) => {
 
     console.log('Exchanging code for grant_id...')
 
+    // Get the origin from the request headers to construct the redirect URI
+    const origin = req.headers.get('origin') || 'http://localhost:5173'
+    const redirectUri = `${origin}/calendar`
+
+    console.log('Using redirect URI:', redirectUri)
+
     // Exchange the code for a grant_id using the correct Nylas API URL
     const tokenResponse = await fetch('https://api.us.nylas.com/v3/connect/token', {
       method: 'POST',
@@ -45,7 +51,8 @@ serve(async (req) => {
         client_id: clientId,
         client_secret: clientSecret,
         code: code,
-        grant_type: 'authorization_code'  // Added this required parameter
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code'
       }),
     })
 
