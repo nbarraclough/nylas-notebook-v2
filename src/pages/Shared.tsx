@@ -7,9 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Eye, Link2, Share2, Trash2 } from "lucide-react";
+import { Eye, Link2, Trash2 } from "lucide-react";
 
 export default function Shared() {
   const { toast } = useToast();
@@ -28,10 +26,10 @@ export default function Shared() {
     };
 
     checkAuth();
-  }, []);
+  }, [navigate]);
 
   // Fetch shared videos
-  const { data: sharedVideos, isLoading, error } = useQuery({
+  const { data: sharedVideos, isLoading } = useQuery({
     queryKey: ['shared-videos', userId],
     queryFn: async () => {
       if (!userId) return null;
@@ -45,13 +43,13 @@ export default function Shared() {
             event:events (
               title,
               start_time
+            ),
+            views:video_views (
+              id,
+              viewer_id,
+              external_viewer_ip,
+              viewed_at
             )
-          ),
-          views:video_views (
-            id,
-            viewer_id,
-            external_viewer_ip,
-            viewed_at
           )
         `)
         .eq('shared_by', userId);
@@ -87,7 +85,7 @@ export default function Shared() {
     <Card key={share.id} className="mb-4">
       <CardHeader>
         <CardTitle className="text-lg">
-          {share.recording.event.title}
+          {share.recording?.event?.title}
         </CardTitle>
         <div className="text-sm text-muted-foreground">
           Shared on {new Date(share.created_at).toLocaleDateString()}
@@ -97,7 +95,7 @@ export default function Shared() {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Eye className="h-4 w-4" />
-            <span>{share.views?.length || 0} views</span>
+            <span>{share.recording?.views?.length || 0} views</span>
           </div>
           <div className="flex items-center space-x-2">
             {share.share_type === 'external' && (
