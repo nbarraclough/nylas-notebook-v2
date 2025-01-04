@@ -21,13 +21,11 @@ serve(async (req) => {
     
     if (challenge) {
       console.log('Received challenge request:', challenge);
-      return new Response(
-        JSON.stringify({ challenge }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200
-        }
-      );
+      // Return ONLY the challenge parameter in the response
+      return new Response(challenge, { 
+        headers: { ...corsHeaders, 'Content-Type': 'text/plain' },
+        status: 200
+      });
     }
 
     // For non-challenge requests, proceed with signature verification
