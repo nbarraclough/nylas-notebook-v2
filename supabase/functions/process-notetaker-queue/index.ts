@@ -10,6 +10,8 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log('Starting queue processing at:', new Date().toISOString())
+
     // Initialize Supabase client
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -39,13 +41,22 @@ Deno.serve(async (req) => {
       throw queueError
     }
 
-    console.log(`Processing ${queueItems?.length || 0} pending notetaker requests`)
+    console.log(`Found ${queueItems?.length || 0} pending notetaker requests to process`)
+    console.log('Queue items:', JSON.stringify(queueItems, null, 2))
 
     // Process each queue item
     for (const item of queueItems || []) {
       try {
         const profile = item.profiles
         const event = item.events
+
+        console.log('Processing queue item:', {
+          queueId: item.id,
+          eventId: item.event_id,
+          scheduledFor: item.scheduled_for,
+          grantId: profile?.nylas_grant_id,
+          conferenceUrl: event?.conference_url
+        })
 
         if (!profile?.nylas_grant_id || !event?.conference_url) {
           console.error('Missing required data:', { 
@@ -81,6 +92,7 @@ Deno.serve(async (req) => {
         )
 
         const responseData = await response.json()
+        console.log('Nylas API response:', responseData)
 
         if (!response.ok) {
           console.error('Nylas API error:', responseData)
@@ -90,18 +102,22 @@ Deno.serve(async (req) => {
         console.log('Notetaker sent successfully:', responseData)
 
         // Update queue item status and save notetaker_id
-        await supabaseClient
+        const { error: updateError } = await supabaseClient
           .from('notetaker_queue')
           .update({
             status: 'completed',
             last_attempt: new Date().toISOString(),
             attempts: (item.attempts || 0) + 1,
-            notetaker_id: responseData.id // Save the notetaker_id from Nylas response
+            notetaker_id: responseData.id
           })
           .eq('id', item.id)
 
+        if (updateError) {
+          console.error('Error updating queue item:', updateError)
+        }
+
         // Create a new recording entry
-        await supabaseClient
+        const { error: recordingError } = await supabaseClient
           .from('recordings')
           .insert({
             user_id: item.user_id,
@@ -111,11 +127,15 @@ Deno.serve(async (req) => {
             status: 'pending'
           })
 
+        if (recordingError) {
+          console.error('Error creating recording entry:', recordingError)
+        }
+
       } catch (error) {
         console.error('Error processing queue item:', error)
 
         // Update queue item with error
-        await supabaseClient
+        const { error: updateError } = await supabaseClient
           .from('notetaker_queue')
           .update({
             status: 'failed',
@@ -124,11 +144,18 @@ Deno.serve(async (req) => {
             attempts: (item.attempts || 0) + 1
           })
           .eq('id', item.id)
+
+        if (updateError) {
+          console.error('Error updating queue item status:', updateError)
+        }
       }
     }
 
     return new Response(
-      JSON.stringify({ message: 'Queue processed successfully' }),
+      JSON.stringify({ 
+        message: 'Queue processed successfully',
+        processed_items: queueItems?.length || 0
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
