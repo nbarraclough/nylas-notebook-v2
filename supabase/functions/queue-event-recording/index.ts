@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
       throw new Error('event_id, user_id, and scheduled_for are required')
     }
 
-    // Initialize Supabase client with service role key
+    // Initialize Supabase clients
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -25,6 +25,15 @@ Deno.serve(async (req) => {
           autoRefreshToken: false,
           persistSession: false
         }
+      }
+    )
+
+    // Initialize PGMQ client
+    const queues = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        db: { schema: 'pgmq_public' }
       }
     )
 
@@ -59,19 +68,46 @@ Deno.serve(async (req) => {
       throw new Error('Conference URL not found')
     }
 
-    console.log('Adding event to notetaker queue:', {
-      user_id,
-      event_id,
-      scheduled_for
+    // Calculate delay in seconds from now until the event start time
+    const now = new Date()
+    const eventStart = new Date(scheduled_for)
+    const delaySeconds = Math.max(0, Math.floor((eventStart.getTime() - now.getTime()) / 1000))
+
+    console.log('Queueing notetaker with delay:', {
+      delaySeconds,
+      eventStart: eventStart.toISOString(),
+      now: now.toISOString()
     })
 
-    // Add to notetaker_queue table
+    // Add to PGMQ queue
+    const { data: queueData, error: queueError } = await queues.rpc('send', {
+      queue_name: 'notetaker_requests',
+      message: {
+        user_id,
+        event_id,
+        scheduled_for,
+        nylas_grant_id: profile.nylas_grant_id,
+        conference_url: event.conference_url,
+        notetaker_name: profile.notetaker_name
+      },
+      delay_seconds: delaySeconds
+    })
+
+    if (queueError) {
+      console.error('Queue error:', queueError)
+      throw queueError
+    }
+
+    console.log('Successfully queued message:', queueData)
+
+    // Add to notetaker_queue table for tracking
     const { error: insertError } = await supabaseAdmin
       .from('notetaker_queue')
       .insert({
         user_id,
         event_id,
-        scheduled_for
+        scheduled_for,
+        status: 'pending'
       })
 
     if (insertError) {
@@ -80,7 +116,10 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ message: 'Recording queued successfully' }),
+      JSON.stringify({ 
+        message: 'Recording queued successfully',
+        queue_message_id: queueData
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
