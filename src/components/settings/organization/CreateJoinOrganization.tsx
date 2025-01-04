@@ -6,6 +6,19 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
+const FREE_EMAIL_DOMAINS = [
+  'gmail.com',
+  'yahoo.com',
+  'hotmail.com',
+  'outlook.com',
+  'aol.com',
+  'icloud.com',
+  'protonmail.com',
+  'mail.com',
+  'zoho.com',
+  'yandex.com',
+];
+
 interface CreateJoinOrganizationProps {
   userId: string;
   onOrganizationUpdate: () => Promise<void>;
@@ -14,17 +27,53 @@ interface CreateJoinOrganizationProps {
 export const CreateJoinOrganization = ({ userId, onOrganizationUpdate }: CreateJoinOrganizationProps) => {
   const { toast } = useToast();
   const [orgName, setOrgName] = useState("");
-  const [orgDomain, setOrgDomain] = useState("");
+  const [joinDomain, setJoinDomain] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
+
+  // Fetch user's email on component mount
+  useState(() => {
+    const fetchUserEmail = async () => {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('id', userId)
+        .single();
+      
+      if (profile?.email) {
+        setUserEmail(profile.email);
+      }
+    };
+    fetchUserEmail();
+  }, [userId]);
+
+  const getUserDomain = (email: string) => {
+    return email.split('@')[1];
+  };
+
+  const isFreeDomain = (domain: string) => {
+    return FREE_EMAIL_DOMAINS.includes(domain.toLowerCase());
+  };
 
   const handleCreateOrg = async () => {
     try {
       setIsLoading(true);
       
+      const domain = getUserDomain(userEmail);
+      
+      if (!domain || isFreeDomain(domain)) {
+        toast({
+          title: "Error",
+          description: "Organizations can only be created with business email addresses.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Create organization
       const { data: org, error: orgError } = await supabase
         .from('organizations')
-        .insert([{ name: orgName, domain: orgDomain }])
+        .insert([{ name: orgName, domain }])
         .select()
         .single();
 
@@ -75,7 +124,7 @@ export const CreateJoinOrganization = ({ userId, onOrganizationUpdate }: CreateJ
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select()
-        .eq('domain', orgDomain)
+        .eq('domain', joinDomain)
         .single();
 
       if (orgError) throw orgError;
@@ -135,11 +184,11 @@ export const CreateJoinOrganization = ({ userId, onOrganizationUpdate }: CreateJ
             />
           </div>
           <div>
-            <Label htmlFor="org-domain">Domain</Label>
+            <Label htmlFor="join-domain">Join Organization by Domain</Label>
             <Input
-              id="org-domain"
-              value={orgDomain}
-              onChange={(e) => setOrgDomain(e.target.value)}
+              id="join-domain"
+              value={joinDomain}
+              onChange={(e) => setJoinDomain(e.target.value)}
               placeholder="e.g., company.com"
               disabled={isLoading}
             />
@@ -147,13 +196,13 @@ export const CreateJoinOrganization = ({ userId, onOrganizationUpdate }: CreateJ
           <div className="flex gap-4">
             <Button 
               onClick={handleCreateOrg}
-              disabled={!orgName || !orgDomain || isLoading}
+              disabled={!orgName || !userEmail || isLoading}
             >
               {isLoading ? "Creating..." : "Create Organization"}
             </Button>
             <Button 
               onClick={handleJoinOrg}
-              disabled={!orgDomain || isLoading}
+              disabled={!joinDomain || isLoading}
               variant="outline"
             >
               {isLoading ? "Joining..." : "Join Organization"}
