@@ -21,16 +21,21 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get the user's profile to get their Nylas grant ID
-    const { data: { session }, error: authError } = await supabaseClient.auth.getSession()
-    if (authError || !session) {
+    // Get the user's session from the request
+    const authHeader = req.headers.get('Authorization')?.split('Bearer ')[1]
+    if (!authHeader) {
+      throw new Error('No authorization header')
+    }
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(authHeader)
+    if (authError || !user) {
       throw new Error('Unauthorized')
     }
 
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
       .select('nylas_grant_id')
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .single()
 
     if (profileError || !profile?.nylas_grant_id) {

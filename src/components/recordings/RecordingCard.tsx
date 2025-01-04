@@ -49,7 +49,10 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
       console.log('Initiating manual kick for notetaker:', recording.notetaker_id);
       
       const { error } = await supabase.functions.invoke('kick-notetaker', {
-        body: { notetakerId: recording.notetaker_id }
+        body: { notetakerId: recording.notetaker_id },
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
       if (error) {
