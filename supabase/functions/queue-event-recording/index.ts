@@ -59,29 +59,13 @@ Deno.serve(async (req) => {
       throw new Error('Conference URL not found')
     }
 
-    // Prepare message for the queue
-    const msg = {
+    console.log('Adding event to notetaker queue:', {
       user_id,
       event_id,
-      grant_id: profile.nylas_grant_id,
-      meeting_link: event.conference_url,
-      notetaker_name: profile.notetaker_name || 'Nylas Notetaker',
-      join_time: new Date(scheduled_for).getTime() / 1000 // Convert to Unix timestamp
-    }
-
-    // Calculate delay until start time
-    const delaySeconds = Math.max(
-      0,
-      Math.floor((new Date(scheduled_for).getTime() - Date.now()) / 1000)
-    )
-
-    console.log('Queueing notetaker request:', {
-      msg,
-      delaySeconds,
       scheduled_for
     })
 
-    // Add to notetaker_queue table for tracking first
+    // Add to notetaker_queue table
     const { error: insertError } = await supabaseAdmin
       .from('notetaker_queue')
       .insert({
@@ -93,27 +77,6 @@ Deno.serve(async (req) => {
     if (insertError) {
       console.error('Error inserting queue record:', insertError)
       throw insertError
-    }
-
-    // Queue the request using pgmq
-    const { error: queueError } = await supabaseAdmin.rpc(
-      'pgmq_send',
-      { 
-        queue_name: 'notetaker_requests',
-        message_body: msg,
-        delay_seconds: delaySeconds
-      }
-    )
-
-    if (queueError) {
-      console.error('Error queueing request:', queueError)
-      // If queueing fails, remove from notetaker_queue
-      await supabaseAdmin
-        .from('notetaker_queue')
-        .delete()
-        .eq('event_id', event_id)
-        .eq('user_id', user_id)
-      throw queueError
     }
 
     return new Response(
