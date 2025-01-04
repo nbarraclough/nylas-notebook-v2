@@ -156,6 +156,7 @@ export type Database = {
         Row: {
           created_at: string
           email: string
+          grant_status: string | null
           id: string
           notetaker_name: string | null
           nylas_grant_id: string | null
@@ -166,6 +167,7 @@ export type Database = {
         Insert: {
           created_at?: string
           email: string
+          grant_status?: string | null
           id: string
           notetaker_name?: string | null
           nylas_grant_id?: string | null
@@ -176,6 +178,7 @@ export type Database = {
         Update: {
           created_at?: string
           email?: string
+          grant_status?: string | null
           id?: string
           notetaker_name?: string | null
           nylas_grant_id?: string | null
