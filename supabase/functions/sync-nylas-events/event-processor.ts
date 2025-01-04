@@ -8,9 +8,14 @@ export const processEvent = async (
   supabaseAdmin: ReturnType<typeof createClient>
 ) => {
   try {
-    console.log('Processing event:', event.id, 'Raw event data:', JSON.stringify(event));
+    console.log('Processing event:', {
+      id: event.id,
+      rawStartTime: event.when?.start_time || event.start_time,
+      rawEndTime: event.when?.end_time || event.end_time,
+      source: event.when ? 'Nylas API' : 'Database'
+    });
 
-    // Handle timestamps based on event source (Nylas API vs Database)
+    // Handle timestamps based on source (Nylas API vs Database)
     const startTime = event.when ? 
       safeTimestampToISO(event.when.start_time) : 
       ensureValidTimestamp(event.start_time);
@@ -19,9 +24,10 @@ export const processEvent = async (
       safeTimestampToISO(event.when.end_time) : 
       ensureValidTimestamp(event.end_time);
 
-    // Skip events without valid start/end times
+    // Skip events without valid timestamps
     if (!startTime || !endTime) {
-      console.error('Skipping event due to invalid timestamps:', event.id, {
+      console.error('Invalid timestamps for event:', {
+        id: event.id,
         startTime,
         endTime,
         rawStartTime: event.when?.start_time || event.start_time,
@@ -41,7 +47,7 @@ export const processEvent = async (
       ensureValidTimestamp(event.last_updated_at);
 
     if (!eventLastUpdated) {
-      console.error('Skipping event due to invalid updated_at timestamp:', event.id);
+      console.error('Invalid updated_at timestamp for event:', event.id);
       return;
     }
 
