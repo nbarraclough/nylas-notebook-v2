@@ -77,46 +77,52 @@ serve(async (req) => {
         objectData: webhookData.data.object
       });
 
+      let processingResult;
       try {
         switch (webhookData.type) {
           case 'event.created':
             console.log('📅 Processing event.created webhook:', webhookData.data.object);
-            await handleEventCreated(webhookData.data.object, grantId);
+            processingResult = await handleEventCreated(webhookData.data.object, grantId);
             break;
           case 'event.updated':
             console.log('🔄 Processing event.updated webhook:', webhookData.data.object);
-            await handleEventUpdated(webhookData.data.object, grantId);
+            processingResult = await handleEventUpdated(webhookData.data.object, grantId);
             break;
           case 'event.deleted':
             console.log('🗑️ Processing event.deleted webhook:', webhookData.data.object);
-            await handleEventDeleted(webhookData.data.object, grantId);
+            processingResult = await handleEventDeleted(webhookData.data.object, grantId);
             break;
           case 'grant.created':
             console.log('🔑 Processing grant.created webhook:', webhookData.data);
-            await handleGrantCreated(webhookData.data);
+            processingResult = await handleGrantCreated(webhookData.data);
             break;
           case 'grant.updated':
             console.log('🔄 Processing grant.updated webhook:', webhookData.data);
-            await handleGrantUpdated(webhookData.data);
+            processingResult = await handleGrantUpdated(webhookData.data);
             break;
           case 'grant.deleted':
             console.log('🗑️ Processing grant.deleted webhook:', webhookData.data);
-            await handleGrantDeleted(webhookData.data);
+            processingResult = await handleGrantDeleted(webhookData.data);
             break;
           case 'grant.expired':
             console.log('⚠️ Processing grant.expired webhook:', webhookData.data);
-            await handleGrantExpired(webhookData.data);
+            processingResult = await handleGrantExpired(webhookData.data);
             break;
           default:
             console.log('⚠️ Unhandled webhook type:', webhookData.type);
+            processingResult = { success: false, message: `Unhandled webhook type: ${webhookData.type}` };
         }
 
-        console.log(`✅ [${timestamp}] Successfully processed webhook:`, webhookData.type);
+        console.log(`✅ [${timestamp}] Successfully processed webhook:`, {
+          type: webhookData.type,
+          result: processingResult
+        });
         
         return new Response(
           JSON.stringify({ 
             success: true,
             message: `Successfully processed ${webhookData.type} webhook`,
+            result: processingResult,
             status: 'acknowledged'
           }), 
           {
@@ -129,7 +135,8 @@ serve(async (req) => {
         console.error(`❌ [${timestamp}] Error processing ${webhookData.type} webhook:`, {
           error: error.message,
           stack: error.stack,
-          data: webhookData.data
+          data: webhookData.data,
+          grantId
         });
         
         // Still return 200 to acknowledge receipt
