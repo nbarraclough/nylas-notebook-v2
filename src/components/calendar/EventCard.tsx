@@ -7,6 +7,7 @@ import type { EventParticipant, EventOrganizer } from "@/types/calendar";
 import { EventParticipants } from "./EventParticipants";
 import { RecordingToggle } from "./RecordingToggle";
 import { useToast } from "@/components/ui/use-toast";
+import DOMPurify from "dompurify";
 
 type Event = Database['public']['Tables']['events']['Row'];
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -157,6 +158,15 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
     return `${format(new Date(start), 'MMM d, yyyy, h:mm a')} - ${format(new Date(end), 'h:mm a')}`;
   };
 
+  const sanitizeHTML = (html: string) => {
+    return {
+      __html: DOMPurify.sanitize(html, {
+        ALLOWED_TAGS: ['p', 'br', 'a', 'ul', 'ol', 'li', 'strong', 'em'],
+        ALLOWED_ATTR: ['href', 'target', 'rel'],
+      })
+    };
+  };
+
   return (
     <Card className="mb-4">
       <CardContent className="p-4">
@@ -173,9 +183,10 @@ export const EventCard = ({ event, userId }: EventCardProps) => {
                 {formatTimeRange(event.start_time, event.end_time)}
               </p>
               {event.description && (
-                <p className="text-sm text-muted-foreground mt-2">
-                  {event.description}
-                </p>
+                <div 
+                  className="text-sm text-muted-foreground mt-2 prose prose-sm max-w-none"
+                  dangerouslySetInnerHTML={sanitizeHTML(event.description)}
+                />
               )}
             </div>
           </div>
