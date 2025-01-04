@@ -25,7 +25,7 @@ export type Database = {
           nylas_event_id: string
           organizer: Json | null
           original_start_time: string | null
-          participants: Json
+          participants: Json | null
           read_only: boolean | null
           recurrence: string[] | null
           reminders: Json | null
@@ -51,7 +51,7 @@ export type Database = {
           nylas_event_id: string
           organizer?: Json | null
           original_start_time?: string | null
-          participants?: Json
+          participants?: Json | null
           read_only?: boolean | null
           recurrence?: string[] | null
           reminders?: Json | null
@@ -77,7 +77,7 @@ export type Database = {
           nylas_event_id?: string
           organizer?: Json | null
           original_start_time?: string | null
-          participants?: Json
+          participants?: Json | null
           read_only?: boolean | null
           recurrence?: string[] | null
           reminders?: Json | null

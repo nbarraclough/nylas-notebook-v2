@@ -55,7 +55,6 @@ Deno.serve(async (req) => {
     const endTimestamp = Math.floor(endDate.getTime() / 1000)
 
     console.log('Fetching events from', startDate.toISOString(), 'to', endDate.toISOString())
-    console.log('Using timestamps:', startTimestamp, 'to', endTimestamp)
 
     // Fetch events from Nylas
     const response = await fetch(
@@ -80,68 +79,75 @@ Deno.serve(async (req) => {
 
     // Store events in database
     for (const event of events) {
-      // Extract and validate start/end times from the when object
-      let startTime = null;
-      let endTime = null;
+      try {
+        // Extract and validate start/end times from the when object
+        let startTime = null;
+        let endTime = null;
 
-      if (event.when) {
-        if (event.when.time) {
-          // Handle timespan format
-          startTime = event.when.start_time ? new Date(event.when.start_time * 1000).toISOString() : null;
-          endTime = event.when.end_time ? new Date(event.when.end_time * 1000).toISOString() : null;
-        } else if (event.when.start_time && event.when.end_time) {
-          // Direct timestamps
-          startTime = new Date(event.when.start_time * 1000).toISOString();
-          endTime = new Date(event.when.end_time * 1000).toISOString();
+        if (event.when) {
+          if (event.when.time) {
+            // Handle timespan format
+            startTime = event.when.start_time ? new Date(event.when.start_time * 1000).toISOString() : null;
+            endTime = event.when.end_time ? new Date(event.when.end_time * 1000).toISOString() : null;
+          } else if (event.when.start_time && event.when.end_time) {
+            // Direct timestamps
+            startTime = new Date(event.when.start_time * 1000).toISOString();
+            endTime = new Date(event.when.end_time * 1000).toISOString();
+          }
         }
-      }
 
-      // Skip events without valid start/end times
-      if (!startTime || !endTime) {
-        console.warn('Skipping event due to missing start/end time:', event.id);
-        continue;
-      }
+        // Skip events without valid start/end times
+        if (!startTime || !endTime) {
+          console.warn('Skipping event due to missing start/end time:', event.id);
+          continue;
+        }
 
-      const conferenceUrl = event.conferencing?.url || null;
-      const originalStartTime = event.original_start_time 
-        ? new Date(event.original_start_time * 1000).toISOString()
-        : null;
-
-      const { error: upsertError } = await supabaseClient
-        .from('events')
-        .upsert({
+        // Safely extract and transform event data
+        const eventData = {
           user_id,
           nylas_event_id: event.id,
           title: event.title || 'Untitled Event',
-          description: event.description,
-          location: event.location,
+          description: event.description || null,
+          location: event.location || null,
           start_time: startTime,
           end_time: endTime,
-          participants: event.participants || [],
-          conference_url: conferenceUrl,
+          participants: Array.isArray(event.participants) ? event.participants : [],
+          conference_url: event.conferencing?.url || null,
           last_updated_at: new Date().toISOString(),
-          ical_uid: event.ical_uid,
-          busy: event.busy,
-          html_link: event.html_link,
-          master_event_id: event.master_event_id,
-          organizer: event.organizer || {},
-          resources: event.resources || [],
-          read_only: event.read_only,
+          ical_uid: event.ical_uid || null,
+          busy: event.busy === false ? false : true, // Default to true if undefined
+          html_link: event.html_link || null,
+          master_event_id: event.master_event_id || null,
+          organizer: event.organizer || null,
+          resources: Array.isArray(event.resources) ? event.resources : [],
+          read_only: event.read_only || false,
           reminders: event.reminders || {},
-          recurrence: event.recurrence,
-          status: event.status,
-          visibility: event.visibility,
-          original_start_time: originalStartTime,
-        }, {
-          onConflict: 'nylas_event_id',
-        })
+          recurrence: Array.isArray(event.recurrence) ? event.recurrence : null,
+          status: event.status || null,
+          visibility: event.visibility || 'default',
+          original_start_time: event.original_start_time 
+            ? new Date(event.original_start_time * 1000).toISOString()
+            : null,
+        };
 
-      if (upsertError) {
-        console.error('Error upserting event:', upsertError)
+        const { error: upsertError } = await supabaseClient
+          .from('events')
+          .upsert(eventData, {
+            onConflict: 'nylas_event_id',
+          });
+
+        if (upsertError) {
+          console.error('Error upserting event:', upsertError);
+          console.error('Failed event data:', JSON.stringify(eventData, null, 2));
+        }
+      } catch (error) {
+        console.error('Error processing event:', event.id, error);
+        // Continue with next event instead of failing the entire sync
+        continue;
       }
     }
 
-    console.log('Successfully synced events to database')
+    console.log('Successfully synced events to database');
 
     return new Response(
       JSON.stringify({ message: 'Events synced successfully' }),
@@ -149,16 +155,16 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       }
-    )
+    );
 
   } catch (error) {
-    console.error('Error in sync-nylas-events:', error)
+    console.error('Error in sync-nylas-events:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
       }
-    )
+    );
   }
-})
+});
