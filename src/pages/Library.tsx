@@ -10,9 +10,11 @@ import { useParams, useNavigate } from "react-router-dom";
 
 export default function Library() {
   const [filters, setFilters] = useState({
+    types: [] as string[],
+    meetingTypes: [] as string[],
     startDate: null,
     endDate: null,
-    participants: [],
+    participants: [] as string[],
     titleSearch: null,
   });
 
