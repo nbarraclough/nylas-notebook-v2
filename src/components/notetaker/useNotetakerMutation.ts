@@ -6,21 +6,23 @@ import { useToast } from "@/hooks/use-toast";
 const extractMeetingUrl = (info: string) => {
   // Regular expressions for common meeting URL patterns
   const patterns = [
-    /https:\/\/[^\s]*(zoom\.us\/j\/[^\s]*)/i,
-    /https:\/\/[^\s]*(teams\.microsoft\.com\/l\/meetup-join\/[^\s]*)/i,
-    /https:\/\/[^\s]*(meet\.google\.com\/[^\s]*)/i,
+    /(?:https:\/\/)?[^\s]*(zoom\.us\/j\/[^\s]*)/i,
+    /(?:https:\/\/)?[^\s]*(teams\.microsoft\.com\/l\/meetup-join\/[^\s]*)/i,
+    /(?:https:\/\/)?[^\s]*(meet\.google\.com\/[^\s]*)/i,
   ];
 
   for (const pattern of patterns) {
     const match = info.match(pattern);
-    if (match && match[0]) {
-      return match[0];
+    if (match && match[1]) {
+      // Ensure URL has https:// prefix
+      return `https://${match[1]}`;
     }
   }
 
-  // If no patterns match, return the raw input if it looks like a URL
-  if (info.startsWith('http') && info.includes('://')) {
-    return info.split(/\s+/)[0];
+  // If no patterns match but looks like a URL, ensure it has https://
+  if (info.match(/^(?:https?:\/\/)?[\w.-]+\.[a-z]{2,}(?:\/\S*)?$/i)) {
+    const cleanUrl = info.trim().replace(/\s+/g, '');
+    return cleanUrl.startsWith('http') ? cleanUrl : `https://${cleanUrl}`;
   }
 
   return null;
