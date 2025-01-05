@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { Play } from "lucide-react";
+import { Play, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { VideoPlayerDialog } from "@/components/recordings/VideoPlayerDialog";
 
@@ -37,10 +37,12 @@ export function RecentRecordings() {
         <CardTitle className="text-lg font-medium">Recent Recordings</CardTitle>
         <Button 
           variant="ghost" 
-          size="sm" 
+          size="sm"
+          className="text-sm"
           onClick={() => navigate('/recordings')}
         >
-          View all
+          View more
+          <ArrowRight className="ml-2 h-4 w-4" />
         </Button>
       </CardHeader>
       <CardContent>

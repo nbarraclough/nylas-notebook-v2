@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export function OrganizationShares() {
@@ -49,9 +49,11 @@ export function OrganizationShares() {
         <Button 
           variant="ghost" 
           size="sm"
+          className="text-sm"
           onClick={() => navigate('/shared')}
         >
-          View all
+          View more
+          <ArrowRight className="ml-2 h-4 w-4" />
         </Button>
       </CardHeader>
       <CardContent>
