@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { EventsSection } from "./EventsSection";
 import { useState, useCallback } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface RecurringEventsListProps {
   recurringEvents: Record<string, any[]>;
@@ -64,16 +65,24 @@ export function RecurringEventsList({
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {[1, 2, 3].map((n) => (
-          <Card key={n}>
-            <CardContent className="p-4">
-              <div className="animate-pulse space-y-4">
-                <div className="h-6 bg-muted rounded w-1/4" />
-                <div className="h-4 bg-muted rounded w-3/4" />
-              </div>
-            </CardContent>
-          </Card>
+      <div className="space-y-8">
+        {[1, 2].map((section) => (
+          <div key={section} className="space-y-4">
+            <Skeleton className="h-8 w-48" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {[1, 2].map((card) => (
+                <Card key={card}>
+                  <CardContent className="p-6">
+                    <div className="space-y-4">
+                      <Skeleton className="h-6 w-3/4" />
+                      <Skeleton className="h-4 w-1/2" />
+                      <Skeleton className="h-4 w-1/4" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     );
