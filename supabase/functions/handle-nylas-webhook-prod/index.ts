@@ -31,57 +31,77 @@ serve(async (req) => {
       );
     }
 
-    // Get the raw request body
+    // Get the raw request body as text
     const rawBody = await req.text();
     console.log(`📥 [${requestId}] Raw webhook body:`, rawBody);
 
-    // Parse webhook data
-    const webhookData = JSON.parse(rawBody);
-    console.log(`📥 [${requestId}] Webhook data:`, JSON.stringify(webhookData, null, 2));
+    try {
+      // Parse webhook data
+      const webhookData = JSON.parse(rawBody);
+      console.log(`📥 [${requestId}] Webhook data:`, JSON.stringify(webhookData, null, 2));
 
-    // Handle Nylas webhook challenge
-    if (webhookData.type === 'challenge') {
-      console.log(`🔐 [${requestId}] Handling Nylas webhook challenge:`, webhookData.challenge);
-      return new Response(
-        webhookData.challenge,
-        { 
-          status: 200,
-          headers: { 
-            ...corsHeaders,
-            'Content-Type': 'text/plain'
+      // Handle Nylas webhook challenge
+      if (webhookData.type === 'challenge') {
+        console.log(`🔐 [${requestId}] Handling Nylas webhook challenge:`, webhookData.challenge);
+        // Return the challenge value as plain text
+        return new Response(
+          webhookData.challenge,
+          { 
+            status: 200,
+            headers: { 
+              ...corsHeaders,
+              'Content-Type': 'text/plain'
+            }
           }
+        );
+      }
+
+      // Log webhook metadata
+      console.log(`📝 [${requestId}] Webhook type:`, webhookData.type);
+      console.log(`📝 [${requestId}] Webhook timestamp:`, new Date(webhookData.time * 1000).toISOString());
+      
+      // For non-challenge requests, just acknowledge receipt
+      const endTime = performance.now();
+      console.log(`✅ [${requestId}] Webhook processed successfully in ${(endTime - startTime).toFixed(2)}ms`);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Successfully received ${webhookData.type} webhook`,
+          requestId,
+          status: 'acknowledged'
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+
+    } catch (parseError) {
+      console.error(`❌ [${requestId}] Error parsing webhook JSON:`, parseError);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid JSON payload',
+          details: parseError.message
+        }), 
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
 
-    // Log webhook metadata
-    console.log(`📝 [${requestId}] Webhook type:`, webhookData.type);
-    console.log(`📝 [${requestId}] Webhook timestamp:`, new Date(webhookData.time * 1000).toISOString());
-    
-    // For non-challenge requests, just acknowledge receipt
-    const endTime = performance.now();
-    console.log(`✅ [${requestId}] Webhook processed successfully in ${(endTime - startTime).toFixed(2)}ms`);
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: `Successfully received ${webhookData.type} webhook`,
-        requestId
-      }),
-      { 
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
-
   } catch (error) {
-    console.error(`❌ [${requestId}] Error processing webhook:`, error);
-
+    const endTime = performance.now();
+    console.error(`❌ [${requestId}] Webhook error after ${(endTime - startTime).toFixed(2)}ms:`, {
+      error: error.message,
+      stack: error.stack
+    });
+    
     return new Response(
       JSON.stringify({
         success: false,
         message: error.message,
-        requestId
+        status: 'acknowledged'
       }),
       { 
         status: 500,
