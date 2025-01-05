@@ -1,13 +1,7 @@
-import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp } from "lucide-react";
-import { format } from "date-fns";
-import { VideoPlayerView } from "@/components/library/VideoPlayerView";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useUser } from "@supabase/auth-helpers-react";
+import { RecurringEventMaster } from "./RecurringEventMaster";
 
 interface RecurringEventsListProps {
   recurringEvents: Record<string, any[]>;
@@ -25,37 +19,16 @@ export function RecurringEventsList({
   isLoading,
   filters,
 }: RecurringEventsListProps) {
-  const [expandedEvents, setExpandedEvents] = useState<string[]>([]);
-  const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
-  const [notes, setNotes] = useState<Record<string, string>>({});
   const { toast } = useToast();
-  const user = useUser();
 
-  const toggleExpanded = (masterId: string) => {
-    setExpandedEvents(prev =>
-      prev.includes(masterId)
-        ? prev.filter(id => id !== masterId)
-        : [...prev, masterId]
-    );
-  };
-
-  const handleSaveNotes = async (masterId: string) => {
-    if (!user) {
-      toast({
-        title: "Error",
-        description: "You must be logged in to save notes.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const handleSaveNotes = async (masterId: string, content: string) => {
     try {
       const { error } = await supabase
         .from('recurring_event_notes')
         .upsert({
           master_event_id: masterId,
-          content: notes[masterId],
-          user_id: user.id
+          content: content,
+          user_id: (await supabase.auth.getUser()).data.user?.id
         });
 
       if (error) throw error;
@@ -134,120 +107,23 @@ export function RecurringEventsList({
   return (
     <div className="space-y-4">
       {Object.entries(recurringEvents).map(([masterId, events]) => {
-        // Skip if masterId is null
         if (!masterId) return null;
         
         const filteredEvents = filterEvents(events);
         if (filteredEvents.length === 0) return null;
 
-        const latestEvent = events[0];
-        const isExpanded = expandedEvents.includes(masterId);
-        const existingNotes = latestEvent.recurring_event_notes?.[0]?.content || '';
-
-        if (!notes[masterId] && existingNotes) {
-          setNotes(prev => ({ ...prev, [masterId]: existingNotes }));
-        }
+        const notes = events[0]?.recurring_event_notes || [];
 
         return (
-          <Card key={masterId}>
-            <CardContent className="p-4">
-              <div className="space-y-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold">{latestEvent.title}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {events.length} occurrences
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleExpanded(masterId)}
-                  >
-                    {isExpanded ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-
-                {isExpanded && (
-                  <div className="space-y-4 pt-4">
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Notes</h4>
-                      <Textarea
-                        value={notes[masterId] || ''}
-                        onChange={(e) => setNotes(prev => ({
-                          ...prev,
-                          [masterId]: e.target.value
-                        }))}
-                        placeholder="Add notes about this recurring event..."
-                        className="min-h-[100px]"
-                      />
-                      <Button
-                        size="sm"
-                        onClick={() => handleSaveNotes(masterId)}
-                      >
-                        Save Notes
-                      </Button>
-                    </div>
-
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Events & Recordings</h4>
-                      {filteredEvents.map((event) => (
-                        <div
-                          key={event.id}
-                          className="border rounded-lg p-3 space-y-2"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">
-                                {format(new Date(event.start_time), "PPp")}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {event.participants?.length || 0} participants
-                              </p>
-                            </div>
-                          </div>
-
-                          {event.recordings && event.recordings.length > 0 && (
-                            <div className="space-y-2">
-                              {event.recordings.map((recording: any) => (
-                                <Button
-                                  key={recording.id}
-                                  variant="outline"
-                                  size="sm"
-                                  className="w-full text-left"
-                                  onClick={() => setSelectedRecording(recording.id)}
-                                >
-                                  View Recording
-                                  {recording.duration && (
-                                    <span className="ml-2 text-muted-foreground">
-                                      ({Math.floor(recording.duration / 60)} min)
-                                    </span>
-                                  )}
-                                </Button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <RecurringEventMaster
+            key={masterId}
+            masterId={masterId}
+            events={filteredEvents}
+            notes={notes}
+            onSaveNotes={handleSaveNotes}
+          />
         );
       })}
-
-      {selectedRecording && (
-        <VideoPlayerView
-          recordingId={selectedRecording}
-          onClose={() => setSelectedRecording(null)}
-        />
-      )}
     </div>
   );
 }

@@ -13,7 +13,6 @@ export default function RecurringEvents() {
     searchQuery: null as string | null,
   });
 
-  // First fetch events with recordings
   const { data: recurringEvents, isLoading } = useQuery({
     queryKey: ['recurring-events'],
     queryFn: async () => {
