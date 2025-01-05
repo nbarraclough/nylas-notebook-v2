@@ -120,7 +120,20 @@ export function RecurringEventsList({
       const filteredEvents = filterEvents(events);
       if (filteredEvents.length === 0) return null;
 
-      const latestEvent = events[0];
+      // Sort events by start_time
+      const sortedEvents = [...events].sort((a, b) => 
+        new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+      );
+
+      // Find the latest past event and next upcoming event
+      const now = new Date();
+      const latestEvent = [...sortedEvents]
+        .reverse()
+        .find(event => new Date(event.start_time) <= now) || sortedEvents[0];
+      
+      const nextEvent = sortedEvents
+        .find(event => new Date(event.start_time) > now);
+
       const recordingsCount = events.reduce((count, event) => 
         count + (event.recordings?.length || 0), 0
       );
@@ -130,6 +143,7 @@ export function RecurringEventsList({
         masterId,
         events: filteredEvents,
         latestEvent,
+        nextEvent,
         recordingsCount,
         isPinned
       };

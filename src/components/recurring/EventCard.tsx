@@ -8,6 +8,7 @@ interface EventCardProps {
   event: {
     masterId: string;
     latestEvent: any;
+    nextEvent?: any;
     recordingsCount: number;
     isPinned: boolean;
   };
@@ -37,7 +38,7 @@ export function EventCard({ event, onTogglePin }: EventCardProps) {
         <Card className="h-full transition-colors hover:bg-muted/50">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   {event.isPinned && (
                     <Pin className="h-4 w-4 text-primary fill-primary" />
@@ -47,9 +48,16 @@ export function EventCard({ event, onTogglePin }: EventCardProps) {
                 <p className="text-sm text-muted-foreground">
                   {event.recordingsCount} recordings
                 </p>
-                <p className="text-sm text-muted-foreground">
-                  Last occurrence: {format(new Date(event.latestEvent.start_time), "PPp")}
-                </p>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">
+                    Last meeting: {format(new Date(event.latestEvent.start_time), "PPp")}
+                  </p>
+                  {event.nextEvent && (
+                    <p className="text-sm text-muted-foreground">
+                      Next meeting: {format(new Date(event.nextEvent.start_time), "PPp")}
+                    </p>
+                  )}
+                </div>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </div>
