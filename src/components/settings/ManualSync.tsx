@@ -18,16 +18,16 @@ export const ManualSync = ({ userId }: { userId: string }) => {
     try {
       setIsSyncing(true);
       setSyncProgress(25);
-      console.log('Syncing events...');
+      console.log('Starting events sync...');
       
-      const { error } = await supabase.functions.invoke('sync-nylas-events', {
+      const { data, error } = await supabase.functions.invoke('sync-nylas-events', {
         body: { user_id: userId }
       });
 
       if (error) throw error;
 
-      setSyncProgress(75);
       setSyncProgress(100);
+      console.log('Sync completed:', data);
 
       toast({
         title: "Success",
@@ -41,6 +41,7 @@ export const ManualSync = ({ userId }: { userId: string }) => {
         variant: "destructive",
       });
     } finally {
+      // Keep progress bar visible briefly so user can see completion
       setTimeout(() => {
         setIsSyncing(false);
         setSyncProgress(0);
@@ -85,7 +86,7 @@ export const ManualSync = ({ userId }: { userId: string }) => {
                 disabled={isSyncing}
                 className="w-full !bg-[#0F172A] !text-white hover:!bg-[#0F172A]/90"
               >
-                <RefreshCw className="mr-2 h-4 w-4" />
+                <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
                 {isSyncing ? "Syncing..." : "Sync Events"}
               </Button>
             </div>
