@@ -47,12 +47,12 @@ serve(async (req) => {
       });
     }
 
-    // Log request body before validation
+    // Read request body once
     const rawBody = await req.text();
     console.log('📦 Raw webhook body received:', rawBody);
 
     // Validate webhook signature and get body
-    const { isValid } = await validateWebhook(req.clone(), rawBody);
+    const { isValid } = await validateWebhook(req, rawBody);
     if (!isValid) {
       console.error('❌ Invalid webhook signature');
       return new Response('Invalid signature', { status: 401 });
