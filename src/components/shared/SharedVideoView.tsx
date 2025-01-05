@@ -36,6 +36,7 @@ export function SharedVideoView() {
   const { toast } = useToast();
   const [recording, setRecording] = useState<SharedRecording | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [eventData, setEventData] = useState<SharedRecording['event'] | null>(null);
 
   useEffect(() => {
     const fetchSharedVideo = async () => {
@@ -62,32 +63,38 @@ export function SharedVideoView() {
           .maybeSingle();
 
         if (shareError) throw shareError;
-        if (!share?.recording) {
-          setRecording(null);
-          setIsLoading(false);
-          return;
-        }
-
-        // Transform the data to match SharedRecording type
-        const transformedRecording: SharedRecording = {
-          id: share.recording.id,
-          video_url: share.recording.video_url,
-          recording_url: share.recording.recording_url,
-          event: {
+        
+        // Set event data regardless of recording availability
+        if (share?.recording?.event) {
+          const eventInfo = {
             ...share.recording.event,
             participants: transformParticipants(share.recording.event.participants)
-          }
-        };
+          };
+          setEventData(eventInfo);
+        }
 
-        // Record the view
-        await supabase
-          .from('video_views')
-          .insert({
-            recording_id: share.recording.id,
-            external_viewer_ip: 'anonymous'
-          });
+        if (share?.recording) {
+          // Transform the data to match SharedRecording type
+          const transformedRecording: SharedRecording = {
+            id: share.recording.id,
+            video_url: share.recording.video_url,
+            recording_url: share.recording.recording_url,
+            event: {
+              ...share.recording.event,
+              participants: transformParticipants(share.recording.event.participants)
+            }
+          };
 
-        setRecording(transformedRecording);
+          // Record the view
+          await supabase
+            .from('video_views')
+            .insert({
+              recording_id: share.recording.id,
+              external_viewer_ip: 'anonymous'
+            });
+
+          setRecording(transformedRecording);
+        }
       } catch (error) {
         console.error('Error fetching shared video:', error);
         toast({
@@ -111,7 +118,7 @@ export function SharedVideoView() {
     );
   }
 
-  if (!recording) {
+  if (!eventData) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Card className="w-full max-w-lg">
@@ -129,22 +136,22 @@ export function SharedVideoView() {
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         <SharedEventHeader
-          title={recording.event.title}
-          startTime={recording.event.start_time}
-          endTime={recording.event.end_time}
-          participants={recording.event.participants}
+          title={eventData.title}
+          startTime={eventData.start_time}
+          endTime={eventData.end_time}
+          participants={eventData.participants}
         />
 
         <Card>
           <CardContent className="p-6">
             <div className="aspect-video mb-6">
               <SharedVideoPlayer
-                videoUrl={recording.video_url}
-                recordingUrl={recording.recording_url}
+                videoUrl={recording?.video_url}
+                recordingUrl={recording?.recording_url}
               />
             </div>
 
-            <SharedContentTabs description={recording.event.description} />
+            <SharedContentTabs description={eventData.description} />
           </CardContent>
         </Card>
       </div>
