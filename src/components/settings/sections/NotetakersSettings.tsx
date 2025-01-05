@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { useState } from "react"; // Added this import
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -20,6 +20,10 @@ interface NotetakerRecord {
   event: {
     title: string;
     start_time: string;
+    manual_meeting?: {
+      title: string;
+      meeting_url: string;
+    } | null;
   };
 }
 
@@ -38,7 +42,11 @@ export function NotetakersSettings({ userId }: { userId: string }) {
           notetaker_id,
           event:events (
             title,
-            start_time
+            start_time,
+            manual_meeting:manual_meetings (
+              title,
+              meeting_url
+            )
           )
         `)
         .eq('user_id', userId)
@@ -137,6 +145,7 @@ export function NotetakersSettings({ userId }: { userId: string }) {
               <TableHead>Notetaker ID</TableHead>
               <TableHead>Event</TableHead>
               <TableHead>Time</TableHead>
+              <TableHead>Type</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -146,9 +155,14 @@ export function NotetakersSettings({ userId }: { userId: string }) {
                 <TableCell className="font-mono text-sm">
                   {record.notetaker_id}
                 </TableCell>
-                <TableCell>{record.event.title}</TableCell>
+                <TableCell>
+                  {record.event.manual_meeting ? record.event.manual_meeting.title : record.event.title}
+                </TableCell>
                 <TableCell>
                   {format(new Date(record.event.start_time), "MMM d, yyyy 'at' h:mm a")}
+                </TableCell>
+                <TableCell>
+                  {record.event.manual_meeting ? 'Manual Meeting' : 'Calendar Event'}
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
@@ -188,7 +202,7 @@ export function NotetakersSettings({ userId }: { userId: string }) {
             ))}
             {recordings?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
                   No notetakers found
                 </TableCell>
               </TableRow>
