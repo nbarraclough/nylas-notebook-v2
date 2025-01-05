@@ -39,7 +39,6 @@ export function EmailComposerDialog({
   );
   const [recipients, setRecipients] = useState<Recipient[]>(initialRecipients);
   const [newEmail, setNewEmail] = useState("");
-  const [newName, setNewName] = useState("");
 
   const handleAddRecipient = () => {
     if (!newEmail) {
@@ -73,11 +72,10 @@ export function EmailComposerDialog({
     }
 
     setRecipients([...recipients, { 
-      name: newName || newEmail.split('@')[0], 
+      name: newEmail.split('@')[0], 
       email: newEmail 
     }]);
     setNewEmail("");
-    setNewName("");
   };
 
   const handleRemoveRecipient = (email: string) => {
@@ -153,9 +151,7 @@ export function EmailComposerDialog({
                   key={recipient.email}
                   className="flex items-center gap-2 bg-background px-3 py-1 rounded-full border"
                 >
-                  <span className="text-sm">
-                    {recipient.name} ({recipient.email})
-                  </span>
+                  <span className="text-sm">{recipient.email}</span>
                   <button
                     onClick={() => handleRemoveRecipient(recipient.email)}
                     className="text-muted-foreground hover:text-destructive"
@@ -166,31 +162,23 @@ export function EmailComposerDialog({
               ))}
             </div>
             <div className="flex gap-2 mt-2">
-              <div className="flex-1">
-                <Input
-                  placeholder="Name (optional)"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  className="mb-2"
-                />
-                <Input
-                  placeholder="Email address"
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddRecipient();
-                    }
-                  }}
-                />
-              </div>
+              <Input
+                placeholder="Email address"
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddRecipient();
+                  }
+                }}
+                className="flex-1"
+              />
               <Button 
                 type="button" 
                 variant="outline" 
                 onClick={handleAddRecipient}
-                className="h-auto"
               >
                 <Plus className="h-4 w-4" />
               </Button>
