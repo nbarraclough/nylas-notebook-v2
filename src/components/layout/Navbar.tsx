@@ -11,6 +11,7 @@ import {
   Menu,
   LayoutDashboard,
   Repeat,
+  Home,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
