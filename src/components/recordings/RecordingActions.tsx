@@ -10,7 +10,7 @@ interface RecordingActionsProps {
   status: string;
   title: string;
   isRetrievingMedia: boolean;
-  onRetrieveMedia: () => void;
+  onRetrieveMedia: () => Promise<void>;
 }
 
 export const RecordingActions = ({
@@ -26,7 +26,11 @@ export const RecordingActions = ({
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
         {videoUrl && (
-          <VideoPlayerDialog videoUrl={videoUrl} title={title} />
+          <VideoPlayerDialog 
+            videoUrl={videoUrl} 
+            title={title} 
+            onRetrieveMedia={onRetrieveMedia}
+          />
         )}
         {notetakerId && (
           <Button
