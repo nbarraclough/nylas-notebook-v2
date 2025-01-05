@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { PageLayout } from "@/components/layout/PageLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { RecentRecordings } from "@/components/dashboard/RecentRecordings";
@@ -15,7 +15,6 @@ export default function Index() {
   const navigate = useNavigate();
   const [userEmail, setUserEmail] = useState<string>("");
 
-  // Fetch user profile
   const { data: profile } = useQuery({
     queryKey: ['profile'],
     queryFn: async () => {
@@ -34,7 +33,6 @@ export default function Index() {
     }
   });
 
-  // Fetch recent public shares with view counts and email metrics
   const { data: publicShares } = useQuery({
     queryKey: ['public-shares'],
     queryFn: async () => {
@@ -72,17 +70,14 @@ export default function Index() {
         {/* Top row */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Card className="col-span-2">
-            <CardHeader>
-              <CardTitle>Welcome to Notebook</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <WelcomeCard email={userEmail} />
             </CardContent>
           </Card>
           
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle>Quick Stats</CardTitle>
+              <h3 className="font-semibold">Quick Stats</h3>
               <Button 
                 variant="ghost" 
                 className="text-sm" 
