@@ -50,7 +50,7 @@ export function EventCard({ event, onTogglePin }: EventCardProps) {
       </Button>
 
       <Link to={`/recurring-events/${event.masterId}`}>
-        <Card className="h-full transition-colors hover:bg-muted/50">
+        <Card className="h-full card-hover-effect transition-colors hover:bg-muted/50">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="space-y-2">
