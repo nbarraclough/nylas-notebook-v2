@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { RecurringEventInstances } from "@/components/recurring/RecurringEventInstances";
 import { RecurringEventNotes } from "@/components/recurring/RecurringEventNotes";
+import { RecurringRecordingToggle } from "@/components/recurring/RecurringRecordingToggle";
 
 export default function RecurringEventSeries() {
   const { masterId } = useParams();
@@ -28,7 +29,8 @@ export default function RecurringEventSeries() {
             duration,
             transcript_content,
             created_at
-          )
+          ),
+          notetaker_queue (*)
         `)
         .eq('master_event_id', masterId)
         .order('start_time', { ascending: false });
@@ -49,7 +51,8 @@ export default function RecurringEventSeries() {
               duration,
               transcript_content,
               created_at
-            )
+            ),
+            notetaker_queue (*)
           `)
           .like('ical_uid', `${masterId}@%`)
           .order('start_time', { ascending: false });
@@ -90,17 +93,25 @@ export default function RecurringEventSeries() {
   return (
     <PageLayout>
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            asChild
-          >
-            <Link to="/recurring-events">
-              <ChevronLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <h1 className="text-2xl font-bold">{latestEvent?.title}</h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              asChild
+            >
+              <Link to="/recurring-events">
+                <ChevronLeft className="h-4 w-4" />
+              </Link>
+            </Button>
+            <h1 className="text-2xl font-bold">{latestEvent?.title}</h1>
+          </div>
+          {events?.events && events.events.length > 0 && (
+            <RecurringRecordingToggle 
+              masterId={masterId || ''} 
+              events={events.events}
+            />
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
