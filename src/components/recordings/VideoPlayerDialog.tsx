@@ -7,10 +7,11 @@ import { useToast } from "@/hooks/use-toast";
 interface VideoPlayerDialogProps {
   videoUrl: string;
   title: string;
+  children?: React.ReactNode;
   onRetrieveMedia?: () => Promise<void>;
 }
 
-export const VideoPlayerDialog = ({ videoUrl, title, onRetrieveMedia }: VideoPlayerDialogProps) => {
+export const VideoPlayerDialog = ({ videoUrl, title, children, onRetrieveMedia }: VideoPlayerDialogProps) => {
   const { toast } = useToast();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -38,10 +39,7 @@ export const VideoPlayerDialog = ({ videoUrl, title, onRetrieveMedia }: VideoPla
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <Play className="h-4 w-4" />
-          Play Recording
-        </Button>
+        {children}
       </DialogTrigger>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
