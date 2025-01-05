@@ -17,8 +17,8 @@ export default function RecurringEvents() {
     queryFn: async () => {
       console.log('Fetching recurring events...');
       
-      // Get all events with master_event_id
-      const { data: events, error: eventsError } = await supabase
+      // Get master events (events that are the source of a recurring series)
+      const { data: masterEvents, error: masterEventsError } = await supabase
         .from('events')
         .select(`
           *,
@@ -34,43 +34,41 @@ export default function RecurringEvents() {
         .not('master_event_id', 'is', null)
         .order('start_time', { ascending: false });
 
-      if (eventsError) {
-        console.error('Error fetching recurring events:', eventsError);
-        throw eventsError;
+      if (masterEventsError) {
+        console.error('Error fetching master events:', masterEventsError);
+        throw masterEventsError;
       }
 
-      // Get events with ical_uid but no master_event_id
-      const { data: icalEvents, error: icalError } = await supabase
-        .from('events')
-        .select(`
-          *,
-          recordings (
-            id,
-            recording_url,
-            video_url,
-            duration,
-            transcript_content,
-            created_at
-          )
-        `)
-        .is('master_event_id', null)
-        .not('ical_uid', 'is', null)
-        .order('start_time', { ascending: false });
-
-      if (icalError) {
-        console.error('Error fetching ical events:', icalError);
-        throw icalError;
-      }
-
-      // Combine both sets of events
-      const allEvents = [...(events || []), ...(icalEvents || [])];
+      // Get unique master IDs to fetch related events
+      const masterIds = [...new Set(masterEvents?.map(event => event.master_event_id) || [])];
       
-      // Get unique master IDs
-      const masterIds = allEvents.map(event => 
-        event.master_event_id || event.ical_uid?.split('@')[0]
-      ).filter((id): id is string => !!id);
+      // Get all events for each master ID
+      const eventsPromises = masterIds.map(masterId =>
+        supabase
+          .from('events')
+          .select(`
+            *,
+            recordings (
+              id,
+              recording_url,
+              video_url,
+              duration,
+              transcript_content,
+              created_at
+            )
+          `)
+          .eq('master_event_id', masterId)
+          .order('start_time', { ascending: false })
+      );
 
-      // Fetch notes for all master events
+      const eventsResults = await Promise.all(eventsPromises);
+      const errors = eventsResults.filter(result => result.error);
+      if (errors.length > 0) {
+        console.error('Errors fetching recurring events:', errors);
+        throw errors[0].error;
+      }
+
+      // Get notes for all master IDs
       const { data: notes, error: notesError } = await supabase
         .from('recurring_event_notes')
         .select('*')
@@ -81,26 +79,21 @@ export default function RecurringEvents() {
         throw notesError;
       }
 
-      // Group events by master_event_id or ical_uid
-      const groupedEvents = allEvents.reduce((acc, event) => {
-        const masterId = event.master_event_id || 
-                        (event.ical_uid ? event.ical_uid.split('@')[0] : null);
-        
-        if (!masterId) return acc;
-        
-        if (!acc[masterId]) {
-          acc[masterId] = [];
+      // Group events by master_event_id
+      const groupedEvents = masterIds.reduce((acc, masterId, index) => {
+        const events = eventsResults[index].data || [];
+        if (events.length > 0) {
+          // Find notes for this master ID
+          const eventNotes = notes?.filter(note => note.master_event_id === masterId) || [];
+          
+          // Add notes to each event in the group
+          const eventsWithNotes = events.map(event => ({
+            ...event,
+            recurring_event_notes: eventNotes
+          }));
+          
+          acc[masterId] = eventsWithNotes;
         }
-        
-        // Find notes for this master ID
-        const eventNotes = notes?.filter(note => note.master_event_id === masterId) || [];
-        
-        // Add notes to the event
-        acc[masterId].push({
-          ...event,
-          recurring_event_notes: eventNotes
-        });
-        
         return acc;
       }, {} as Record<string, any[]>);
 
