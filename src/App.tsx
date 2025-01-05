@@ -6,6 +6,7 @@ import Queue from "./pages/Queue";
 import Recordings from "./pages/Recordings";
 import Settings from "./pages/Settings";
 import Shared from "./pages/Shared";
+import SharedVideo from "./pages/SharedVideo";
 
 // Define the router with all routes
 const router = createBrowserRouter([
@@ -34,8 +35,12 @@ const router = createBrowserRouter([
     element: <Settings />,
   },
   {
-    path: "/shared/:shareId",
+    path: "/shared",
     element: <Shared />,
+  },
+  {
+    path: "/shared/:shareId",
+    element: <SharedVideo />,
   },
 ]);
 
