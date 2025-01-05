@@ -87,9 +87,6 @@ export function EventCard({ event, onTogglePin }: EventCardProps) {
                   </Badge>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">
-                    Last meeting: {format(new Date(event.latestEvent.start_time), "PPp")}
-                  </p>
                   {event.nextEvent && (
                     <p className="text-sm text-muted-foreground">
                       Next meeting: {format(new Date(event.nextEvent.start_time), "PPp")}

@@ -75,39 +75,41 @@ export function RecurringEventsList({
     return <RecurringEventSkeleton />;
   }
 
-  const filterEvents = (events: any[]) => {
-    return events.filter(event => {
-      if (filters.startDate && new Date(event.start_time) < filters.startDate) return false;
-      if (filters.endDate && new Date(event.start_time) > filters.endDate) return false;
-
-      if (filters.participants.length > 0) {
-        const eventParticipants = event.participants || [];
-        const hasMatchingParticipant = filters.participants.some(email =>
-          eventParticipants.some((p: any) => p.email === email)
-        );
-        if (!hasMatchingParticipant) return false;
-      }
-
-      if (filters.searchQuery && event.recordings) {
-        const hasMatchingTranscript = event.recordings.some((recording: any) =>
-          recording.transcript_content &&
-          JSON.stringify(recording.transcript_content)
-            .toLowerCase()
-            .includes(filters.searchQuery.toLowerCase())
-        );
-        if (!hasMatchingTranscript) return false;
-      }
-
-      return true;
-    });
-  };
-
   const processedEvents = Object.entries(localEvents || {})
     .map(([masterId, events]) => {
-      const filteredEvents = filterEvents(events);
+      // Filter events based on date range
+      const filteredEvents = events.filter(event => {
+        if (filters.startDate && new Date(event.start_time) < filters.startDate) return false;
+        if (filters.endDate && new Date(event.start_time) > filters.endDate) return false;
+        return true;
+      });
+
       if (filteredEvents.length === 0) return null;
 
-      const sortedEvents = [...events].sort((a, b) => 
+      // Filter by participants if specified
+      if (filters.participants.length > 0) {
+        const hasMatchingParticipant = filteredEvents.some(event =>
+          filters.participants.some(email =>
+            event.participants?.some((p: any) => p.email === email)
+          )
+        );
+        if (!hasMatchingParticipant) return null;
+      }
+
+      // Filter by search query if specified
+      if (filters.searchQuery) {
+        const hasMatchingTranscript = filteredEvents.some(event =>
+          event.recordings?.some((recording: any) =>
+            recording.transcript_content &&
+            JSON.stringify(recording.transcript_content)
+              .toLowerCase()
+              .includes(filters.searchQuery!.toLowerCase())
+          )
+        );
+        if (!hasMatchingTranscript) return null;
+      }
+
+      const sortedEvents = [...filteredEvents].sort((a, b) => 
         new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
       );
 
@@ -122,6 +124,7 @@ export function RecurringEventsList({
       const recordingsCount = events.reduce((count, event) => 
         count + (event.recordings?.length || 0), 0
       );
+
       const isPinned = events[0]?.recurring_event_notes?.[0]?.pinned || false;
 
       return {
@@ -133,27 +136,40 @@ export function RecurringEventsList({
         isPinned
       };
     })
-    .filter(Boolean);
+    .filter(Boolean)
+    .sort((a, b) => {
+      // First sort by pin status
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
 
-  const pinnedEvents = processedEvents
-    .filter(event => event.isPinned)
-    .sort((a, b) => new Date(b.latestEvent.start_time).getTime() - 
-                    new Date(a.latestEvent.start_time).getTime());
-  
-  const unpinnedEvents = processedEvents
-    .filter(event => !event.isPinned)
-    .sort((a, b) => new Date(b.latestEvent.start_time).getTime() - 
-                    new Date(a.latestEvent.start_time).getTime());
+      // Then sort by next meeting date (if available)
+      const aNextTime = a.nextEvent ? new Date(a.nextEvent.start_time).getTime() : 0;
+      const bNextTime = b.nextEvent ? new Date(b.nextEvent.start_time).getTime() : 0;
+
+      // If both have next events, sort by next event time descending
+      if (aNextTime && bNextTime) return bNextTime - aNextTime;
+
+      // If only one has a next event, prioritize it
+      if (aNextTime) return -1;
+      if (bNextTime) return 1;
+
+      // If neither has a next event, sort by latest event time
+      return new Date(b.latestEvent.start_time).getTime() - 
+             new Date(a.latestEvent.start_time).getTime();
+    });
 
   if (!processedEvents || processedEvents.length === 0) {
     return (
       <Card>
         <CardContent className="p-6 text-center text-muted-foreground">
-          No recurring events found.
+          No recurring events found
         </CardContent>
       </Card>
     );
   }
+
+  const pinnedEvents = processedEvents.filter(event => event.isPinned);
+  const unpinnedEvents = processedEvents.filter(event => !event.isPinned);
 
   return (
     <div className="space-y-8">
