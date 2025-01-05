@@ -13,11 +13,14 @@ serve(async (req) => {
   }
 
   try {
-    const { user_id, force_recording_rules = false } = await req.json()
-    console.log('Syncing events for user:', user_id, 'force_recording_rules:', force_recording_rules)
+    const { user_id, user_ids, force_recording_rules = false } = await req.json()
+    console.log('Request payload:', { user_id, user_ids, force_recording_rules })
 
-    if (!user_id) {
-      throw new Error('user_id is required')
+    // Handle both single user and batch processing
+    const userIdsToProcess = user_ids || (user_id ? [user_id] : null)
+
+    if (!userIdsToProcess || userIdsToProcess.length === 0) {
+      throw new Error('Either user_id or user_ids is required')
     }
 
     // Initialize Supabase Admin client
@@ -32,86 +35,103 @@ serve(async (req) => {
       }
     )
 
-    // Get user's profile and Nylas grant ID
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('nylas_grant_id')
-      .eq('id', user_id)
-      .single()
+    const results = []
+    const errors = []
 
-    if (profileError) {
-      console.error('Error fetching profile:', profileError)
-      throw new Error('Failed to fetch user profile')
-    }
-
-    if (!profile?.nylas_grant_id) {
-      console.log('User has no Nylas grant ID, skipping sync:', user_id)
-      return new Response(
-        JSON.stringify({ success: false, message: 'No Nylas grant ID found for user' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Get existing events to track updates
-    const { data: existingEvents, error: existingEventsError } = await supabaseAdmin
-      .from('events')
-      .select('ical_uid, last_updated_at')
-      .eq('user_id', user_id)
-
-    if (existingEventsError) {
-      console.error('Error fetching existing events:', existingEventsError)
-      throw existingEventsError
-    }
-
-    // Create a Map for faster lookup of existing events
-    const existingEventsMap = new Map(
-      existingEvents?.map(event => [event.ical_uid, new Date(event.last_updated_at)]) || []
-    )
-
-    console.log('Fetching Nylas events for grant ID:', profile.nylas_grant_id)
-    
-    const NYLAS_CLIENT_SECRET = Deno.env.get('NYLAS_CLIENT_SECRET')
-    if (!NYLAS_CLIENT_SECRET) {
-      console.error('NYLAS_CLIENT_SECRET environment variable is not set')
-      throw new Error('Nylas client secret not configured')
-    }
-
-    // Fetch events from Nylas
-    const eventsResponse = await fetch(
-      `https://api-staging.us.nylas.com/v3/grants/${profile.nylas_grant_id}/events?calendar_id=primary`, 
-      {
-        headers: {
-          'Authorization': `Bearer ${NYLAS_CLIENT_SECRET}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      }
-    )
-
-    if (!eventsResponse.ok) {
-      const errorData = await eventsResponse.text()
-      console.error('Failed to fetch Nylas events:', errorData)
-      throw new Error('Failed to fetch events from Nylas')
-    }
-
-    const events = await eventsResponse.json()
-    console.log(`Fetched ${events.data?.length || 0} events from Nylas`)
-
-    // Process each event
-    for (const event of events.data || []) {
+    // Process each user
+    for (const userId of userIdsToProcess) {
       try {
-        await processEvent(event, existingEventsMap, user_id, supabaseAdmin, force_recording_rules)
+        console.log('Processing user:', userId)
+        
+        // Get user's profile and Nylas grant ID
+        const { data: profile, error: profileError } = await supabaseAdmin
+          .from('profiles')
+          .select('nylas_grant_id')
+          .eq('id', userId)
+          .single()
+
+        if (profileError) {
+          console.error('Error fetching profile for user:', userId, profileError)
+          errors.push({ userId, error: 'Failed to fetch user profile' })
+          continue
+        }
+
+        if (!profile?.nylas_grant_id) {
+          console.log('User has no Nylas grant ID, skipping sync:', userId)
+          errors.push({ userId, error: 'No Nylas grant ID found' })
+          continue
+        }
+
+        // Get existing events to track updates
+        const { data: existingEvents, error: existingEventsError } = await supabaseAdmin
+          .from('events')
+          .select('ical_uid, last_updated_at')
+          .eq('user_id', userId)
+
+        if (existingEventsError) {
+          console.error('Error fetching existing events:', existingEventsError)
+          errors.push({ userId, error: 'Failed to fetch existing events' })
+          continue
+        }
+
+        // Create a Map for faster lookup of existing events
+        const existingEventsMap = new Map(
+          existingEvents?.map(event => [event.ical_uid, new Date(event.last_updated_at)]) || []
+        )
+
+        console.log('Fetching Nylas events for grant ID:', profile.nylas_grant_id)
+        
+        const NYLAS_CLIENT_SECRET = Deno.env.get('NYLAS_CLIENT_SECRET')
+        if (!NYLAS_CLIENT_SECRET) {
+          console.error('NYLAS_CLIENT_SECRET environment variable is not set')
+          throw new Error('Nylas client secret not configured')
+        }
+
+        // Fetch events from Nylas
+        const eventsResponse = await fetch(
+          `https://api-staging.us.nylas.com/v3/grants/${profile.nylas_grant_id}/events?calendar_id=primary`, 
+          {
+            headers: {
+              'Authorization': `Bearer ${NYLAS_CLIENT_SECRET}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+          }
+        )
+
+        if (!eventsResponse.ok) {
+          const errorData = await eventsResponse.text()
+          console.error('Failed to fetch Nylas events:', errorData)
+          errors.push({ userId, error: 'Failed to fetch events from Nylas' })
+          continue
+        }
+
+        const events = await eventsResponse.json()
+        console.log(`Fetched ${events.data?.length || 0} events from Nylas for user:`, userId)
+
+        // Process each event
+        for (const event of events.data || []) {
+          try {
+            await processEvent(event, existingEventsMap, userId, supabaseAdmin, force_recording_rules)
+          } catch (error) {
+            console.error('Error processing event:', event.id, error)
+            errors.push({ userId, eventId: event.id, error: 'Failed to process event' })
+          }
+        }
+
+        results.push({ userId, eventsProcessed: events.data?.length || 0 })
+
       } catch (error) {
-        console.error('Error processing event:', event.id, error)
-        // Continue processing other events even if one fails
+        console.error('Error processing user:', userId, error)
+        errors.push({ userId, error: error.message || 'Unknown error occurred' })
       }
     }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Events synced successfully',
-        eventsProcessed: events.data?.length || 0
+        results,
+        errors: errors.length > 0 ? errors : undefined
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
