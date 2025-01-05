@@ -1,4 +1,4 @@
-export interface NylasWebhookBase {
+export interface NylasWebhookBase<T = Record<string, any>> {
   specversion: string;
   type: string;
   source: string;
@@ -7,6 +7,6 @@ export interface NylasWebhookBase {
   data: {
     application_id: string;
     grant_id?: string;
-    object: Record<string, any>;
+    object: T;
   };
 }

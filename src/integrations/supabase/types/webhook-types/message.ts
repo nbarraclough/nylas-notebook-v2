@@ -15,40 +15,44 @@ interface MessageLinkClickedRecent extends MessageTrackingRecent {
   link_index: string;
 }
 
-export interface MessageOpenedWebhook extends NylasWebhookBase {
+interface MessageOpenedObject {
+  message_data: {
+    count: number;
+    timestamp: number;
+  };
+  message_id: string;
+  label: string;
+  recents: MessageOpenedRecent[];
+  sender_app_id: string;
+  timestamp: number;
+}
+
+interface MessageLinkClickedObject {
+  link_data: Array<{
+    count: number;
+    url: string;
+  }>;
+  message_id: string;
+  label: string;
+  recents: MessageLinkClickedRecent[];
+  sender_app_id: string;
+  timestamp: number;
+}
+
+export interface MessageOpenedWebhook extends NylasWebhookBase<MessageOpenedObject> {
   type: 'message.opened';
   data: {
     application_id: string;
     grant_id: string;
-    object: {
-      message_data: {
-        count: number;
-        timestamp: number;
-      };
-      message_id: string;
-      label: string;
-      recents: MessageOpenedRecent[];
-      sender_app_id: string;
-      timestamp: number;
-    };
+    object: MessageOpenedObject;
   };
 }
 
-export interface MessageLinkClickedWebhook extends NylasWebhookBase {
+export interface MessageLinkClickedWebhook extends NylasWebhookBase<MessageLinkClickedObject> {
   type: 'message.link_clicked';
   data: {
     application_id: string;
     grant_id: string;
-    object: {
-      link_data: Array<{
-        count: number;
-        url: string;
-      }>;
-      message_id: string;
-      label: string;
-      recents: MessageLinkClickedRecent[];
-      sender_app_id: string;
-      timestamp: number;
-    };
+    object: MessageLinkClickedObject;
   };
 }
