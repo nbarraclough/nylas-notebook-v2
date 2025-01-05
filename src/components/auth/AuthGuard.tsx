@@ -11,9 +11,11 @@ interface AuthGuardProps {
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const location = useLocation();
   const { redirectToAuth } = useAuthRedirect();
   const mountedRef = useRef(false);
+  const authCheckedRef = useRef(false);
 
   const handleAuthError = async (error: any) => {
     console.error('Auth error:', error);
@@ -30,9 +32,13 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   useEffect(() => {
     mountedRef.current = true;
+    let authListener: { unsubscribe: () => void } | undefined;
 
     const checkAuth = async () => {
+      if (authCheckedRef.current) return;
+      
       try {
+        console.log('Checking initial auth state...');
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
@@ -42,6 +48,10 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
         if (!session) {
           console.log('No session found, redirecting to auth page');
+          if (mountedRef.current) {
+            setIsAuthenticated(false);
+            setIsLoading(false);
+          }
           redirectToAuth();
           return;
         }
@@ -53,8 +63,11 @@ export function AuthGuard({ children }: AuthGuardProps) {
         }
 
         if (mountedRef.current) {
+          setIsAuthenticated(true);
           setIsLoading(false);
         }
+        
+        authCheckedRef.current = true;
       } catch (error) {
         if (mountedRef.current) {
           await handleAuthError(error);
@@ -62,12 +75,17 @@ export function AuthGuard({ children }: AuthGuardProps) {
       }
     };
 
-    const setupAuthListener = async () => {
-      const { data: { subscription: authListener } } = supabase.auth.onAuthStateChange(
+    const setupAuthListener = () => {
+      console.log('Setting up auth listener...');
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
         async (event, session) => {
+          console.log('Auth state changed:', event);
+          
           if (event === 'SIGNED_OUT' || (!session && !location.pathname.startsWith('/shared'))) {
             if (mountedRef.current) {
               await clearAuthStorage();
+              setIsAuthenticated(false);
+              setIsLoading(false);
               redirectToAuth();
             }
           } else if (event === 'SIGNED_IN' && session) {
@@ -76,6 +94,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
               if (verifyError) {
                 await handleAuthError(verifyError);
               } else if (mountedRef.current) {
+                setIsAuthenticated(true);
                 setIsLoading(false);
               }
             } catch (error) {
@@ -87,20 +106,19 @@ export function AuthGuard({ children }: AuthGuardProps) {
         }
       );
 
-      return authListener;
+      return subscription;
     };
 
-    let authListener: { unsubscribe: () => void } | undefined;
-
     const initialize = async () => {
+      authListener = setupAuthListener();
       await checkAuth();
-      authListener = await setupAuthListener();
     };
 
     initialize();
 
     return () => {
       mountedRef.current = false;
+      authCheckedRef.current = false;
       if (authListener) {
         authListener.unsubscribe();
       }
@@ -108,6 +126,11 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }, [location.pathname]);
 
   if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (!isAuthenticated && !location.pathname.startsWith('/shared')) {
+    redirectToAuth();
     return <LoadingScreen />;
   }
 
