@@ -1,6 +1,6 @@
 import { logSignatureVerification } from '../_shared/webhook-logger.ts';
 
-export const validateWebhook = async (req: Request, rawBody: string) => {
+export const validateWebhook = async (rawBody: string, signature: string | null) => {
   // Get and validate webhook secret
   const webhookSecret = Deno.env.get('NYLAS_WEBHOOK_SECRET');
   if (!webhookSecret) {
@@ -8,8 +8,7 @@ export const validateWebhook = async (req: Request, rawBody: string) => {
     throw new Error('NYLAS_WEBHOOK_SECRET not configured');
   }
 
-  // Get and validate signature
-  const signature = req.headers.get('x-nylas-signature') || req.headers.get('X-Nylas-Signature');
+  // Validate signature presence
   if (!signature) {
     console.error('❌ No signature in webhook request');
     throw new Error('No signature in webhook request');
@@ -41,12 +40,5 @@ export const validateWebhook = async (req: Request, rawBody: string) => {
   const isValid = calculatedSignature === signature;
   logSignatureVerification(isValid);
 
-  if (!isValid) {
-    console.error('❌ Invalid webhook signature');
-    console.log('Expected:', signature);
-    console.log('Calculated:', calculatedSignature);
-    throw new Error('Invalid webhook signature');
-  }
-
-  return { rawBody, isValid };
+  return { isValid };
 };
