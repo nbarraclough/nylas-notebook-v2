@@ -29,11 +29,13 @@ export function SharedEventHeader({ title, startTime, endTime, participants }: S
           </div>
           <div className="flex items-center gap-2">
             <HoverCard>
-              <HoverCardTrigger asChild>
-                <Badge variant="secondary" className="flex items-center gap-1 cursor-pointer">
-                  <Users className="w-3 h-3" />
-                  {participants?.length || 0} participants
-                </Badge>
+              <HoverCardTrigger>
+                <button className="cursor-pointer">
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    <Users className="w-3 h-3" />
+                    {participants?.length || 0} participants
+                  </Badge>
+                </button>
               </HoverCardTrigger>
               <HoverCardContent className="w-80">
                 <div className="space-y-2">
