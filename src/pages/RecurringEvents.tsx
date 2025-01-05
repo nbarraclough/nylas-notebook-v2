@@ -29,10 +29,10 @@ export default function RecurringEvents() {
             duration,
             transcript_content,
             created_at
-          )
+          ),
+          recurring_event_notes (*)
         `)
-        .not('master_event_id', 'is', null)
-        .order('start_time', { ascending: false });
+        .not('master_event_id', 'is', null);
 
       if (eventsError) {
         console.error('Error fetching recurring events:', eventsError);
@@ -51,11 +51,11 @@ export default function RecurringEvents() {
             duration,
             transcript_content,
             created_at
-          )
+          ),
+          recurring_event_notes (*)
         `)
         .is('master_event_id', null)
-        .not('ical_uid', 'is', null)
-        .order('start_time', { ascending: false });
+        .not('ical_uid', 'is', null);
 
       if (icalError) {
         console.error('Error fetching ical events:', icalError);
@@ -64,11 +64,9 @@ export default function RecurringEvents() {
 
       // Combine both sets of events
       const allEvents = [...(events || []), ...(icalEvents || [])];
-
+      
       // Group events by master_event_id or ical_uid
       const groupedEvents = allEvents.reduce((acc, event) => {
-        // For events with master_event_id, use that as the key
-        // For events with ical_uid, use the base ical_uid (before the @)
         const masterId = event.master_event_id || 
                         (event.ical_uid ? event.ical_uid.split('@')[0] : null);
         
@@ -81,28 +79,6 @@ export default function RecurringEvents() {
         acc[masterId].push(event);
         return acc;
       }, {} as Record<string, any[]>);
-
-      // Fetch notes for all master events
-      const { data: notes, error: notesError } = await supabase
-        .from('recurring_event_notes')
-        .select('*');
-
-      if (notesError) {
-        console.error('Error fetching recurring event notes:', notesError);
-        throw notesError;
-      }
-
-      // Add notes to grouped events
-      Object.keys(groupedEvents).forEach(masterId => {
-        const eventNotes = notes?.filter(note => 
-          note.master_event_id === masterId
-        ) || [];
-        
-        groupedEvents[masterId] = groupedEvents[masterId].map(event => ({
-          ...event,
-          recurring_event_notes: eventNotes
-        }));
-      });
 
       console.log('Grouped recurring events:', groupedEvents);
       return groupedEvents;
