@@ -9,6 +9,33 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      cron_job_logs: {
+        Row: {
+          error: string | null
+          id: string
+          job_name: string | null
+          result: Json | null
+          started_at: string | null
+          users_found: number | null
+        }
+        Insert: {
+          error?: string | null
+          id?: string
+          job_name?: string | null
+          result?: Json | null
+          started_at?: string | null
+          users_found?: number | null
+        }
+        Update: {
+          error?: string | null
+          id?: string
+          job_name?: string | null
+          result?: Json | null
+          started_at?: string | null
+          users_found?: number | null
+        }
+        Relationships: []
+      }
       email_shares: {
         Row: {
           created_at: string | null
