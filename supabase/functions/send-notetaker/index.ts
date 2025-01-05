@@ -11,6 +11,7 @@ Deno.serve(async (req) => {
 
   try {
     const { meetingUrl, grantId, meetingId } = await req.json()
+    console.log('Received request with:', { meetingUrl, grantId, meetingId })
 
     if (!meetingUrl || !grantId || !meetingId) {
       throw new Error('Missing required parameters')
@@ -39,6 +40,7 @@ Deno.serve(async (req) => {
       throw new Error('Failed to fetch event details')
     }
 
+    console.log('Sending notetaker to meeting...')
     // Send notetaker to the meeting
     const response = await fetch(
       `${NYLAS_API_URL}/v3/grants/${grantId}/notetakers`,
