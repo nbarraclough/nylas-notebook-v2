@@ -19,6 +19,17 @@ export default function Library() {
   const { data: recordings, isLoading } = useQuery({
     queryKey: ['library-recordings', filters],
     queryFn: async () => {
+      // First, get the current user's profile to know their organization
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', user.id)
+        .single();
+
+      // Build the main recordings query
       let query = supabase
         .from('recordings')
         .select(`
@@ -33,21 +44,21 @@ export default function Library() {
           ),
           profiles:user_id (
             organization_id
+          ),
+          video_shares (
+            share_type,
+            organization_id
           )
         `)
+        .or(`user_id.eq.${user.id},and(video_shares.is.not.null,video_shares.share_type.eq.internal,video_shares.organization_id.eq.${profile?.organization_id})`)
         .order('created_at', { ascending: false });
 
       // Apply filters
       if (filters.types.length > 0) {
         if (filters.types.includes("my-recordings")) {
-          query = query.eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+          query = query.eq('user_id', user.id);
         }
         if (filters.types.includes("organization")) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('organization_id')
-            .single();
-          
           if (profile?.organization_id) {
             query = query.eq('profiles.organization_id', profile.organization_id);
           }
@@ -72,12 +83,10 @@ export default function Library() {
       }
 
       if (filters.participants.length > 0) {
-        // Filter by participants using containment operator
         query = query.contains('event.participants', filters.participants.map(email => ({ email })));
       }
 
       if (filters.titleSearch) {
-        // Case-insensitive search in title
         query = query.ilike('event.title', `%${filters.titleSearch}%`);
       }
 
