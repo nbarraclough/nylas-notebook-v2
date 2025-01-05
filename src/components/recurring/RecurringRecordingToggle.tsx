@@ -44,6 +44,17 @@ export function RecurringRecordingToggle({
           if (error) throw error;
         }
 
+        // Update recurring recording settings
+        const { error: settingsError } = await supabase
+          .from('recurring_recording_settings')
+          .upsert({
+            master_event_id: masterId,
+            enabled: true,
+            user_id: events[0].user_id
+          });
+
+        if (settingsError) throw settingsError;
+
         toast({
           title: "Success",
           description: `${eventsToQueue.length} events scheduled for recording`,
@@ -56,6 +67,17 @@ export function RecurringRecordingToggle({
           .in('event_id', events.map(e => e.id));
 
         if (error) throw error;
+
+        // Update recurring recording settings
+        const { error: settingsError } = await supabase
+          .from('recurring_recording_settings')
+          .upsert({
+            master_event_id: masterId,
+            enabled: false,
+            user_id: events[0].user_id
+          });
+
+        if (settingsError) throw settingsError;
 
         toast({
           title: "Success",
