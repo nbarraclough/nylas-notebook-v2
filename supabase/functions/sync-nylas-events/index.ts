@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 import { processEvent } from './event-processor.ts'
-import { startOfToday, addMonths, getUnixTime } from './timestamp-utils.ts'
+import { startOfToday, addMonths, getUnixTime, formatDate } from './timestamp-utils.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -37,10 +37,15 @@ serve(async (req) => {
     const results = []
     const errors = []
 
-    // Get date range
+    // Get date range - now explicitly set to 3 months
     const startDate = startOfToday()
     const endDate = addMonths(startDate, 3)
-    console.log('Date range:', { startDate, endDate })
+    console.log('Date range:', { 
+      start: formatDate(startDate), 
+      end: formatDate(endDate),
+      startUnix: getUnixTime(startDate),
+      endUnix: getUnixTime(endDate)
+    })
 
     for (const userId of userIdsToProcess) {
       try {
@@ -89,6 +94,7 @@ serve(async (req) => {
 
         let pageToken = null
         let allEvents = []
+        let totalEventsFetched = 0
         
         do {
           const queryParams = new URLSearchParams({
@@ -120,8 +126,9 @@ serve(async (req) => {
           const response = await eventsResponse.json()
           allEvents = allEvents.concat(response.data || [])
           pageToken = response.next_page_token
+          totalEventsFetched += response.data?.length || 0
           
-          console.log(`Fetched ${response.data?.length || 0} events, next page token:`, pageToken)
+          console.log(`Fetched ${response.data?.length || 0} events, total: ${totalEventsFetched}, next page token:`, pageToken)
         } while (pageToken)
 
         console.log(`Total events fetched for user ${userId}:`, allEvents.length)
