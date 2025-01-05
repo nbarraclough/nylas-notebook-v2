@@ -30,7 +30,6 @@ export interface MessageOpenedWebhook extends NylasWebhookBase {
       recents: MessageOpenedRecent[];
       sender_app_id: string;
       timestamp: number;
-      grant_id: string;
     };
   };
 }
@@ -50,7 +49,6 @@ export interface MessageLinkClickedWebhook extends NylasWebhookBase {
       recents: MessageLinkClickedRecent[];
       sender_app_id: string;
       timestamp: number;
-      grant_id: string;
     };
   };
 }
