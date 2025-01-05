@@ -3,7 +3,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TranscriptSearch } from "./TranscriptSearch";
 
 interface TranscriptEntry {
-  timestamp: number;
+  start: number;
+  end: number;
   speaker: string;
   text: string;
 }
@@ -25,10 +26,11 @@ export function TranscriptViewer({ content }: TranscriptViewerProps) {
     );
   }, [content, searchQuery]);
 
-  const formatTimestamp = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = Math.floor(seconds % 60);
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  const formatTimestamp = (milliseconds: number) => {
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
   const highlightText = (text: string) => {
@@ -54,7 +56,7 @@ export function TranscriptViewer({ content }: TranscriptViewerProps) {
             >
               <div className="flex items-center gap-3 mb-1">
                 <span className="text-sm font-medium text-muted-foreground min-w-[50px]">
-                  {formatTimestamp(entry.timestamp)}
+                  {formatTimestamp(entry.start)}
                 </span>
                 <span className="text-sm font-semibold text-primary">
                   {entry.speaker}
