@@ -96,7 +96,11 @@ export function VideoHeader({
             recordingId={recordingId}
           />
         )}
-        <Button variant="ghost" onClick={onClose}>
+        <Button 
+          variant="outline" 
+          onClick={onClose}
+          className="text-destructive border-destructive hover:bg-destructive/10 hover:text-destructive"
+        >
           Close
         </Button>
       </div>
