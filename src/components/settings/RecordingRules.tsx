@@ -9,12 +9,21 @@ export const RecordingRules = ({
   userId,
   recordExternal,
   recordInternal,
+  shareExternal,
+  shareInternal,
   onRulesChange
 }: {
   userId: string;
   recordExternal: boolean;
   recordInternal: boolean;
-  onRulesChange: (updates: { record_external_meetings?: boolean; record_internal_meetings?: boolean }) => void;
+  shareExternal: boolean;
+  shareInternal: boolean;
+  onRulesChange: (updates: { 
+    record_external_meetings?: boolean; 
+    record_internal_meetings?: boolean;
+    share_external_recordings?: boolean;
+    share_internal_recordings?: boolean;
+  }) => void;
 }) => {
   const { toast } = useToast();
 
@@ -22,6 +31,8 @@ export const RecordingRules = ({
     mutationFn: async (updates: {
       record_external_meetings?: boolean;
       record_internal_meetings?: boolean;
+      share_external_recordings?: boolean;
+      share_internal_recordings?: boolean;
     }) => {
       if (!userId) throw new Error('No user ID');
       
@@ -69,37 +80,81 @@ export const RecordingRules = ({
     updateProfile.mutate({ record_internal_meetings: newValue });
   };
 
+  const handleShareExternalChange = () => {
+    const newValue = !shareExternal;
+    updateProfile.mutate({ share_external_recordings: newValue });
+  };
+
+  const handleShareInternalChange = () => {
+    const newValue = !shareInternal;
+    updateProfile.mutate({ share_internal_recordings: newValue });
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Recording Rules</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <Label>Record External Meetings</Label>
-            <p className="text-sm text-muted-foreground">
-              Record meetings where the host's email domain differs from participants
-            </p>
+    <>
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Recording Rules</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Record External Meetings</Label>
+              <p className="text-sm text-muted-foreground">
+                Record meetings where the host's email domain differs from participants
+              </p>
+            </div>
+            <Switch 
+              checked={recordExternal}
+              onCheckedChange={handleRecordExternalChange}
+            />
           </div>
-          <Switch 
-            checked={recordExternal}
-            onCheckedChange={handleRecordExternalChange}
-          />
-        </div>
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <Label>Record Internal Meetings</Label>
-            <p className="text-sm text-muted-foreground">
-              Record meetings where all participants share the same email domain
-            </p>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Record Internal Meetings</Label>
+              <p className="text-sm text-muted-foreground">
+                Record meetings where all participants share the same email domain
+              </p>
+            </div>
+            <Switch 
+              checked={recordInternal}
+              onCheckedChange={handleRecordInternalChange}
+            />
           </div>
-          <Switch 
-            checked={recordInternal}
-            onCheckedChange={handleRecordInternalChange}
-          />
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Organization Sharing Rules</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Automatically Share Internal Meeting Recordings</Label>
+              <p className="text-sm text-muted-foreground">
+                Share recordings of internal meetings with your organization
+              </p>
+            </div>
+            <Switch 
+              checked={shareInternal}
+              onCheckedChange={handleShareInternalChange}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Automatically Share External Meeting Recordings</Label>
+              <p className="text-sm text-muted-foreground">
+                Share recordings of external meetings with your organization
+              </p>
+            </div>
+            <Switch 
+              checked={shareExternal}
+              onCheckedChange={handleShareExternalChange}
+            />
+          </div>
+        </CardContent>
+      </Card>
+    </>
   );
 };

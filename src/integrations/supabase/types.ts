@@ -324,6 +324,8 @@ export type Database = {
           organization_id: string | null
           record_external_meetings: boolean | null
           record_internal_meetings: boolean | null
+          share_external_recordings: boolean | null
+          share_internal_recordings: boolean | null
           updated_at: string
         }
         Insert: {
@@ -336,6 +338,8 @@ export type Database = {
           organization_id?: string | null
           record_external_meetings?: boolean | null
           record_internal_meetings?: boolean | null
+          share_external_recordings?: boolean | null
+          share_internal_recordings?: boolean | null
           updated_at?: string
         }
         Update: {
@@ -348,6 +352,8 @@ export type Database = {
           organization_id?: string | null
           record_external_meetings?: boolean | null
           record_internal_meetings?: boolean | null
+          share_external_recordings?: boolean | null
+          share_internal_recordings?: boolean | null
           updated_at?: string
         }
         Relationships: [

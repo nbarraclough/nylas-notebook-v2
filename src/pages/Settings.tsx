@@ -13,6 +13,8 @@ export default function Settings() {
   const [notetakerName, setNotetakerName] = useState("");
   const [recordExternal, setRecordExternal] = useState(false);
   const [recordInternal, setRecordInternal] = useState(false);
+  const [shareExternal, setShareExternal] = useState(false);
+  const [shareInternal, setShareInternal] = useState(false);
 
   // Fetch user profile
   const { data: profile } = useQuery({
@@ -63,6 +65,8 @@ export default function Settings() {
       setNotetakerName(profile.notetaker_name || "");
       setRecordExternal(profile.record_external_meetings || false);
       setRecordInternal(profile.record_internal_meetings || false);
+      setShareExternal(profile.share_external_recordings || false);
+      setShareInternal(profile.share_internal_recordings || false);
     }
   }, [profile]);
 
@@ -83,12 +87,20 @@ export default function Settings() {
               userId={userId}
               recordExternal={recordExternal}
               recordInternal={recordInternal}
+              shareExternal={shareExternal}
+              shareInternal={shareInternal}
               onRulesChange={(updates) => {
                 if (updates.record_external_meetings !== undefined) {
                   setRecordExternal(updates.record_external_meetings);
                 }
                 if (updates.record_internal_meetings !== undefined) {
                   setRecordInternal(updates.record_internal_meetings);
+                }
+                if (updates.share_external_recordings !== undefined) {
+                  setShareExternal(updates.share_external_recordings);
+                }
+                if (updates.share_internal_recordings !== undefined) {
+                  setShareInternal(updates.share_internal_recordings);
                 }
               }}
             />
