@@ -9,18 +9,13 @@ import type { Database } from "@/integrations/supabase/types";
 import type { EventParticipant } from "@/types/calendar";
 
 type RecordingWithRelations = Database['public']['Tables']['recordings']['Row'] & {
-  event: {
-    title: string;
-    description: string | null;
-    start_time: string;
-    end_time: string;
+  event: Database['public']['Tables']['events']['Row'] & {
     participants: EventParticipant[];
-    organizer: Record<string, any>;
   };
-  video_shares: {
+  video_shares: Array<{
     share_type: string;
     organization_id: string;
-  }[];
+  }>;
 };
 
 export default function Library() {
@@ -95,7 +90,15 @@ export default function Library() {
       if (sharedError) throw sharedError;
 
       // Combine and deduplicate recordings
-      const allRecordings = [...(userRecordings || []), ...(sharedRecordings || [])] as RecordingWithRelations[];
+      const allRecordings = [...(userRecordings || []), ...(sharedRecordings || [])]
+        .map(recording => ({
+          ...recording,
+          event: {
+            ...recording.event,
+            participants: (recording.event?.participants || []) as EventParticipant[]
+          }
+        })) as RecordingWithRelations[];
+
       const uniqueRecordings = Array.from(new Map(allRecordings.map(r => [r.id, r])).values());
 
       // Apply filters
@@ -115,7 +118,7 @@ export default function Library() {
 
       if (filters.participants.length > 0) {
         filteredRecordings = filteredRecordings.filter(r =>
-          (r.event.participants as EventParticipant[]).some(p =>
+          r.event.participants.some(p =>
             filters.participants.includes(p.email)
           )
         );
