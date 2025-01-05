@@ -27,33 +27,33 @@ serve(async (req) => {
   // Detailed headers logging
   const headers = Object.fromEntries(req.headers.entries());
   console.log('📋 Headers:', JSON.stringify(headers, null, 2));
-  
-  // Log specific important headers
-  console.log('🔍 Important Headers:');
-  console.log(`- Origin: ${req.headers.get('origin')}`);
-  console.log(`- User-Agent: ${req.headers.get('user-agent')}`);
-  console.log(`- Content-Type: ${req.headers.get('content-type')}`);
-  console.log(`- X-Nylas-Signature: ${req.headers.get('x-nylas-signature')}`);
 
   try {
     // Handle CORS preflight
     if (req.method === 'OPTIONS') {
       console.log(`✈️ [${requestId}] CORS preflight request`);
       return new Response(null, { 
-        headers: {
-          ...corsHeaders,
-          'Access-Control-Allow-Methods': 'POST, OPTIONS',
-          'Access-Control-Max-Age': '86400',
-        } 
+        headers: corsHeaders
       });
     }
 
     // Verify it's a POST request
     if (req.method !== 'POST') {
-      console.error(`❌ [${requestId}] Invalid method: ${req.method}`);
+      console.error(`❌ [${requestId}] Invalid method: ${req.method}. Webhooks only accept POST requests.`);
       return new Response(
-        JSON.stringify({ error: 'Method not allowed' }), 
-        { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          error: 'Method not allowed',
+          message: 'This webhook endpoint only accepts POST requests.',
+          allowedMethods: ['POST', 'OPTIONS']
+        }), 
+        { 
+          status: 405, 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'Allow': 'POST, OPTIONS'
+          } 
+        }
       );
     }
 
