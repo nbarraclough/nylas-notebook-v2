@@ -104,7 +104,7 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
   };
 
   return (
-    <Card className={`${isPast ? "opacity-60" : ""} backdrop-blur-sm bg-card/95 shadow-lg card-hover-effect border-border/50`}>
+    <Card className={`${isPast ? "opacity-60" : ""} backdrop-blur-sm bg-white/80 shadow-md hover:shadow-xl transition-shadow duration-300 border-border/10`}>
       <CardContent className="p-3 sm:p-6">
         <div className="flex flex-col space-y-3 sm:space-y-4">
           <EventHeader 
