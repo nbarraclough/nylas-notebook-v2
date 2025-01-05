@@ -13,6 +13,7 @@ export default function RecurringEvents() {
     searchQuery: null as string | null,
   });
 
+  // First fetch events with recordings
   const { data: recurringEvents, isLoading } = useQuery({
     queryKey: ['recurring-events'],
     queryFn: async () => {
@@ -40,7 +41,7 @@ export default function RecurringEvents() {
         throw eventsError;
       }
 
-      // Then fetch notes for all master_event_ids
+      // Then fetch notes separately
       const masterEventIds = [...new Set(events.map(event => event.master_event_id))];
       const { data: notes, error: notesError } = await supabase
         .from('recurring_event_notes')
@@ -55,16 +56,21 @@ export default function RecurringEvents() {
       // Group events by master_event_id and attach notes
       const groupedEvents = events.reduce((acc, event) => {
         const masterId = event.master_event_id;
+        if (!masterId) return acc;
+        
         if (!acc[masterId]) {
           acc[masterId] = [];
         }
         // Find notes for this master_event_id
         const eventNotes = notes?.filter(note => note.master_event_id === masterId) || [];
-        // Attach notes to the event
-        event.recurring_event_notes = eventNotes;
-        acc[masterId].push(event);
+        // Create a new object with both event data and notes
+        const eventWithNotes = {
+          ...event,
+          recurring_event_notes: eventNotes
+        };
+        acc[masterId].push(eventWithNotes);
         return acc;
-      }, {});
+      }, {} as Record<string, any[]>);
 
       console.log('Grouped recurring events:', groupedEvents);
       return groupedEvents;

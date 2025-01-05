@@ -23,6 +23,22 @@ export type Event = {
   status: string | null;
   visibility: string | null;
   original_start_time: string | null;
+  recordings?: {
+    id: string;
+    recording_url: string;
+    video_url?: string;
+    duration?: number;
+    transcript_content?: any;
+    created_at: string;
+  }[];
+  recurring_event_notes?: {
+    id: string;
+    master_event_id: string;
+    user_id: string;
+    content: string | null;
+    created_at: string;
+    updated_at: string;
+  }[];
 };
 
 export type EventInsert = {
