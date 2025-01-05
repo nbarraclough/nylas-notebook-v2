@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Settings, Users, Video, Share, RefreshCw, ListTodo } from "lucide-react";
+import { Settings, Users, Video, Share, RefreshCw, ListTodo, UserCheck } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 const categories = [
@@ -28,6 +28,11 @@ const categories = [
     title: "Queue",
     icon: ListTodo,
     path: "/settings/queue",
+  },
+  {
+    title: "List of Notetakers",
+    icon: UserCheck,
+    path: "/settings/notetakers",
   },
   {
     title: "Manual Sync",
