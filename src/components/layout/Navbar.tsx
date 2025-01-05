@@ -12,13 +12,14 @@ import {
   Menu,
   Home,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 export function Navbar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -58,7 +59,10 @@ export function Navbar() {
     <div className={cn("flex flex-col lg:flex-row lg:items-center space-y-4 lg:space-y-0 lg:space-x-6", className)}>
       <Link
         to="/calendar"
-        className="text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2"
+        className={cn(
+          "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2",
+          location.pathname === "/calendar" && "text-primary font-semibold"
+        )}
         onClick={onClick}
       >
         <Calendar className="h-4 w-4" />
@@ -66,7 +70,10 @@ export function Navbar() {
       </Link>
       <Link
         to="/queue"
-        className="text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2"
+        className={cn(
+          "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2",
+          location.pathname === "/queue" && "text-primary font-semibold"
+        )}
         onClick={onClick}
       >
         <ListTodo className="h-4 w-4" />
@@ -74,7 +81,10 @@ export function Navbar() {
       </Link>
       <Link
         to="/library"
-        className="text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2"
+        className={cn(
+          "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2",
+          location.pathname === "/library" && "text-primary font-semibold"
+        )}
         onClick={onClick}
       >
         <Library className="h-4 w-4" />
@@ -90,7 +100,13 @@ export function Navbar() {
     <nav className="border-b">
       <div className="flex h-16 items-center px-4 justify-between">
         <div className="flex items-center">
-          <Link to="/" className="mr-6 flex items-center space-x-2">
+          <Link 
+            to="/" 
+            className={cn(
+              "mr-6 flex items-center space-x-2",
+              location.pathname === "/" && "text-primary"
+            )}
+          >
             <Home className="h-5 w-5" />
             <span className="font-bold">
               Notebook
@@ -115,7 +131,14 @@ export function Navbar() {
                   </SheetTrigger>
                   <SheetContent side="left" className="w-[240px] sm:w-[300px]">
                     <div className="flex flex-col h-full">
-                      <Link to="/" className="flex items-center space-x-2 mb-6" onClick={() => setIsOpen(false)}>
+                      <Link 
+                        to="/" 
+                        className={cn(
+                          "flex items-center space-x-2 mb-6",
+                          location.pathname === "/" && "text-primary"
+                        )} 
+                        onClick={() => setIsOpen(false)}
+                      >
                         <Home className="h-5 w-5" />
                         <span className="font-bold">Notebook</span>
                       </Link>
@@ -138,6 +161,9 @@ export function Navbar() {
                 variant="ghost"
                 size="icon"
                 asChild
+                className={cn(
+                  location.pathname.startsWith("/settings") && "text-primary"
+                )}
               >
                 <Link to="/settings">
                   <Settings className="h-5 w-5" />
