@@ -18,6 +18,9 @@ serve(async (req) => {
   console.log(`⚡ [${timestamp}] Webhook handler started`);
   
   try {
+    // Add request timing logs
+    const startTime = performance.now();
+    
     // Log every incoming request with headers
     logWebhookRequest(req);
     console.log('📨 Request headers:', Object.fromEntries(req.headers.entries()));
@@ -101,7 +104,8 @@ serve(async (req) => {
           );
       }
 
-      console.log(`✅ [${timestamp}] Successfully processed webhook:`, {
+      const endTime = performance.now();
+      console.log(`✅ [${timestamp}] Successfully processed webhook in ${endTime - startTime}ms:`, {
         type: webhookData.type,
         result: processingResult
       });

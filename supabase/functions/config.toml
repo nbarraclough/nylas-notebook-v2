@@ -8,6 +8,9 @@ NYLAS_WEBHOOK_SECRET = "env"
 [functions.handle-nylas-webhook]
 verify_jwt = false
 verify_webhook = false
+# Keep function warm by increasing max instances and reducing timeout
+max_instances = 5
+timeout_ms = 10000
 
 [functions.handle-message-webhook]
 verify_jwt = false
