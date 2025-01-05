@@ -33,10 +33,20 @@ serve(async (req) => {
     console.log(`📦 [${requestId}] Raw body:`, rawBody);
 
     try {
-      // Parse and log webhook data
+      // Parse webhook data
       const webhookData = JSON.parse(rawBody);
-      console.log(`📥 [${requestId}] Webhook type: ${webhookData.type}`);
       console.log(`📥 [${requestId}] Webhook data:`, JSON.stringify(webhookData, null, 2));
+
+      // Handle Nylas webhook challenge
+      if (webhookData.type === 'challenge') {
+        console.log(`🔐 [${requestId}] Handling Nylas webhook challenge`);
+        return new Response(
+          JSON.stringify({ challenge: webhookData.challenge }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
 
       const endTime = performance.now();
       console.log(`✅ [${requestId}] Webhook logged successfully in ${(endTime - startTime).toFixed(2)}ms`);
