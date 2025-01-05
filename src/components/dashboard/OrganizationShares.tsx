@@ -41,7 +41,7 @@ export function OrganizationShares() {
         .eq('organization_id', profile.organization_id)
         .eq('share_type', 'internal')
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(3);
 
       if (error) throw error;
       return data;
