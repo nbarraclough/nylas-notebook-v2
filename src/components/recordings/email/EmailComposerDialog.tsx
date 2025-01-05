@@ -48,7 +48,7 @@ export function EmailComposerDialog({
 
     setIsSending(true);
     try {
-      const { error } = await supabase.functions.invoke('send-recording-email', {
+      const { data, error } = await supabase.functions.invoke('send-recording-email', {
         body: {
           grantId,
           subject,
@@ -57,18 +57,22 @@ export function EmailComposerDialog({
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error from edge function:', error);
+        throw error;
+      }
 
+      console.log('Email sent successfully:', data);
       toast({
         title: "Email sent",
         description: "The recording has been shared with all participants.",
       });
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending email:', error);
       toast({
         title: "Error",
-        description: "Failed to send email. Please try again.",
+        description: error.message || "Failed to send email. Please try again.",
         variant: "destructive",
       });
     } finally {

@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4"
 import { corsHeaders } from "../_shared/cors.ts"
 
 interface EmailRequest {
@@ -10,12 +9,14 @@ interface EmailRequest {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
     const { grantId, subject, body, recipients } = await req.json() as EmailRequest;
+    console.log('Sending email with Nylas:', { grantId, subject, recipients });
 
     const response = await fetch(`https://api-staging.us.nylas.com/v3/grants/${grantId}/messages/send`, {
       method: 'POST',
@@ -36,11 +37,13 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Failed to send email: ${error}`);
+      const errorText = await response.text();
+      console.error('Nylas API error:', errorText);
+      throw new Error(`Nylas API error: ${errorText}`);
     }
 
     const data = await response.json();
+    console.log('Email sent successfully:', data);
 
     return new Response(
       JSON.stringify(data),
@@ -50,6 +53,7 @@ serve(async (req) => {
       },
     )
   } catch (error) {
+    console.error('Error in send-recording-email function:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
