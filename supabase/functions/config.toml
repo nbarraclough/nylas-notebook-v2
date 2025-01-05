@@ -24,7 +24,7 @@ max_instances = 30
 timeout_ms = 10000
 rate_limit = 100
 concurrency = 50
-allowed_http_methods = ["POST", "OPTIONS"]
+allowed_http_methods = ["GET", "POST", "OPTIONS"]
 
 [functions.handle-message-webhook]
 verify_jwt = false
