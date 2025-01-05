@@ -16,6 +16,8 @@ import { createWebhookResponse } from './response-handler.ts'
 serve(async (req) => {
   const timestamp = new Date().toISOString();
   console.log(`⚡ [${timestamp}] Webhook handler started`);
+  console.log(`📥 Raw request URL: ${req.url}`);
+  console.log(`📥 Request method: ${req.method}`);
   
   try {
     // Add request timing logs
@@ -45,8 +47,16 @@ serve(async (req) => {
       });
     }
 
+    // Log request body before validation
+    const rawBody = await req.text();
+    console.log('📦 Raw webhook body received:', rawBody);
+
     // Validate webhook signature and get body
-    const { rawBody, isValid } = await validateWebhook(req);
+    const { isValid } = await validateWebhook(req.clone(), rawBody);
+    if (!isValid) {
+      console.error('❌ Invalid webhook signature');
+      return new Response('Invalid signature', { status: 401 });
+    }
     
     // Parse and log webhook data
     const webhookData = logWebhookBody(rawBody);
