@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { 
   Calendar, 
   Settings, 
-  ListTodo, 
   Library,
   LogOut,
   Menu,
@@ -79,17 +78,6 @@ export function Navbar() {
       >
         <Repeat className="h-4 w-4" />
         Recurring Events
-      </Link>
-      <Link
-        to="/queue"
-        className={cn(
-          "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2",
-          location.pathname === "/queue" && "text-primary font-semibold"
-        )}
-        onClick={onClick}
-      >
-        <ListTodo className="h-4 w-4" />
-        Queue
       </Link>
       <Link
         to="/library"
