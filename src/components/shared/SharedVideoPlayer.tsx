@@ -21,7 +21,11 @@ export function SharedVideoPlayer({ videoUrl, recordingUrl }: SharedVideoPlayerP
       controls
       className="w-full h-full rounded-lg"
       playsInline
+      preload="metadata"
+      controlsList="nodownload"
+      type="video/webm"
     >
+      <source src={finalVideoUrl} type="video/webm" />
       Your browser does not support the video tag.
     </video>
   );

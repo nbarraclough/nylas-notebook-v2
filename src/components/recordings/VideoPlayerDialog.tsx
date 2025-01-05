@@ -25,7 +25,12 @@ export const VideoPlayerDialog = ({ videoUrl, title }: VideoPlayerDialogProps) =
             src={videoUrl} 
             controls 
             className="w-full h-full rounded-lg"
+            playsInline
+            preload="metadata"
+            controlsList="nodownload"
+            type="video/webm"
           >
+            <source src={videoUrl} type="video/webm" />
             Your browser does not support the video tag.
           </video>
         </div>
