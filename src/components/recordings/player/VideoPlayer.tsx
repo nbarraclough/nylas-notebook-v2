@@ -25,6 +25,18 @@ export function VideoPlayer({
     setVideoUrl(initialVideoUrl);
   }, [initialVideoUrl]);
 
+  // Check for missing media content on mount
+  useEffect(() => {
+    const checkAndRefreshMedia = async () => {
+      if (notetakerId && !initialVideoUrl) {
+        console.log('Missing video URL, attempting to refresh media...');
+        await refreshMedia(recordingId, notetakerId);
+      }
+    };
+    
+    checkAndRefreshMedia();
+  }, [recordingId, notetakerId, initialVideoUrl, refreshMedia]);
+
   const handlePlay = async () => {
     if (notetakerId) {
       await refreshMedia(recordingId, notetakerId);
