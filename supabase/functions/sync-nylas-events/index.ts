@@ -49,7 +49,8 @@ serve(async (req) => {
       try {
         console.log('Processing user:', userId)
         
-        const { data: profile, error: profileError } = await fetch(
+        // Fetch profile with nylas_grant_id
+        const profileResponse = await fetch(
           `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=nylas_grant_id`,
           {
             headers: {
@@ -57,15 +58,22 @@ serve(async (req) => {
               'apikey': SUPABASE_SERVICE_ROLE_KEY,
             },
           }
-        ).then(res => res.json())
+        )
 
-        if (profileError || !profile?.[0]?.nylas_grant_id) {
-          console.error('Error fetching profile for user:', userId, profileError || 'No Nylas grant ID found')
-          errors.push({ userId, error: profileError || 'No Nylas grant ID found' })
+        if (!profileResponse.ok) {
+          throw new Error(`Failed to fetch profile: ${profileResponse.statusText}`)
+        }
+
+        const profiles = await profileResponse.json()
+        const profile = profiles[0]
+
+        if (!profile?.nylas_grant_id) {
+          console.error('Error fetching profile for user:', userId, 'No Nylas grant ID found')
+          errors.push({ userId, error: 'No Nylas grant ID found' })
           continue
         }
 
-        const grantId = profile[0].nylas_grant_id
+        const grantId = profile.nylas_grant_id
 
         console.log('Fetching Nylas events for grant ID:', grantId)
         
@@ -130,7 +138,12 @@ serve(async (req) => {
           try {
             await processEvent(event, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
           } catch (error) {
-            console.error('Error processing event:', event.id, error)
+            console.error('Error processing event:', {
+              eventId: event.id,
+              title: event.title,
+              error: error.message,
+              stack: error.stack
+            })
             errors.push({ userId, eventId: event.id, error: 'Failed to process event' })
           }
         }
