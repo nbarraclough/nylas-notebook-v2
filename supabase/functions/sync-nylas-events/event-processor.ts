@@ -36,12 +36,13 @@ interface NylasEvent {
   original_start_time?: number;
 }
 
-export async function processEvent(event: NylasEvent, userId: string, grantId: string, supabaseAdmin: any) {
+export async function processEvent(event: NylasEvent, userId: string, supabaseAdmin: any) {
   try {
     // Skip events without valid timestamps
     if (!event.when?.start_time || !event.when?.end_time) {
       console.log('Skipping event with invalid timestamps:', {
         id: event.id,
+        title: event.title,
         startTime: event.when?.start_time,
         endTime: event.when?.end_time
       });
@@ -78,7 +79,8 @@ export async function processEvent(event: NylasEvent, userId: string, grantId: s
       id: event.id,
       title: event.title,
       start: eventData.start_time,
-      end: eventData.end_time
+      end: eventData.end_time,
+      conferenceUrl: eventData.conference_url
     });
 
     // Use upsert with nylas_event_id as the conflict key
@@ -96,7 +98,12 @@ export async function processEvent(event: NylasEvent, userId: string, grantId: s
 
     console.log('Successfully processed event:', event.id);
   } catch (error) {
-    console.error('Error processing event:', event.id, error);
+    console.error('Error processing event:', {
+      eventId: event.id,
+      title: event.title,
+      error: error.message,
+      stack: error.stack
+    });
     // Don't throw the error, just log it and continue with the next event
   }
 }
