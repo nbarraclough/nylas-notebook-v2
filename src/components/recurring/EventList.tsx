@@ -35,10 +35,11 @@ export function EventList({
   return (
     <div className="space-y-4">
       {events.map((event) => {
+        const isNextUpcoming = event === nextUpcomingMeeting;
         console.log('Event:', {
           id: event.id,
           startTime: event.start_time,
-          isNextUpcoming: event === nextUpcomingMeeting,
+          isNextUpcoming,
           hasConferenceUrl: !!event.conference_url
         });
 
@@ -106,7 +107,7 @@ export function EventList({
 
                 <div className="space-y-2">
                   {/* Show Join Meeting button only for the next upcoming meeting */}
-                  {isUpcoming && event === nextUpcomingMeeting && event.conference_url && (
+                  {isUpcoming && isNextUpcoming && event.conference_url && (
                     <Button
                       variant="outline"
                       size="sm"
