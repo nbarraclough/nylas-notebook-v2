@@ -4,9 +4,6 @@ project_id = "xqzlejcvvtjdrabofrxs"
 NYLAS_CLIENT_ID = "env"
 NYLAS_CLIENT_SECRET = "env"
 NYLAS_WEBHOOK_SECRET = "env"
-NYLAS_PROD_WEBHOOK_SECRET = "env"
-NYLAS_PROD_CLIENT_ID = "env"
-NYLAS_PROD_CLIENT_SECRET = "env"
 
 [functions.handle-nylas-webhook]
 verify_jwt = false
@@ -16,15 +13,6 @@ timeout_ms = 10000
 rate_limit = 100
 concurrency = 50
 allowed_http_methods = ["POST", "OPTIONS"]
-
-[functions.handle-nylas-webhook-prod]
-verify_jwt = false
-verify_webhook = false
-max_instances = 30
-timeout_ms = 10000
-rate_limit = 100
-concurrency = 50
-allowed_http_methods = ["GET", "POST", "OPTIONS"]
 
 [functions.handle-message-webhook]
 verify_jwt = false
