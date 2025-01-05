@@ -141,7 +141,7 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
             <div className="space-y-6 sm:space-y-8">
               {sortedGroupedEvents.map(({ date, events }) => (
                 <div key={date.toISOString()} className="space-y-3 sm:space-y-4">
-                  <h2 className="text-base sm:text-lg font-semibold text-muted-foreground px-2 sm:px-0">
+                  <h2 className="text-base sm:text-lg font-semibold text-[#333333] px-2 sm:px-0">
                     {format(date, "EEEE, MMMM d")}
                   </h2>
                   <div className="space-y-3 sm:space-y-4">
@@ -158,7 +158,7 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
               ))}
             </div>
           ) : (
-            <div className="text-center py-6 sm:py-8 text-muted-foreground">
+            <div className="text-center py-6 sm:py-8 text-[#555555]">
               No {filter} events found. Click "Sync Events" to fetch your calendar events.
             </div>
           )}

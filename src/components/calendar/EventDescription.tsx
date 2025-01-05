@@ -34,7 +34,7 @@ export const EventDescription = ({ description }: EventDescriptionProps) => {
   return (
     <div className="relative">
       <div 
-        className={`text-sm text-muted-foreground prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_a]:text-primary [&_a]:underline [&_a]:hover:text-primary/80 whitespace-pre-line ${!isExpanded ? 'line-clamp-3 sm:line-clamp-5' : ''}`}
+        className={`text-sm text-[#222222] prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_a]:text-primary [&_a]:underline [&_a]:hover:text-primary/80 whitespace-pre-line ${!isExpanded ? 'line-clamp-3 sm:line-clamp-5' : ''}`}
         dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
       />
       {sanitizedDescription.split('<br>').length > 3 && (
