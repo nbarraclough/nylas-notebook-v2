@@ -6,9 +6,10 @@ import { RecordingGrid } from "@/components/library/RecordingGrid";
 import { LibraryError } from "@/components/library/LibraryError";
 import { useRecordings } from "@/hooks/use-recordings";
 import { supabase } from "@/integrations/supabase/client";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 
 export default function Library() {
+  const [searchParams] = useSearchParams();
   const [filters, setFilters] = useState({
     types: [] as string[],
     meetingTypes: [] as string[],
@@ -16,7 +17,7 @@ export default function Library() {
     endDate: null,
     participants: [] as string[],
     titleSearch: null,
-    hasPublicLink: false,
+    hasPublicLink: searchParams.get('filter') === 'public',
   });
 
   const { recordingId } = useParams();

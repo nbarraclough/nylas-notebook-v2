@@ -13,11 +13,11 @@ export function StatsCard({ publicShares }: StatsCardProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between pb-2">
-        <h3 className="text-lg font-semibold">Quick Stats</h3>
+        <h3 className="text-lg font-semibold">Public Links</h3>
         <Button 
           variant="ghost" 
           className="text-sm" 
-          onClick={() => navigate("/shared?tab=external")}
+          onClick={() => navigate("/library?filter=public")}
         >
           View more
           <ArrowRight className="ml-2 h-4 w-4" />
