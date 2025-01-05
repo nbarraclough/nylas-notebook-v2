@@ -83,8 +83,6 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
     }));
   })();
 
-  const weekRange = `${format(currentWeekStart, "MMM d")} - ${format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "MMM d, yyyy")}`;
-
   return (
     <div className="space-y-4">
       {filter === "upcoming" && (
@@ -107,7 +105,6 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
               This Week
             </Button>
           </div>
-          <h2 className="text-lg font-semibold">{weekRange}</h2>
           <Button
             variant="outline"
             size="sm"
