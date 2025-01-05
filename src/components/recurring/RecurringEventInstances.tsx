@@ -6,6 +6,7 @@ import { Users, ChevronDown, ChevronUp, Calendar } from "lucide-react";
 import { VideoPlayerView } from "@/components/library/VideoPlayerView";
 import { useState } from "react";
 import { EventDescription } from "@/components/calendar/EventDescription";
+import { EventParticipants } from "@/components/calendar/EventParticipants";
 
 interface RecurringEventInstancesProps {
   events: any[];
@@ -23,6 +24,19 @@ export function RecurringEventInstances({ events }: RecurringEventInstancesProps
       newExpanded.add(eventId);
     }
     setExpandedEvents(newExpanded);
+  };
+
+  // Determine if meeting is internal based on email domains
+  const isInternalMeeting = (event: any) => {
+    const participants = event.participants || [];
+    if (participants.length === 0) return true;
+    
+    const organizerDomain = event.organizer?.email?.split('@')[1];
+    if (!organizerDomain) return true;
+    
+    return participants.every(participant => 
+      participant.email?.split('@')[1] === organizerDomain
+    );
   };
 
   return (
@@ -50,13 +64,22 @@ export function RecurringEventInstances({ events }: RecurringEventInstancesProps
                     {format(new Date(event.start_time), "h:mm a")}
                   </Badge>
                 </div>
-                <Badge 
-                  variant="secondary" 
-                  className="flex items-center gap-1 mt-2 bg-purple-50 hover:bg-purple-50 text-purple-700"
-                >
-                  <Users className="w-3 h-3" />
-                  {event.participants?.length || 0} participants
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge 
+                    variant="secondary" 
+                    className="flex items-center gap-1 mt-2 bg-purple-50 hover:bg-purple-50 text-purple-700"
+                  >
+                    <Users className="w-3 h-3" />
+                    {event.participants?.length || 0} participants
+                  </Badge>
+                  <div className="mt-2">
+                    <EventParticipants 
+                      participants={event.participants || []}
+                      organizer={event.organizer}
+                      isInternalMeeting={isInternalMeeting(event)}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
             <Button 
