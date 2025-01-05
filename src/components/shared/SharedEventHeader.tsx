@@ -39,7 +39,7 @@ export function SharedEventHeader({ title, startTime, endTime, participants }: S
                 <div className="space-y-2">
                   <h4 className="text-sm font-semibold">Participants</h4>
                   <div className="text-sm space-y-1">
-                    {participants.map((participant, index) => (
+                    {participants?.map((participant, index) => (
                       <div key={index} className="text-muted-foreground">
                         {participant.name} ({participant.email})
                       </div>
