@@ -4,6 +4,13 @@ import { useToast } from "@/hooks/use-toast";
 
 // Extract meeting URL from meeting info
 const extractMeetingUrl = (info: string) => {
+  // First try to find a Google Meet link in joining information
+  const googleMeetPattern = /https:\/\/meet\.google\.com\/[\w-]+/;
+  const googleMeetMatch = info.match(googleMeetPattern);
+  if (googleMeetMatch) {
+    return googleMeetMatch[0];
+  }
+
   // Regular expressions for common meeting URL patterns
   const patterns = [
     /(?:https:\/\/)?[^\s]*(zoom\.us\/j\/[^\s]*)/i,
@@ -38,7 +45,7 @@ export function useNotetakerMutation(onSuccess: () => void) {
       
       const meetingUrl = extractMeetingUrl(meetingInfo);
       if (!meetingUrl) {
-        throw new Error('No valid meeting URL found');
+        throw new Error('No valid meeting URL found in the provided information');
       }
 
       // Get current user
