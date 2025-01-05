@@ -45,7 +45,6 @@ export function SharedVideoView() {
         const { data: share, error: shareError } = await supabase
           .from('video_shares')
           .select(`
-            recording_id,
             recording:recordings!inner (
               id,
               video_url,
@@ -98,7 +97,7 @@ export function SharedVideoView() {
         console.error('Error fetching shared video:', error);
         toast({
           title: "Error",
-          description: "Failed to load the shared video. It may have expired or been removed.",
+          description: "Failed to load the shared video.",
           variant: "destructive",
         });
       } finally {
@@ -106,9 +105,7 @@ export function SharedVideoView() {
       }
     };
 
-    if (token) {
-      fetchSharedVideo();
-    }
+    fetchSharedVideo();
   }, [token, toast]);
 
   if (isLoading) {
@@ -125,7 +122,7 @@ export function SharedVideoView() {
         <Card className="w-full max-w-lg">
           <CardContent className="p-6">
             <p className="text-center text-muted-foreground">
-              This video is no longer available or has expired.
+              This video is no longer available or has been removed.
             </p>
           </CardContent>
         </Card>

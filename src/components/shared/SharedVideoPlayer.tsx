@@ -20,7 +20,7 @@ export function SharedVideoPlayer({ videoUrl, recordingUrl }: SharedVideoPlayerP
       src={finalVideoUrl}
       controls
       className="w-full h-full rounded-lg"
-      autoPlay
+      playsInline
     >
       Your browser does not support the video tag.
     </video>
