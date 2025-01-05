@@ -9,6 +9,7 @@ import Queue from "./pages/Queue";
 import Recordings from "./pages/Recordings";
 import Settings from "./pages/Settings";
 import Shared from "./pages/Shared";
+import Manual from "./pages/Manual";
 import { SharedVideoView } from "./components/shared/SharedVideoView";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/recordings" element={<Recordings />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/shared" element={<Shared />} />
+          <Route path="/manual" element={<Manual />} />
           <Route path="/shared/:token" element={<SharedVideoView />} />
         </Routes>
       </BrowserRouter>
