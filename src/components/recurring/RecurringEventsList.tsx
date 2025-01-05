@@ -134,6 +134,9 @@ export function RecurringEventsList({
   return (
     <div className="space-y-4">
       {Object.entries(recurringEvents).map(([masterId, events]) => {
+        // Skip if masterId is null
+        if (!masterId) return null;
+        
         const filteredEvents = filterEvents(events);
         if (filteredEvents.length === 0) return null;
 
