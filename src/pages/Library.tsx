@@ -38,21 +38,22 @@ export default function Library() {
   // Check authentication status
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setIsAuthenticated(!!session);
-      
-      // Only redirect to auth if there's no recordingId parameter
-      if (!session && !recordingId) {
-        navigate('/auth', { state: { returnTo: `/library/${recordingId || ''}` } });
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setIsAuthenticated(!!session);
+        
+        // Only redirect to auth if there's no recordingId parameter and user is not authenticated
+        if (!session && !recordingId) {
+          navigate('/auth', { state: { returnTo: `/library/${recordingId || ''}` } });
+        }
+      } catch (error) {
+        console.error('Auth check error:', error);
+        // If auth check fails but we have a recordingId, we still allow access
+        setIsAuthenticated(false);
       }
     };
     checkAuth();
   }, [navigate, recordingId]);
-
-  // Handle URL parameter changes
-  useEffect(() => {
-    setSelectedRecording(recordingId || null);
-  }, [recordingId]);
 
   const { data: recordings, isLoading } = useQuery({
     queryKey: ['library-recordings', filters, isAuthenticated, recordingId],
@@ -120,7 +121,7 @@ export default function Library() {
         event: {
           ...recording.event,
           participants: Array.isArray(recording.event?.participants) 
-            ? recording.event.participants.map(p => ({
+            ? recording.event.participants.map((p: any) => ({
                 name: typeof p === 'object' ? p.name || '' : '',
                 email: typeof p === 'object' ? p.email || '' : p
               }))
