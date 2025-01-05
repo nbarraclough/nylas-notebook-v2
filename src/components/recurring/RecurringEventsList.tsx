@@ -1,10 +1,8 @@
-import { PageLayout } from "@/components/layout/PageLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { EventsSection } from "./EventsSection";
 import { useState, useCallback, useEffect } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
 import { RecurringEventSkeleton } from "./RecurringEventSkeleton";
 
 interface RecurringEventsListProps {
@@ -24,15 +22,16 @@ export function RecurringEventsList({
   filters,
 }: RecurringEventsListProps) {
   const { toast } = useToast();
-  const [localEvents, setLocalEvents] = useState(recurringEvents);
+  const [localEvents, setLocalEvents] = useState<Record<string, any[]>>({});
   const [hasInitialData, setHasInitialData] = useState(false);
 
+  // Update local events when we receive initial data
   useEffect(() => {
-    if (!isLoading && Object.keys(recurringEvents).length > 0 && !hasInitialData) {
-      setHasInitialData(true);
+    if (!isLoading && Object.keys(recurringEvents).length > 0) {
       setLocalEvents(recurringEvents);
+      setHasInitialData(true);
     }
-  }, [recurringEvents, isLoading, hasInitialData]);
+  }, [recurringEvents, isLoading]);
 
   const togglePin = useCallback(async (masterId: string, currentPinned: boolean) => {
     try {
@@ -71,7 +70,7 @@ export function RecurringEventsList({
     }
   }, [toast]);
 
-  // Show loading skeleton while loading or waiting for initial data
+  // Show loading skeleton until we have initial data
   if (isLoading || !hasInitialData) {
     return <RecurringEventSkeleton />;
   }
@@ -146,8 +145,7 @@ export function RecurringEventsList({
     .sort((a, b) => new Date(b.latestEvent.start_time).getTime() - 
                     new Date(a.latestEvent.start_time).getTime());
 
-  // Only show no data message if we have initial data but no events after filtering
-  if (hasInitialData && (!processedEvents || processedEvents.length === 0)) {
+  if (!processedEvents || processedEvents.length === 0) {
     return (
       <Card>
         <CardContent className="p-6 text-center text-muted-foreground">
