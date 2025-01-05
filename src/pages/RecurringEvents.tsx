@@ -18,7 +18,7 @@ export default function RecurringEvents() {
     queryFn: async () => {
       console.log('Fetching recurring events...');
       
-      // First fetch events with recordings
+      // Fetch events that are either part of a recurring series or have recurrence rules
       const { data: events, error: eventsError } = await supabase
         .from('events')
         .select(`
@@ -32,7 +32,7 @@ export default function RecurringEvents() {
             created_at
           )
         `)
-        .not('master_event_id', 'is', null)
+        .or('master_event_id.neq.null,recurrence.neq.null')
         .order('start_time', { ascending: false });
 
       if (eventsError) {
@@ -41,7 +41,11 @@ export default function RecurringEvents() {
       }
 
       // Then fetch notes separately
-      const masterEventIds = [...new Set(events.map(event => event.master_event_id))];
+      const masterEventIds = [...new Set(events
+        .map(event => event.master_event_id || event.id)
+        .filter(Boolean)
+      )];
+
       const { data: notes, error: notesError } = await supabase
         .from('recurring_event_notes')
         .select('*')
@@ -52,9 +56,9 @@ export default function RecurringEvents() {
         throw notesError;
       }
 
-      // Group events by master_event_id and attach notes
+      // Group events by master_event_id or by the event's own id if it's a recurring event without instances
       const groupedEvents = events.reduce((acc, event) => {
-        const masterId = event.master_event_id;
+        const masterId = event.master_event_id || event.id;
         if (!masterId) return acc;
         
         if (!acc[masterId]) {
