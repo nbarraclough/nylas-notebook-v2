@@ -140,6 +140,7 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
         <VideoPlayer
           recordingId={recording.id}
           videoUrl={recording.video_url}
+          recordingUrl={recording.recording_url}
           title={recording.event.title}
           participants={participants}
           grantId={profile?.nylas_grant_id}

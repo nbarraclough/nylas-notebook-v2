@@ -87,7 +87,14 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
     );
   }
 
-  const participants = (recording.event?.participants || []) as EventParticipant[];
+  // Properly type and map the participants data
+  const participants: EventParticipant[] = Array.isArray(recording.event?.participants) 
+    ? recording.event.participants.map((p: any) => ({
+        name: p.name || '',
+        email: p.email || ''
+      }))
+    : [];
+
   const publicShare = recording.video_shares?.find(share => share.share_type === 'external');
   const shareUrl = publicShare ? `${window.location.origin}/shared/${publicShare.external_token}` : null;
 
