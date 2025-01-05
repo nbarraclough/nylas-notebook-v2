@@ -5,10 +5,16 @@ import { NotetakersTable } from "./notetakers/NotetakersTable";
 import { useNotetakers } from "./notetakers/useNotetakers";
 
 export function NotetakersSettings({ userId }: { userId: string }) {
+  console.log('NotetakersSettings rendering with userId:', userId);
+  
   const { toast } = useToast();
   const [isKicking, setIsKicking] = useState<{ [key: string]: boolean }>({});
   const [isRetrieving, setIsRetrieving] = useState<{ [key: string]: boolean }>({});
-  const { data: recordings, isLoading } = useNotetakers(userId);
+  const { data: recordings, isLoading, error } = useNotetakers(userId);
+
+  console.log('Notetakers data:', recordings);
+  console.log('Notetakers loading:', isLoading);
+  console.log('Notetakers error:', error);
 
   const handleManualKick = async (notetakerId: string, recordingId: string) => {
     try {
@@ -80,6 +86,15 @@ export function NotetakersSettings({ userId }: { userId: string }) {
       <div className="animate-pulse space-y-4">
         <div className="h-10 bg-gray-100 rounded w-full" />
         <div className="h-32 bg-gray-100 rounded" />
+      </div>
+    );
+  }
+
+  if (error) {
+    console.error('Error in NotetakersSettings:', error);
+    return (
+      <div className="text-red-500">
+        Error loading notetakers: {error.message}
       </div>
     );
   }
