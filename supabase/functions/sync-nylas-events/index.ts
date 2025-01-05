@@ -98,15 +98,19 @@ serve(async (req) => {
         let pageToken = null
         let allEvents = []
         let totalEventsFetched = 0
+        let hasMorePages = true
         
-        do {
+        while (hasMorePages) {
           const queryParams = new URLSearchParams({
             calendar_id: 'primary',
             start: startUnix.toString(),
             end: endUnix.toString(),
-            limit: '50',
+            limit: '200', // Increased to maximum allowed limit
+            expand_recurring: 'true',
             ...(pageToken && { page_token: pageToken })
           })
+
+          console.log('Fetching events with params:', queryParams.toString())
 
           const eventsResponse = await fetch(
             `https://api-staging.us.nylas.com/v3/grants/${profile.nylas_grant_id}/events?${queryParams}`, 
@@ -127,12 +131,19 @@ serve(async (req) => {
           }
 
           const response = await eventsResponse.json()
-          allEvents = allEvents.concat(response.data || [])
+          const events = response.data || []
+          allEvents = allEvents.concat(events)
           pageToken = response.next_page_token
-          totalEventsFetched += response.data?.length || 0
+          totalEventsFetched += events.length
+          hasMorePages = !!pageToken && events.length > 0
           
-          console.log(`Fetched ${response.data?.length || 0} events, total: ${totalEventsFetched}, next page token:`, pageToken)
-        } while (pageToken)
+          console.log(`Fetched ${events.length} events, total: ${totalEventsFetched}, next page token:`, pageToken)
+          
+          // Small delay to avoid rate limiting
+          if (hasMorePages) {
+            await new Promise(resolve => setTimeout(resolve, 100))
+          }
+        }
 
         console.log(`Total events fetched for user ${userId}:`, allEvents.length)
 
