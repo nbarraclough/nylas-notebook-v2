@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, X, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Recipient {
@@ -26,7 +26,7 @@ export function EmailComposerDialog({
   isOpen,
   onClose,
   eventTitle,
-  recipients,
+  recipients: initialRecipients,
   shareUrl,
   grantId,
   recordingId
@@ -37,8 +37,53 @@ export function EmailComposerDialog({
   const [body, setBody] = useState(
     `Hi everyone,\n\nI wanted to share the recording from our meeting "${eventTitle}".\n\nYou can watch it here: ${shareUrl}\n\nBest regards`
   );
+  const [recipients, setRecipients] = useState<Recipient[]>(initialRecipients);
+  const [newEmail, setNewEmail] = useState("");
+  const [newName, setNewName] = useState("");
+
+  const handleAddRecipient = () => {
+    if (!newEmail) {
+      toast({
+        title: "Error",
+        description: "Please enter an email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newEmail)) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setRecipients([...recipients, { 
+      name: newName || newEmail.split('@')[0], 
+      email: newEmail 
+    }]);
+    setNewEmail("");
+    setNewName("");
+  };
+
+  const handleRemoveRecipient = (email: string) => {
+    setRecipients(recipients.filter(r => r.email !== email));
+  };
 
   const handleSend = async () => {
+    if (recipients.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please add at least one recipient.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!grantId) {
       toast({
         title: "Error",
@@ -68,7 +113,7 @@ export function EmailComposerDialog({
       console.log('Email sent successfully:', data);
       toast({
         title: "Email sent",
-        description: "The recording has been shared with all participants.",
+        description: "The recording has been shared with all recipients.",
       });
       onClose();
     } catch (error: any) {
@@ -92,12 +137,53 @@ export function EmailComposerDialog({
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Recipients</label>
-            <div className="p-2 border rounded-md bg-muted">
-              {recipients.map((recipient, index) => (
-                <div key={index} className="text-sm">
-                  {recipient.name} ({recipient.email})
+            <div className="flex flex-wrap gap-2 p-2 border rounded-md bg-muted min-h-[100px]">
+              {recipients.map((recipient) => (
+                <div 
+                  key={recipient.email}
+                  className="flex items-center gap-2 bg-background px-3 py-1 rounded-full border"
+                >
+                  <span className="text-sm">
+                    {recipient.name} ({recipient.email})
+                  </span>
+                  <button
+                    onClick={() => handleRemoveRecipient(recipient.email)}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
               ))}
+            </div>
+            <div className="flex gap-2 mt-2">
+              <div className="flex-1">
+                <Input
+                  placeholder="Name (optional)"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="mb-2"
+                />
+                <Input
+                  placeholder="Email address"
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddRecipient();
+                    }
+                  }}
+                />
+              </div>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={handleAddRecipient}
+                className="h-auto"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
             </div>
           </div>
           
@@ -125,7 +211,10 @@ export function EmailComposerDialog({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSend} disabled={isSending}>
+          <Button 
+            onClick={handleSend} 
+            disabled={isSending || recipients.length === 0}
+          >
             {isSending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
