@@ -1,68 +1,26 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useState, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { LoadingScreen } from "@/components/LoadingScreen";
+import { clearAuthStorage, isTokenError } from "@/utils/authStorage";
+import { useAuthRedirect } from "@/hooks/useAuthRedirect";
 
-// Pages that don't require authentication
-const PUBLIC_ROUTES = ['/auth'];
+interface AuthGuardProps {
+  children: React.ReactNode;
+}
 
-export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
-  const navigate = useNavigate();
-  const location = useLocation();
+export function AuthGuard({ children }: AuthGuardProps) {
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
-
-  const clearAuthState = async () => {
-    try {
-      // Clear Supabase session
-      await supabase.auth.signOut();
-      
-      // Clear any stored tokens from localStorage
-      localStorage.removeItem('supabase.auth.token');
-      localStorage.removeItem('sb-xqzlejcvvtjdrabofrxs-auth-token');
-      
-      // Clear any other auth-related items
-      for (const key of Object.keys(localStorage)) {
-        if (key.includes('supabase.auth.') || key.includes('-auth-token')) {
-          localStorage.removeItem(key);
-        }
-      }
-
-      // Clear session storage as well
-      sessionStorage.clear();
-    } catch (error) {
-      console.error('Error clearing auth state:', error);
-    }
-  };
-
-  const redirectToAuth = (message?: string) => {
-    setIsLoading(false);
-    if (message) {
-      toast({
-        title: "Authentication Required",
-        description: message,
-        variant: "destructive",
-      });
-    }
-    // Preserve the current path to redirect back after auth
-    if (!PUBLIC_ROUTES.includes(location.pathname)) {
-      navigate('/auth', { state: { returnTo: location.pathname } });
-    }
-  };
+  const location = useLocation();
+  const { redirectToAuth } = useAuthRedirect();
+  const mountedRef = useRef(false);
 
   const handleAuthError = async (error: any) => {
     console.error('Auth error:', error);
     
-    // Check if error is related to invalid/expired token or storage issues
-    const isTokenError = error?.message?.includes('JWT') || 
-                        error?.message?.includes('token') ||
-                        error?.message?.includes('session_not_found') ||
-                        error?.message?.includes('postMessage') ||
-                        error?.message?.includes('origin');
-    
-    if (isTokenError) {
+    if (isTokenError(error)) {
       console.log('Detected token/storage error, clearing auth state');
-      await clearAuthState();
+      await clearAuthStorage();
       redirectToAuth("Your session has expired. Please sign in again.");
     } else {
       setIsLoading(false);
@@ -71,16 +29,10 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    let mounted = true;
-    let authListener: any = null;
+    mountedRef.current = true;
 
     const checkAuth = async () => {
       try {
-        if (PUBLIC_ROUTES.includes(location.pathname)) {
-          setIsLoading(false);
-          return;
-        }
-
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
@@ -94,31 +46,28 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
           return;
         }
 
-        // Verify the session is still valid
         const { error: userError } = await supabase.auth.getUser();
         if (userError) {
           await handleAuthError(userError);
           return;
         }
 
-        if (mounted) {
+        if (mountedRef.current) {
           setIsLoading(false);
         }
       } catch (error) {
-        if (mounted) {
+        if (mountedRef.current) {
           await handleAuthError(error);
         }
       }
     };
 
     const setupAuthListener = async () => {
-      try {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-          console.log('Auth state changed:', event);
-          
-          if (event === 'SIGNED_OUT' || (!session && !PUBLIC_ROUTES.includes(location.pathname))) {
-            if (mounted) {
-              await clearAuthState();
+      const { data: { subscription: authListener } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          if (event === 'SIGNED_OUT' || (!session && !location.pathname.startsWith('/shared'))) {
+            if (mountedRef.current) {
+              await clearAuthStorage();
               redirectToAuth();
             }
           } else if (event === 'SIGNED_IN' && session) {
@@ -126,46 +75,41 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
               const { error: verifyError } = await supabase.auth.getUser();
               if (verifyError) {
                 await handleAuthError(verifyError);
-              } else if (mounted) {
+              } else if (mountedRef.current) {
                 setIsLoading(false);
               }
             } catch (error) {
-              if (mounted) {
+              if (mountedRef.current) {
                 await handleAuthError(error);
               }
             }
           }
-        });
-        
-        authListener = subscription;
-      } catch (error) {
-        console.error('Error setting up auth listener:', error);
-        if (mounted) {
-          setIsLoading(false);
         }
-      }
+      );
+
+      return authListener;
     };
 
-    // Initialize auth check and listener
-    checkAuth();
-    setupAuthListener();
+    let authListener: { unsubscribe: () => void } | undefined;
 
-    // Cleanup function
+    const initialize = async () => {
+      await checkAuth();
+      authListener = await setupAuthListener();
+    };
+
+    initialize();
+
     return () => {
-      mounted = false;
+      mountedRef.current = false;
       if (authListener) {
         authListener.unsubscribe();
       }
     };
-  }, [navigate, location.pathname]);
+  }, [location.pathname]);
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   return <>{children}</>;
-};
+}
