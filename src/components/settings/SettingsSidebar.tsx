@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Settings, Users, Video } from "lucide-react";
+import { Settings, Users, Video, Share, RefreshCw } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 const categories = [
@@ -18,6 +18,16 @@ const categories = [
     title: "Recording Rules",
     icon: Video,
     path: "/settings/recording",
+  },
+  {
+    title: "Sharing Rules",
+    icon: Share,
+    path: "/settings/sharing",
+  },
+  {
+    title: "Manual Sync",
+    icon: RefreshCw,
+    path: "/settings/sync",
   },
 ];
 

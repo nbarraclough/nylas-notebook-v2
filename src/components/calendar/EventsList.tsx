@@ -1,10 +1,7 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { EventCard } from "./EventCard";
-import { Progress } from "@/components/ui/progress";
 import { format, isPast } from "date-fns";
 import type { QueryObserverResult, RefetchOptions } from "@tanstack/react-query";
 import type { Database } from "@/integrations/supabase/types";
@@ -23,48 +20,7 @@ interface GroupedEvents {
   [key: string]: Event[];
 }
 
-export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, filter }: EventsListProps) => {
-  const { toast } = useToast();
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncProgress, setSyncProgress] = useState(0);
-
-  const syncEvents = async () => {
-    if (!userId) return;
-
-    try {
-      setIsSyncing(true);
-      setSyncProgress(25);
-      console.log('Syncing events...');
-      
-      const { error } = await supabase.functions.invoke('sync-nylas-events', {
-        body: { user_id: userId }
-      });
-
-      if (error) throw error;
-
-      setSyncProgress(75);
-      await refetchEvents();
-      setSyncProgress(100);
-
-      toast({
-        title: "Success",
-        description: "Calendar events synced successfully!",
-      });
-    } catch (error) {
-      console.error('Error syncing events:', error);
-      toast({
-        title: "Error",
-        description: "Failed to sync calendar events. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setTimeout(() => {
-        setIsSyncing(false);
-        setSyncProgress(0);
-      }, 1000);
-    }
-  };
-
+export const EventsList = ({ events, isLoadingEvents, userId, filter }: EventsListProps) => {
   const groupEventsByDate = (events: Event[]): GroupedEvents => {
     const now = new Date();
     const filteredEvents = events.filter(event => {
@@ -103,27 +59,6 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-4">
-        <div className="flex justify-end">
-          <Button 
-            onClick={syncEvents} 
-            disabled={isSyncing}
-            className="w-full sm:w-auto !bg-[#0F172A] !text-white hover:!bg-[#0F172A]/90"
-          >
-            {isSyncing ? "Syncing..." : "Sync Events"}
-          </Button>
-        </div>
-        
-        {isSyncing && (
-          <div className="space-y-2">
-            <Progress value={syncProgress} className="w-full" />
-            <p className="text-sm text-muted-foreground text-center">
-              Syncing your calendar events...
-            </p>
-          </div>
-        )}
-      </div>
-
       <Card>
         <CardContent className="p-4 sm:p-6">
           {isLoadingEvents ? (
@@ -154,7 +89,7 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
             </div>
           ) : (
             <div className="text-center py-6 sm:py-8 text-[#555555]">
-              No {filter} events found. Click "Sync Events" to fetch your calendar events.
+              No {filter} events found. Go to Settings > Manual Sync to fetch your calendar events.
             </div>
           )}
         </CardContent>

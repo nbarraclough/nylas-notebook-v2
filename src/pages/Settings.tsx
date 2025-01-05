@@ -5,6 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { NotetakerSettings } from "@/components/settings/NotetakerSettings";
 import { RecordingRules } from "@/components/settings/RecordingRules";
+import { SharingRules } from "@/components/settings/SharingRules";
+import { ManualSync } from "@/components/settings/ManualSync";
 import { OrganizationSettings } from "@/components/settings/OrganizationSettings";
 import { SettingsSidebar } from "@/components/settings/SettingsSidebar";
 
@@ -50,8 +52,6 @@ function GeneralSettings({ userId }: { userId: string }) {
 function RecordingSettings({ userId }: { userId: string }) {
   const [recordExternal, setRecordExternal] = useState(false);
   const [recordInternal, setRecordInternal] = useState(false);
-  const [shareExternal, setShareExternal] = useState(false);
-  const [shareInternal, setShareInternal] = useState(false);
 
   // Fetch user profile
   const { data: profile } = useQuery({
@@ -75,8 +75,6 @@ function RecordingSettings({ userId }: { userId: string }) {
     if (profile) {
       setRecordExternal(profile.record_external_meetings || false);
       setRecordInternal(profile.record_internal_meetings || false);
-      setShareExternal(profile.share_external_recordings || false);
-      setShareInternal(profile.share_internal_recordings || false);
     }
   }, [profile]);
 
@@ -87,8 +85,8 @@ function RecordingSettings({ userId }: { userId: string }) {
         userId={userId}
         recordExternal={recordExternal}
         recordInternal={recordInternal}
-        shareExternal={shareExternal}
-        shareInternal={shareInternal}
+        shareExternal={false}
+        shareInternal={false}
         onRulesChange={(updates) => {
           if (updates.record_external_meetings !== undefined) {
             setRecordExternal(updates.record_external_meetings);
@@ -96,6 +94,49 @@ function RecordingSettings({ userId }: { userId: string }) {
           if (updates.record_internal_meetings !== undefined) {
             setRecordInternal(updates.record_internal_meetings);
           }
+        }}
+      />
+    </div>
+  );
+}
+
+function SharingSettings({ userId }: { userId: string }) {
+  const [shareExternal, setShareExternal] = useState(false);
+  const [shareInternal, setShareInternal] = useState(false);
+
+  // Fetch user profile
+  const { data: profile } = useQuery({
+    queryKey: ['profile', userId],
+    queryFn: async () => {
+      if (!userId) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!userId,
+  });
+
+  // Update local state when profile data is loaded
+  useEffect(() => {
+    if (profile) {
+      setShareExternal(profile.share_external_recordings || false);
+      setShareInternal(profile.share_internal_recordings || false);
+    }
+  }, [profile]);
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold">Sharing Rules</h2>
+      <SharingRules
+        userId={userId}
+        shareExternal={shareExternal}
+        shareInternal={shareInternal}
+        onRulesChange={(updates) => {
           if (updates.share_external_recordings !== undefined) {
             setShareExternal(updates.share_external_recordings);
           }
@@ -104,6 +145,15 @@ function RecordingSettings({ userId }: { userId: string }) {
           }
         }}
       />
+    </div>
+  );
+}
+
+function SyncSettings({ userId }: { userId: string }) {
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold">Manual Sync</h2>
+      <ManualSync userId={userId} />
     </div>
   );
 }
@@ -155,6 +205,8 @@ export default function Settings() {
               <Route path="/" element={<GeneralSettings userId={userId} />} />
               <Route path="/organization" element={<OrganizationSettings userId={userId} />} />
               <Route path="/recording" element={<RecordingSettings userId={userId} />} />
+              <Route path="/sharing" element={<SharingSettings userId={userId} />} />
+              <Route path="/sync" element={<SyncSettings userId={userId} />} />
               <Route path="*" element={<Navigate to="/settings" replace />} />
             </Routes>
           </div>
