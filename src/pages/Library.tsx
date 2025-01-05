@@ -8,10 +8,10 @@ import { supabase } from "@/integrations/supabase/client";
 
 export default function Library() {
   const [filters, setFilters] = useState({
-    type: "my-recordings", // "my-recordings" | "organization"
-    meetingType: "all", // "all" | "internal" | "external"
-    startDate: null as Date | null,
-    endDate: null as Date | null,
+    type: null,
+    meetingType: null,
+    startDate: null,
+    endDate: null,
   });
 
   const { data: recordings, isLoading } = useQuery({
@@ -49,8 +49,10 @@ export default function Library() {
         }
       }
 
-      if (filters.meetingType !== "all") {
-        query = query.eq('event.is_internal', filters.meetingType === "internal");
+      if (filters.meetingType === "internal") {
+        query = query.eq('event.is_internal', true);
+      } else if (filters.meetingType === "external") {
+        query = query.eq('event.is_internal', false);
       }
 
       if (filters.startDate) {
