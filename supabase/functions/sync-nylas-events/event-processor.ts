@@ -96,14 +96,16 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
       start: eventData.start_time,
       end: eventData.end_time,
       masterEventId: eventData.master_event_id,
+      icalUid: eventData.ical_uid,
       conferenceUrl: eventData.conference_url,
-      participants: eventData.participants.length
+      participants: eventData.participants.length,
+      isRecurring: !!eventData.master_event_id || !!eventData.recurrence
     });
 
     const { error: upsertError } = await supabase
       .from('events')
       .upsert(eventData, {
-        onConflict: 'nylas_event_id',
+        onConflict: 'nylas_event_id,user_id',
         ignoreDuplicates: false
       });
 
@@ -111,7 +113,11 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
       console.error('Error upserting event:', event.id, upsertError);
       // Don't throw the error, just log it and continue with the next event
     } else {
-      console.log('Successfully processed event:', event.id);
+      console.log('Successfully processed event:', {
+        id: event.id,
+        title: event.title,
+        isRecurring: !!eventData.master_event_id || !!eventData.recurrence
+      });
     }
   } catch (error) {
     console.error('Error processing event:', {
