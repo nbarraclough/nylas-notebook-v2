@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { SendNotetaker } from "../notetaker/SendNotetaker";
 import { Button } from "../ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,30 +12,13 @@ import {
   Video,
   Home 
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
 
 export function Navbar() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  // Fetch the most recent shared video for the current user
-  const { data: recentShare } = useQuery({
-    queryKey: ['recent-share'],
-    queryFn: async () => {
-      const { data: share, error } = await supabase
-        .from('video_shares')
-        .select('external_token')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (error) throw error;
-      return share;
-    },
-    enabled: isLoggedIn,
-  });
 
   useEffect(() => {
     // Check initial auth state
@@ -63,19 +46,6 @@ export function Navbar() {
       toast({
         title: "Error logging out",
         description: "There was a problem logging out. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleSharedClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (recentShare?.external_token) {
-      navigate(`/shared/${recentShare.external_token}`);
-    } else {
-      toast({
-        title: "No shared videos",
-        description: "You haven't shared any videos yet.",
         variant: "destructive",
       });
     }
@@ -114,14 +84,13 @@ export function Navbar() {
                 <Video className="h-4 w-4" />
                 Recordings
               </Link>
-              <a
-                href="#"
-                onClick={handleSharedClick}
+              <Link
+                to="/shared"
                 className="text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2"
               >
                 <Share2 className="h-4 w-4" />
                 Shared
-              </a>
+              </Link>
               <Link
                 to="/settings"
                 className="text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2"
