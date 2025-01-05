@@ -14,6 +14,7 @@ Deno.serve(async (req) => {
     console.log('Received request with:', { meetingUrl, grantId, meetingId })
 
     if (!meetingUrl || !grantId || !meetingId) {
+      console.error('Missing required parameters:', { meetingUrl, grantId, meetingId })
       throw new Error('Missing required parameters')
     }
 
@@ -89,22 +90,6 @@ Deno.serve(async (req) => {
       throw new Error('Failed to update notetaker queue')
     }
 
-    // Create a recording entry with the notetaker_id
-    const { error: recordingError } = await supabaseClient
-      .from('recordings')
-      .insert({
-        user_id: event.user_id,
-        event_id: meetingId,
-        notetaker_id: data.data.notetaker_id,
-        recording_url: '',
-        status: 'pending'
-      })
-
-    if (recordingError) {
-      console.error('Error creating recording:', recordingError)
-      throw new Error('Failed to create recording entry')
-    }
-
     return new Response(
       JSON.stringify({ 
         success: true,
@@ -118,7 +103,10 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Error in send-notetaker:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: error.toString()
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500 

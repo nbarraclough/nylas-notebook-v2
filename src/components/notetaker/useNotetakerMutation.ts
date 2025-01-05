@@ -110,11 +110,19 @@ export function useNotetakerMutation(onSuccess: () => void) {
         body: {
           meetingUrl,
           grantId: profile.nylas_grant_id,
-          meetingId: meeting.id,
+          meetingId: event.id,
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Failed to send notetaker');
+      }
+
+      if (!data?.notetaker_id) {
+        console.error('Invalid response from edge function:', data);
+        throw new Error('Invalid response from server');
+      }
 
       console.log('Notetaker sent successfully:', data);
 
