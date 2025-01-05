@@ -69,13 +69,13 @@ export default function Index() {
       <div className="space-y-8">
         {/* Top row */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <Card className="col-span-2">
+          <Card className="col-span-2 card-hover-effect">
             <CardContent className="pt-6">
               <WelcomeCard email={userEmail} />
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className="card-hover-effect">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <h3 className="font-semibold">Quick Stats</h3>
               <Button 
@@ -133,8 +133,12 @@ export default function Index() {
 
         {/* Bottom row */}
         <div className="grid gap-4 md:grid-cols-2">
-          <RecentRecordings />
-          <OrganizationShares />
+          <Card className="card-hover-effect">
+            <RecentRecordings />
+          </Card>
+          <Card className="card-hover-effect">
+            <OrganizationShares />
+          </Card>
         </div>
       </div>
     </PageLayout>
