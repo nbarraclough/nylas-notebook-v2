@@ -37,27 +37,32 @@ serve(async (req) => {
       const webhookData = JSON.parse(rawBody);
       console.log(`📥 [${requestId}] Webhook data:`, JSON.stringify(webhookData, null, 2));
 
-      // Handle Nylas webhook challenge
+      // Handle Nylas webhook challenge - make sure to return exactly what Nylas expects
       if (webhookData.type === 'challenge') {
-        console.log(`🔐 [${requestId}] Handling Nylas webhook challenge`);
+        console.log(`🔐 [${requestId}] Handling Nylas webhook challenge:`, webhookData.challenge);
         return new Response(
           JSON.stringify({ challenge: webhookData.challenge }),
           { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            status: 200,
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'application/json'
+            }
           }
         );
       }
 
       const endTime = performance.now();
-      console.log(`✅ [${requestId}] Webhook logged successfully in ${(endTime - startTime).toFixed(2)}ms`);
+      console.log(`✅ [${requestId}] Webhook processed successfully in ${(endTime - startTime).toFixed(2)}ms`);
 
       return new Response(
         JSON.stringify({
           success: true,
-          message: `Successfully logged ${webhookData.type} webhook`,
+          message: `Successfully processed ${webhookData.type} webhook`,
           status: 'acknowledged'
         }),
         { 
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -87,7 +92,7 @@ serve(async (req) => {
       JSON.stringify({
         success: false,
         message: error.message,
-        status: 'acknowledged'
+        status: 'error'
       }),
       { 
         status: 500,
