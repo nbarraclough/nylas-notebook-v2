@@ -32,21 +32,27 @@ serve(async (req) => {
       });
     }
 
-    // Get signature first
-    const signature = req.headers.get('x-nylas-signature') || req.headers.get('X-Nylas-Signature');
-    
-    // Read body once
+    // Get signature and body
+    const signature = req.headers.get('x-nylas-signature');
     const rawBody = await req.text();
     
     // Validate webhook immediately
     const { isValid } = await validateWebhook(rawBody, signature);
     if (!isValid) {
       console.error('❌ Invalid webhook signature');
-      return new Response('Invalid signature', { status: 401 });
+      return new Response('Invalid signature', { 
+        status: 401,
+        headers: corsHeaders 
+      });
     }
 
     // Parse webhook data after validation
     const webhookData = JSON.parse(rawBody);
+    console.log('📥 Received webhook:', {
+      type: webhookData.type,
+      timestamp: new Date().toISOString()
+    });
+
     const grantId = webhookData.data.object.grant_id;
     
     // Process webhook based on type
