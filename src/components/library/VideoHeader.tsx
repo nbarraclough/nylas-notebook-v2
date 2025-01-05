@@ -1,8 +1,13 @@
 import { Badge } from "@/components/ui/badge";
-import { Share2, Shield, Globe } from "lucide-react";
+import { Share2, Shield, Globe, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ShareVideoDialog } from "@/components/recordings/ShareVideoDialog";
 import { ShareViaEmailButton } from "@/components/recordings/email/ShareViaEmailButton";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import type { EventParticipant } from "@/types/calendar";
 
 interface VideoHeaderProps {
@@ -26,24 +31,47 @@ export function VideoHeader({
 }: VideoHeaderProps) {
   return (
     <div className="flex items-center justify-between">
-      <div className="space-y-2">
+      <div className="space-y-1">
         <h2 className="text-2xl font-semibold">{title}</h2>
-        <Badge 
-          variant={isInternal ? "secondary" : "outline"}
-          className={`text-xs ${isInternal ? 'bg-purple-100 hover:bg-purple-100 text-purple-800' : 'border-blue-200 text-blue-700 hover:bg-blue-50'}`}
-        >
-          {isInternal ? (
-            <>
-              <Shield className="w-3 h-3 mr-1" />
-              Internal
-            </>
-          ) : (
-            <>
-              <Globe className="w-3 h-3 mr-1" />
-              External
-            </>
-          )}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge 
+            variant={isInternal ? "secondary" : "outline"}
+            className={`text-xs ${isInternal ? 'bg-purple-100 hover:bg-purple-100 text-purple-800' : 'border-blue-200 text-blue-700 hover:bg-blue-50'}`}
+          >
+            {isInternal ? (
+              <>
+                <Shield className="w-3 h-3 mr-1" />
+                Internal
+              </>
+            ) : (
+              <>
+                <Globe className="w-3 h-3 mr-1" />
+                External
+              </>
+            )}
+          </Badge>
+          
+          <HoverCard>
+            <HoverCardTrigger>
+              <Badge variant="secondary" className="flex items-center gap-1 cursor-pointer">
+                <Users className="w-3 h-3" />
+                {participants?.length || 0} participants
+              </Badge>
+            </HoverCardTrigger>
+            <HoverCardContent className="w-80">
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold">Participants</h4>
+                <div className="text-sm space-y-1">
+                  {participants?.map((participant, index) => (
+                    <div key={index} className="text-muted-foreground">
+                      {participant.name} ({participant.email})
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </HoverCardContent>
+          </HoverCard>
+        </div>
       </div>
       <div className="flex items-center gap-2">
         <ShareVideoDialog recordingId={recordingId} />
