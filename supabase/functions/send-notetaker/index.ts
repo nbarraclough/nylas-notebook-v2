@@ -1,17 +1,16 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 import { corsHeaders } from '../_shared/cors.ts'
 
-const NYLAS_API_URL = 'https://api-staging.us.nylas.com'
+const NYLAS_API_URL = 'https://api-staging.us.nylas.com';
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
+  // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
     const { meetingUrl, grantId, meetingId } = await req.json()
-    console.log('Received request:', { meetingUrl, grantId, meetingId })
 
     if (!meetingUrl || !grantId || !meetingId) {
       throw new Error('Missing required parameters')
@@ -57,31 +56,43 @@ Deno.serve(async (req) => {
       }
     )
 
-    const responseData = await response.json()
-    console.log('Nylas API response:', responseData)
-
     if (!response.ok) {
-      throw new Error(responseData.message || `Failed to send notetaker: ${response.status}`)
+      const errorText = await response.text()
+      console.error('Nylas API error:', errorText)
+      throw new Error(`Failed to send notetaker: ${errorText}`)
+    }
+
+    const data = await response.json()
+    console.log('Nylas API response:', data)
+
+    // Update the notetaker queue with the notetaker_id
+    const { error: queueError } = await supabaseClient
+      .from('notetaker_queue')
+      .update({ notetaker_id: data.data.notetaker_id })
+      .eq('event_id', meetingId)
+
+    if (queueError) {
+      console.error('Error updating notetaker queue:', queueError)
+      throw new Error('Failed to update notetaker queue')
     }
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        notetaker_id: responseData.data.notetaker_id
+        notetaker_id: data.data.notetaker_id 
       }),
-      {
+      { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
+        status: 200 
       }
     )
-
   } catch (error) {
     console.error('Error in send-notetaker:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
-      {
+      { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
+        status: 500 
       }
     )
   }
