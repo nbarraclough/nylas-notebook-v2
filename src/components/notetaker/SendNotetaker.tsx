@@ -50,16 +50,22 @@ export function SendNotetaker() {
       if (userError) throw userError;
       if (!user) throw new Error('Not authenticated');
 
-      // Get user's profile for Nylas grant ID
+      // Get user's profile for Nylas grant ID and email
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('nylas_grant_id')
-        .single();
+        .select('nylas_grant_id, email')
+        .eq('id', user.id)
+        .maybeSingle();
 
       if (profileError) throw profileError;
+      if (!profile) throw new Error('Profile not found');
       if (!profile.nylas_grant_id) {
         throw new Error('Nylas connection not found. Please connect your calendar first.');
       }
+
+      // Calculate start and end time
+      const startTime = new Date();
+      const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 1 hour duration
 
       // Create manual meeting record
       const { data: meeting, error: meetingError } = await supabase
@@ -73,6 +79,24 @@ export function SendNotetaker() {
         .single();
 
       if (meetingError) throw meetingError;
+
+      // Create event record for the manual meeting
+      const { data: event, error: eventError } = await supabase
+        .from('events')
+        .insert({
+          user_id: user.id,
+          title: 'Manual Meeting',
+          start_time: startTime.toISOString(),
+          end_time: endTime.toISOString(),
+          conference_url: meetingUrl,
+          nylas_event_id: `manual-${meeting.id}`,
+          participants: [{ email: profile.email, name: profile.email.split('@')[0] }],
+          organizer: { email: profile.email, name: profile.email.split('@')[0] }
+        })
+        .select()
+        .single();
+
+      if (eventError) throw eventError;
 
       // Send notetaker to the meeting
       const response = await fetch('/api/send-notetaker', {
@@ -88,10 +112,26 @@ export function SendNotetaker() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to send notetaker');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to send notetaker');
       }
 
-      return response.json();
+      const responseData = await response.json();
+
+      // Create recording entry
+      const { error: recordingError } = await supabase
+        .from('recordings')
+        .insert({
+          user_id: user.id,
+          event_id: event.id,
+          notetaker_id: responseData.notetaker_id,
+          recording_url: '',
+          status: 'pending'
+        });
+
+      if (recordingError) throw recordingError;
+
+      return { success: true };
     },
     onSuccess: () => {
       toast({
@@ -100,7 +140,9 @@ export function SendNotetaker() {
       });
       setMeetingInfo("");
       setIsOpen(false);
+      // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['recordings'] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
     },
     onError: (error: Error) => {
       toast({
