@@ -88,7 +88,6 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
       });
 
       if (error) {
-        // Check if this is a "media not ready" response
         const errorBody = JSON.parse(error.message);
         if (errorBody?.error === 'MEDIA_NOT_READY') {
           toast({
@@ -155,6 +154,7 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
           title={recording.event.title}
           participants={participants}
           grantId={profile?.nylas_grant_id}
+          notetakerId={recording.notetaker_id}
         />
 
         {recording.event.description && (
@@ -201,4 +201,4 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
       </CardContent>
     </Card>
   );
-}
+};
