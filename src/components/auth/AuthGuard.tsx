@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 // Pages that don't require authentication
 const PUBLIC_ROUTES = ['/auth'];
@@ -9,6 +10,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     let mounted = true;
@@ -21,11 +23,18 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
           return;
         }
 
-        const { data: { session }, error } = await supabase.auth.getSession();
+        // Get current session
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
-        if (error) {
-          console.error('Error checking auth session:', error);
+        if (sessionError) {
+          console.error('Error checking auth session:', sessionError);
+          toast({
+            title: "Authentication Error",
+            description: "Please sign in again.",
+            variant: "destructive",
+          });
           if (mounted) {
+            await supabase.auth.signOut();
             navigate('/auth', { state: { returnTo: location.pathname } });
           }
           return;
@@ -39,12 +48,17 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
           return;
         }
 
-        // Verify the session is still valid by making a test request
-        const { error: testError } = await supabase.auth.getUser();
-        if (testError) {
-          console.error('Session invalid:', testError);
-          await supabase.auth.signOut();
+        // Verify the session is still valid
+        const { error: userError } = await supabase.auth.getUser();
+        if (userError) {
+          console.error('Session invalid:', userError);
+          toast({
+            title: "Session Expired",
+            description: "Please sign in again.",
+            variant: "destructive",
+          });
           if (mounted) {
+            await supabase.auth.signOut();
             navigate('/auth', { state: { returnTo: location.pathname } });
           }
           return;
@@ -55,7 +69,13 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
         }
       } catch (error) {
         console.error('Error in auth check:', error);
+        toast({
+          title: "Authentication Error",
+          description: "An unexpected error occurred. Please try again.",
+          variant: "destructive",
+        });
         if (mounted) {
+          await supabase.auth.signOut();
           navigate('/auth', { state: { returnTo: location.pathname } });
         }
       }
@@ -79,6 +99,11 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
         const { error: verifyError } = await supabase.auth.getUser();
         if (verifyError) {
           console.error('New session verification failed:', verifyError);
+          toast({
+            title: "Authentication Failed",
+            description: "Please try signing in again.",
+            variant: "destructive",
+          });
           if (mounted) {
             await supabase.auth.signOut();
             navigate('/auth');
@@ -91,7 +116,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [navigate, location.pathname]);
+  }, [navigate, location.pathname, toast]);
 
   if (isLoading) {
     return (
