@@ -8,3 +8,7 @@ NYLAS_WEBHOOK_SECRET = "env"
 [functions.handle-nylas-webhook]
 verify_jwt = false
 verify_webhook = false
+
+[functions.handle-message-webhook]
+verify_jwt = false
+verify_webhook = false

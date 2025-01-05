@@ -9,9 +9,7 @@ import {
   handleGrantCreated,
   handleGrantUpdated,
   handleGrantDeleted,
-  handleGrantExpired,
-  handleMessageOpened,
-  handleMessageLinkClicked
+  handleGrantExpired
 } from '../_shared/webhook-handlers.ts'
 
 serve(async (req) => {
@@ -116,14 +114,6 @@ serve(async (req) => {
           case 'grant.expired':
             console.log('⚠️ Processing grant.expired webhook:', webhookData.data);
             processingResult = await handleGrantExpired(webhookData.data);
-            break;
-          case 'message.opened':
-            console.log('📨 Processing message.opened webhook:', webhookData.data);
-            processingResult = await handleMessageOpened(webhookData);
-            break;
-          case 'message.link_clicked':
-            console.log('🔗 Processing message.link_clicked webhook:', webhookData.data);
-            processingResult = await handleMessageLinkClicked(webhookData);
             break;
           default:
             console.log('⚠️ Unhandled webhook type:', webhookData.type);
