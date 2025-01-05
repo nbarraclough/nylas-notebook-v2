@@ -9,7 +9,7 @@ import { RecordingStatus } from "./RecordingStatus";
 import { RecordingActions } from "./RecordingActions";
 import { Loader } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { ShareViaEmailButton } from "./email/ShareViaEmailButton";
+import { VideoPlayer } from "./player/VideoPlayer";
 import type { Database } from "@/integrations/supabase/types";
 import type { EventParticipant, EventOrganizer } from "@/types/calendar";
 
@@ -33,26 +33,6 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
   const [isKicking, setIsKicking] = useState(false);
   const [isRetrievingMedia, setIsRetrievingMedia] = useState(false);
 
-  // Fetch public share URL if it exists
-  const { data: publicShare } = useQuery({
-    queryKey: ['publicShare', recording.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('video_shares')
-        .select('external_token')
-        .eq('recording_id', recording.id)
-        .eq('share_type', 'external')
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error fetching public share:', error);
-        return null;
-      }
-
-      return data ? `${window.location.origin}/shared/${data.external_token}` : null;
-    },
-  });
-
   // Fetch user's profile to get Nylas grant ID
   const { data: profile } = useQuery({
     queryKey: ['profile', recording.user_id],
@@ -75,15 +55,9 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
       
       const { error } = await supabase.functions.invoke('kick-notetaker', {
         body: { notetakerId: recording.notetaker_id },
-        headers: {
-          'Content-Type': 'application/json',
-        },
       });
 
-      if (error) {
-        console.error('Error from edge function:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       toast({
         title: "Success",
@@ -113,10 +87,7 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
         },
       });
 
-      if (error) {
-        console.error('Error retrieving media:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       toast({
         title: "Success",
@@ -154,7 +125,6 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
       <CardContent className="p-6 space-y-4">
         <div className="flex justify-between items-start">
           <div className="space-y-1">
-            <h3 className="font-semibold">{recording.event.title}</h3>
             <p className="text-sm text-muted-foreground">
               {format(new Date(recording.event.start_time), "MMM d, yyyy 'at' h:mm a")}
             </p>
@@ -167,33 +137,17 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
           <RecordingStatus status={recording.status} />
         </div>
 
+        <VideoPlayer
+          recordingId={recording.id}
+          videoUrl={recording.video_url}
+          title={recording.event.title}
+          participants={participants}
+          grantId={profile?.nylas_grant_id}
+        />
+
         {recording.event.description && (
           <div className="text-sm text-muted-foreground">
             {recording.event.description}
-          </div>
-        )}
-
-        {publicShare && (
-          <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
-            <input
-              type="text"
-              value={publicShare}
-              readOnly
-              className="flex-1 bg-transparent border-none focus:outline-none text-sm"
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                navigator.clipboard.writeText(publicShare);
-                toast({
-                  title: "Link copied",
-                  description: "The public link has been copied to your clipboard."
-                });
-              }}
-            >
-              Copy Link
-            </Button>
           </div>
         )}
 
@@ -214,16 +168,6 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
                 'Manual Kick'
               )}
             </Button>
-          )}
-          
-          {publicShare && (
-            <ShareViaEmailButton
-              shareUrl={publicShare}
-              eventTitle={recording.event.title}
-              participants={participants}
-              grantId={profile?.nylas_grant_id}
-              recordingId={recording.id}
-            />
           )}
         </div>
 
