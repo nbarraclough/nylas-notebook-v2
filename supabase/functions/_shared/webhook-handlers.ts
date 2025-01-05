@@ -11,8 +11,3 @@ export {
   handleGrantExpired,
   handleGrantStatus
 } from './handlers/user-handlers.ts';
-
-export {
-  handleMessageOpened,
-  handleMessageLinkClicked
-} from './handlers/message-handlers.ts';
