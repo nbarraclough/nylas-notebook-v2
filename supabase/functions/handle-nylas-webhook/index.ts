@@ -15,20 +15,31 @@ serve(async (req) => {
   const startTime = performance.now();
   const requestId = crypto.randomUUID();
   console.log(`⚡ [${requestId}] Webhook handler started at ${new Date().toISOString()}`);
+  console.log(`📝 [${requestId}] Request URL:`, req.url);
+  console.log(`📝 [${requestId}] Request method:`, req.method);
+  console.log(`📝 [${requestId}] Request headers:`, Object.fromEntries(req.headers.entries()));
 
   try {
     // Handle CORS preflight with detailed logging
     if (req.method === 'OPTIONS') {
       console.log(`🔄 [${requestId}] CORS preflight request`);
-      return new Response(null, { headers: corsHeaders });
+      return new Response(null, { 
+        headers: {
+          ...corsHeaders,
+          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Max-Age': '86400',
+        } 
+      });
     }
 
-    // Log full request details
-    console.log(`📝 [${requestId}] Request details:`, {
-      method: req.method,
-      url: req.url,
-      headers: Object.fromEntries(req.headers.entries())
-    });
+    // Verify it's a POST request
+    if (req.method !== 'POST') {
+      console.error(`❌ [${requestId}] Invalid request method: ${req.method}`);
+      return new Response('Method not allowed', { 
+        status: 405,
+        headers: corsHeaders 
+      });
+    }
 
     // Handle challenge parameter in URL
     const url = new URL(req.url);
@@ -46,7 +57,7 @@ serve(async (req) => {
     console.log(`🔑 [${requestId}] Signature received:`, signature);
     
     const rawBody = await req.text();
-    console.log(`📦 [${requestId}] Raw body received, length:`, rawBody.length);
+    console.log(`📦 [${requestId}] Raw body received:`, rawBody);
     
     // Validate webhook immediately with detailed logging
     const { isValid } = await validateWebhook(rawBody, signature);
