@@ -7,31 +7,62 @@ import { RecentRecordings } from "@/components/dashboard/RecentRecordings";
 import { WelcomeCard } from "@/components/dashboard/WelcomeCard";
 import { StatsCard } from "@/components/dashboard/stats/StatsCard";
 import { EventCard } from "@/components/calendar/EventCard";
+import { useNavigate } from "react-router-dom";
 
 export default function Index() {
   const [userEmail, setUserEmail] = useState<string>("");
+  const navigate = useNavigate();
 
-  const { data: profile } = useQuery({
+  // Check for active session
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.log('No active session found, redirecting to auth');
+        navigate('/auth');
+        return;
+      }
+    };
+    
+    checkSession();
+  }, [navigate]);
+
+  const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['profile'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No user found');
+      if (!user) {
+        console.log('No user found in auth state');
+        throw new Error('No user found');
+      }
       
+      console.log('Fetching profile for user:', user.id);
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching profile:', error);
+        throw error;
+      }
+
       setUserEmail(data.email);
       return data;
-    }
+    },
+    retry: false
   });
 
-  const { data: upcomingEvents } = useQuery({
+  const { data: upcomingEvents, isLoading: eventsLoading } = useQuery({
     queryKey: ['upcoming-events'],
     queryFn: async () => {
+      if (!profile?.id) {
+        console.log('No profile ID available, skipping events fetch');
+        return [];
+      }
+
+      console.log('Fetching upcoming events for user:', profile.id);
       const { data, error } = await supabase
         .from('events')
         .select('*')
@@ -39,41 +70,27 @@ export default function Index() {
         .order('start_time', { ascending: true })
         .limit(3);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching events:', error);
+        throw error;
+      }
+
       return data;
-    }
+    },
+    enabled: !!profile?.id,
+    retry: false
   });
 
-  const { data: publicShares } = useQuery({
-    queryKey: ['public-shares'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('video_shares')
-        .select(`
-          id,
-          recording:recordings (
-            id,
-            event:events (
-              title,
-              start_time
-            ),
-            views:video_views (
-              id
-            ),
-            email_metrics:email_shares (
-              opens,
-              link_clicks
-            )
-          )
-        `)
-        .eq('share_type', 'external')
-        .order('created_at', { ascending: false })
-        .limit(3);
-
-      if (error) throw error;
-      return data;
-    }
-  });
+  if (profileLoading || eventsLoading) {
+    return (
+      <PageLayout>
+        <div className="animate-pulse space-y-8">
+          <div className="h-40 bg-gray-200 rounded-lg" />
+          <div className="h-60 bg-gray-200 rounded-lg" />
+        </div>
+      </PageLayout>
+    );
+  }
 
   return (
     <PageLayout>
@@ -88,7 +105,7 @@ export default function Index() {
           
           <Card className="card-hover-effect">
             <CardContent className="pt-6">
-              <StatsCard publicShares={publicShares || []} />
+              <StatsCard publicShares={[]} />
             </CardContent>
           </Card>
         </div>
