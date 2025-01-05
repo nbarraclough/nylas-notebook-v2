@@ -164,7 +164,9 @@ export default function Library() {
 
       console.log('Filtered recordings:', filteredRecordings);
       return filteredRecordings;
-    }
+    },
+    // Refresh data every 10 seconds to catch new recordings
+    refetchInterval: 10000
   });
 
   return (
