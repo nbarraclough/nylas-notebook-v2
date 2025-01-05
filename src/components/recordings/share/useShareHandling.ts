@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 interface UseShareHandlingProps {
   recordingId: string;
@@ -27,6 +27,8 @@ export function useShareHandling({
   setIsLoading,
   onSuccess,
 }: UseShareHandlingProps) {
+  const { toast } = useToast();
+
   const handleShare = async () => {
     try {
       setIsLoading(true);

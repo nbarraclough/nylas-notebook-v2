@@ -104,8 +104,7 @@ export function ShareDialogForm({ recordingId, onSuccess }: ShareDialogFormProps
     setExternalShareUrl,
     setIsCopied,
     setIsLoading,
-    onSuccess,
-    toast
+    onSuccess
   });
 
   return (
