@@ -74,6 +74,10 @@ const router = createBrowserRouter([
     element: <ProtectedRoute><Library /></ProtectedRoute>,
   },
   {
+    path: "/library/:recordingId",
+    element: <ProtectedRoute><Library /></ProtectedRoute>,
+  },
+  {
     path: "/shared",
     element: <ProtectedRoute><Shared /></ProtectedRoute>,
   },

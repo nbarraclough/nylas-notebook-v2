@@ -5,7 +5,7 @@ import { LibraryFilters } from "@/components/library/LibraryFilters";
 import { RecordingGrid } from "@/components/library/RecordingGrid";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useSearchParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import type { Database } from "@/integrations/supabase/types";
 import type { EventParticipant } from "@/types/calendar";
 
@@ -44,16 +44,14 @@ export default function Library() {
     titleSearch: null,
   });
 
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { recordingId } = useParams();
+  const navigate = useNavigate();
   const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
 
-  // Handle deep link on component mount and URL changes
+  // Handle URL parameter changes
   useEffect(() => {
-    const recordingId = searchParams.get('recording');
-    if (recordingId) {
-      setSelectedRecording(recordingId);
-    }
-  }, [searchParams]);
+    setSelectedRecording(recordingId || null);
+  }, [recordingId]);
 
   const { data: recordings, isLoading } = useQuery({
     queryKey: ['library-recordings', filters],
@@ -182,12 +180,12 @@ export default function Library() {
   });
 
   // Update URL when a recording is selected
-  const handleRecordingSelect = (recordingId: string | null) => {
-    setSelectedRecording(recordingId);
-    if (recordingId) {
-      setSearchParams({ recording: recordingId });
+  const handleRecordingSelect = (id: string | null) => {
+    setSelectedRecording(id);
+    if (id) {
+      navigate(`/library/${id}`);
     } else {
-      setSearchParams({});
+      navigate('/library');
     }
   };
 

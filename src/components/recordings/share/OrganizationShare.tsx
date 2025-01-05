@@ -19,7 +19,7 @@ export function OrganizationShare({ isEnabled, onToggle, recordingId }: Organiza
   const handleCopyLink = async () => {
     if (!recordingId) return;
     
-    const libraryDeepLink = `${window.location.origin}/library?recording=${recordingId}`;
+    const libraryDeepLink = `${window.location.origin}/library/${recordingId}`;
     
     try {
       await navigator.clipboard.writeText(libraryDeepLink);
@@ -58,7 +58,7 @@ export function OrganizationShare({ isEnabled, onToggle, recordingId }: Organiza
         <div className="flex gap-2">
           <Input 
             readOnly 
-            value={`${window.location.origin}/library?recording=${recordingId}`}
+            value={`${window.location.origin}/library/${recordingId}`}
             className="text-sm"
           />
           <Button
