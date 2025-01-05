@@ -40,7 +40,7 @@ export function WelcomeCard({ email }: WelcomeCardProps) {
       const internal = meetings.filter(event => {
         const organizerEmail = (event.organizer as Event['organizer'])?.email;
         const organizerDomain = organizerEmail?.split('@')[1];
-        const participants = (event.participants as Event['participants']) || [];
+        const participants = (event.participants as unknown as Participant[]) || [];
         return participants.every(
           p => p.email?.split('@')[1] === organizerDomain
         );
