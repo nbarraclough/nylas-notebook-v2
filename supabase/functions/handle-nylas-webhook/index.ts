@@ -19,8 +19,12 @@ import {
 } from '../_shared/webhook-logger.ts'
 
 serve(async (req) => {
-  // Log initial request
-  logWebhookRequest(req);
+  // Log every single request immediately
+  console.log('🔍 Raw request:', {
+    method: req.method,
+    url: req.url,
+    headers: Object.fromEntries(req.headers.entries())
+  });
 
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -34,8 +38,13 @@ serve(async (req) => {
     const url = new URL(req.url);
     const challenge = url.searchParams.get('challenge');
     
+    console.log('🎯 Challenge verification request:', {
+      challenge,
+      params: Object.fromEntries(url.searchParams.entries())
+    });
+    
     if (challenge) {
-      console.log('🎯 Challenge verification request received:', challenge);
+      console.log('✅ Returning challenge:', challenge);
       return new Response(challenge, {
         status: 200,
         headers: { 
@@ -45,6 +54,7 @@ serve(async (req) => {
       });
     }
 
+    console.log('❌ Missing challenge parameter');
     return new Response('Missing challenge parameter', { 
       status: 400,
       headers: { 
@@ -57,15 +67,18 @@ serve(async (req) => {
   // Handle POST requests (webhook events)
   if (req.method === 'POST') {
     try {
+      // Log raw request body before any processing
       const rawBody = await req.text();
-      logRawBody(rawBody);
+      console.log('📦 Raw webhook body:', rawBody);
 
       // Validate webhook signature
       const signature = req.headers.get('x-nylas-signature');
+      console.log('🔐 Webhook signature:', signature);
+      
       const { isValid } = await validateWebhook(rawBody, signature);
       
       if (!isValid) {
-        logWebhookError('signature validation', new Error('Invalid signature'));
+        console.log('❌ Invalid webhook signature');
         return new Response(
           JSON.stringify({ success: false, message: 'Invalid signature' }),
           { 
@@ -79,9 +92,9 @@ serve(async (req) => {
       let webhookData;
       try {
         webhookData = JSON.parse(rawBody);
-        logParsedWebhook(webhookData);
+        console.log('🔍 Parsed webhook data:', webhookData);
       } catch (error) {
-        logWebhookError('JSON parsing', error);
+        console.error('❌ JSON parsing error:', error);
         return new Response(
           JSON.stringify({ success: false, message: 'Invalid JSON payload' }),
           { 
@@ -95,6 +108,8 @@ serve(async (req) => {
       try {
         const grantId = webhookData.data.object.grant_id;
         let result;
+        
+        console.log('🎯 Processing webhook type:', webhookData.type);
         
         switch (webhookData.type) {
           case 'event.created':
@@ -119,6 +134,7 @@ serve(async (req) => {
             result = await handleGrantExpired(webhookData.data);
             break;
           default:
+            console.log('⚠️ Unhandled webhook type:', webhookData.type);
             return new Response(
               JSON.stringify({
                 success: false,
@@ -131,7 +147,11 @@ serve(async (req) => {
             );
         }
 
-        logWebhookSuccess(webhookData.type);
+        console.log('✅ Successfully processed webhook:', {
+          type: webhookData.type,
+          result
+        });
+        
         return new Response(
           JSON.stringify({
             success: true,
@@ -141,7 +161,7 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (error) {
-        logWebhookError('webhook processing', error);
+        console.error('❌ Error processing webhook:', error);
         return new Response(
           JSON.stringify({ success: false, message: error.message }),
           { 
@@ -151,7 +171,7 @@ serve(async (req) => {
         );
       }
     } catch (error) {
-      logWebhookError('request handling', error);
+      console.error('❌ Error handling webhook request:', error);
       return new Response(
         JSON.stringify({ success: false, message: 'Internal server error' }),
         { 
@@ -163,6 +183,7 @@ serve(async (req) => {
   }
 
   // Handle unsupported methods
+  console.log('⚠️ Unsupported method:', req.method);
   return new Response(
     JSON.stringify({
       success: false,
