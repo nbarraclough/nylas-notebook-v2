@@ -6,13 +6,24 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { EventParticipants } from "@/components/calendar/EventParticipants";
 
+interface Participant {
+  email: string;
+  name?: string;
+  status?: string;
+}
+
+interface Organizer {
+  email: string;
+  name?: string;
+}
+
 interface EventCardProps {
   event: {
     masterId: string;
     latestEvent: {
       title: string;
-      participants?: Array<{ email?: string; name?: string }>;
-      organizer?: { email?: string };
+      participants?: Participant[];
+      organizer?: Organizer;
       start_time?: string;
     } | null;
     nextEvent?: {
