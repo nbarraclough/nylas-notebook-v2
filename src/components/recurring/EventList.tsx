@@ -25,7 +25,11 @@ export function EventList({
   // Find the next upcoming meeting if we're in the upcoming view
   const now = new Date();
   const nextUpcomingMeeting = isUpcoming ? 
-    events.find(event => new Date(event.start_time) > now) : null;
+    events.find(event => {
+      const eventDate = new Date(event.start_time);
+      // Remove time zone offset for accurate comparison
+      return eventDate.getTime() > now.getTime();
+    }) : null;
 
   console.log('Current time:', now);
   console.log('Is upcoming view:', isUpcoming);
