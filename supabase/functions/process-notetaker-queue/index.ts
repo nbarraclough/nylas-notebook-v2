@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Read messages from the queue
+    // Get all users with pending queue items
     const { data: queueItems, error: queueError } = await supabaseClient
       .from('notetaker_queue')
       .select(`
@@ -35,7 +35,6 @@ Deno.serve(async (req) => {
       .eq('status', 'pending')
       .lt('scheduled_for', new Date().toISOString())
       .order('scheduled_for', { ascending: true })
-      .limit(10)
 
     if (queueError) {
       console.error('Error fetching queue items:', queueError)
