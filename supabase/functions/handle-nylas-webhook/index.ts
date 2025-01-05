@@ -2,14 +2,12 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from '../_shared/cors.ts'
 import { verifyWebhookSignature } from '../_shared/webhook-verification.ts'
 import { 
-  handleEventCreated, 
-  handleEventUpdated, 
-  handleEventDeleted,
-  handleGrantCreated,
-  handleGrantUpdated,
-  handleGrantDeleted,
-  handleGrantExpired
-} from '../_shared/webhook-handlers.ts'
+  logWebhookRequest, 
+  logRawBody, 
+  logParsedWebhook, 
+  logWebhookError,
+  logWebhookSuccess
+} from '../_shared/webhook-logger.ts'
 
 serve(async (req) => {
   const requestId = crypto.randomUUID();
@@ -25,11 +23,7 @@ serve(async (req) => {
     }
 
     // Log request details
-    console.log(`🔍 [${requestId}] Request details:`, {
-      method: req.method,
-      url: req.url,
-      headers: Object.fromEntries(req.headers.entries())
-    });
+    logWebhookRequest(req);
 
     // Handle challenge parameter in URL for both GET and POST requests
     const url = new URL(req.url);
@@ -49,7 +43,7 @@ serve(async (req) => {
       console.log(`🔑 [${requestId}] Signature received:`, signature);
       
       const rawBody = await req.text();
-      console.log(`📦 [${requestId}] Raw webhook body:`, rawBody);
+      logRawBody(rawBody);
       
       const webhookSecret = Deno.env.get('NYLAS_WEBHOOK_SECRET');
 
@@ -74,7 +68,7 @@ serve(async (req) => {
       let webhookData;
       try {
         webhookData = JSON.parse(rawBody);
-        console.log(`✅ [${requestId}] Successfully parsed webhook data:`, webhookData);
+        logParsedWebhook(webhookData);
       } catch (error) {
         console.error(`❌ [${requestId}] Failed to parse webhook data:`, error);
         return new Response(
@@ -88,33 +82,30 @@ serve(async (req) => {
 
       // Process webhook based on type
       try {
-        const grantId = webhookData.data.object.grant_id;
-        let result;
-        
         console.log(`🎯 [${requestId}] Processing webhook type:`, webhookData.type);
         
         switch (webhookData.type) {
-          case 'event.created':
-            result = await handleEventCreated(webhookData.data.object, grantId);
-            break;
-          case 'event.updated':
-            result = await handleEventUpdated(webhookData.data.object, grantId);
-            break;
-          case 'event.deleted':
-            result = await handleEventDeleted(webhookData.data.object, grantId);
-            break;
-          case 'grant.created':
-            result = await handleGrantCreated(webhookData.data);
-            break;
-          case 'grant.updated':
-            result = await handleGrantUpdated(webhookData.data);
-            break;
-          case 'grant.deleted':
-            result = await handleGrantDeleted(webhookData.data);
-            break;
-          case 'grant.expired':
-            result = await handleGrantExpired(webhookData.data);
-            break;
+          case 'notetaker.status_updated':
+          case 'notetaker.media_updated':
+            // Log the webhook data for debugging
+            console.log(`📝 [${requestId}] Notetaker webhook received:`, {
+              type: webhookData.type,
+              data: webhookData.data
+            });
+            
+            // For now, just acknowledge receipt
+            logWebhookSuccess(webhookData.type);
+            return new Response(
+              JSON.stringify({
+                success: true,
+                message: `Successfully processed ${webhookData.type} webhook`,
+                status: 'acknowledged'
+              }),
+              { 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+              }
+            );
+          
           default:
             console.log(`⚠️ [${requestId}] Unhandled webhook type:`, webhookData.type);
             return new Response(
@@ -128,22 +119,8 @@ serve(async (req) => {
               }
             );
         }
-
-        console.log(`✅ [${requestId}] Successfully processed webhook:`, {
-          type: webhookData.type,
-          result
-        });
-        
-        return new Response(
-          JSON.stringify({
-            success: true,
-            message: `Successfully processed ${webhookData.type} webhook`,
-            result
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
       } catch (error) {
-        console.error(`❌ [${requestId}] Error processing webhook:`, error);
+        logWebhookError('webhook processing', error);
         return new Response(
           JSON.stringify({ success: false, message: error.message }),
           { 
@@ -171,7 +148,7 @@ serve(async (req) => {
       JSON.stringify({
         success: false,
         message: error.message,
-        status: 'acknowledged'
+        status: 'error'
       }),
       { 
         status: 500,
