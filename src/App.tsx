@@ -11,6 +11,7 @@ import Shared from "./pages/Shared";
 import { Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { NylasAuthGuard } from "./components/auth/NylasAuthGuard";
 
 // Protected route wrapper component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -40,7 +41,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/auth" replace />;
   }
 
-  return <>{children}</>;
+  return <NylasAuthGuard>{children}</NylasAuthGuard>;
 };
 
 // Define the router with all routes
