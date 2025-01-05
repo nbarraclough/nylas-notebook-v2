@@ -32,7 +32,7 @@ const router = createBrowserRouter([
     element: <Recordings />,
   },
   {
-    path: "/settings",
+    path: "/settings/*",
     element: <Settings />,
   },
   {
