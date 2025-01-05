@@ -77,8 +77,11 @@ export function RecurringEventsList({
 
   const processedEvents = Object.entries(localEvents || {})
     .map(([masterId, events]) => {
+      if (!events || events.length === 0) return null;
+
       // Filter events based on date range
       const filteredEvents = events.filter(event => {
+        if (!event) return false;
         if (filters.startDate && new Date(event.start_time) < filters.startDate) return false;
         if (filters.endDate && new Date(event.start_time) > filters.endDate) return false;
         return true;
@@ -113,6 +116,7 @@ export function RecurringEventsList({
         new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
       );
 
+      const latestEvent = sortedEvents[0];
       const now = new Date();
       const nextEvent = sortedEvents
         .find(event => new Date(event.start_time) > now);
@@ -125,7 +129,7 @@ export function RecurringEventsList({
 
       return {
         masterId,
-        events: filteredEvents,
+        latestEvent,
         nextEvent,
         recordingsCount,
         isPinned
