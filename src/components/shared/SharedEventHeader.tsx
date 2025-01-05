@@ -2,6 +2,11 @@ import { format } from "date-fns";
 import { Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import type { EventParticipant } from "@/types/calendar";
 
 interface SharedEventHeaderProps {
@@ -23,10 +28,26 @@ export function SharedEventHeader({ title, startTime, endTime, participants }: S
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="flex items-center gap-1">
-              <Users className="w-3 h-3" />
-              {participants?.length || 0} participants
-            </Badge>
+            <HoverCard>
+              <HoverCardTrigger asChild>
+                <Badge variant="secondary" className="flex items-center gap-1 cursor-pointer">
+                  <Users className="w-3 h-3" />
+                  {participants?.length || 0} participants
+                </Badge>
+              </HoverCardTrigger>
+              <HoverCardContent className="w-80">
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold">Participants</h4>
+                  <div className="text-sm space-y-1">
+                    {participants.map((participant, index) => (
+                      <div key={index} className="text-muted-foreground">
+                        {participant.name} ({participant.email})
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </HoverCardContent>
+            </HoverCard>
           </div>
         </div>
       </CardContent>
