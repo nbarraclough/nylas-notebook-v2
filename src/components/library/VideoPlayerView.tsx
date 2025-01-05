@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { VideoPlayer } from "@/components/recordings/player/VideoPlayer";
@@ -18,6 +18,8 @@ interface Organizer {
 }
 
 export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) {
+  const queryClient = useQueryClient();
+
   const { data: recording, isLoading } = useQuery({
     queryKey: ['recording', recordingId],
     queryFn: async () => {
@@ -90,6 +92,11 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
     });
   };
 
+  const handleShareUpdate = () => {
+    // Refetch the recording data to get updated shares
+    queryClient.invalidateQueries({ queryKey: ['recording', recordingId] });
+  };
+
   if (isLoading) {
     return (
       <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -153,6 +160,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
             onClose={onClose}
             startTime={recording.event?.start_time}
             endTime={recording.event?.end_time}
+            onShareUpdate={handleShareUpdate}
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

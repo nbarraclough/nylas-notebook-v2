@@ -21,6 +21,7 @@ interface VideoHeaderProps {
   onClose: () => void;
   startTime?: string;
   endTime?: string;
+  onShareUpdate?: () => void;
 }
 
 export function VideoHeader({
@@ -32,7 +33,8 @@ export function VideoHeader({
   recordingId,
   onClose,
   startTime,
-  endTime
+  endTime,
+  onShareUpdate
 }: VideoHeaderProps) {
   return (
     <div className="flex items-start justify-between">
@@ -84,7 +86,7 @@ export function VideoHeader({
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <ShareVideoDialog recordingId={recordingId} />
+        <ShareVideoDialog recordingId={recordingId} onShareUpdate={onShareUpdate} />
         {shareUrl && (
           <ShareViaEmailButton
             shareUrl={shareUrl}
