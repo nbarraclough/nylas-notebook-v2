@@ -5,29 +5,23 @@ import { LibraryFilters } from "@/components/library/LibraryFilters";
 import { RecordingGrid } from "@/components/library/RecordingGrid";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
+import type { EventParticipant } from "@/types/calendar";
 
-interface Participant {
-  email: string;
-  [key: string]: any;
-}
-
-interface Event {
-  title: string;
-  description: string | null;
-  start_time: string;
-  end_time: string;
-  participants: Participant[];
-  organizer: any;
-}
-
-interface Recording {
-  id: string;
-  event: Event;
+type RecordingWithRelations = Database['public']['Tables']['recordings']['Row'] & {
+  event: {
+    title: string;
+    description: string | null;
+    start_time: string;
+    end_time: string;
+    participants: EventParticipant[];
+    organizer: Record<string, any>;
+  };
   video_shares: {
     share_type: string;
     organization_id: string;
   }[];
-}
+};
 
 export default function Library() {
   const [filters, setFilters] = useState({
@@ -101,7 +95,7 @@ export default function Library() {
       if (sharedError) throw sharedError;
 
       // Combine and deduplicate recordings
-      const allRecordings = [...(userRecordings || []), ...(sharedRecordings || [])] as Recording[];
+      const allRecordings = [...(userRecordings || []), ...(sharedRecordings || [])] as RecordingWithRelations[];
       const uniqueRecordings = Array.from(new Map(allRecordings.map(r => [r.id, r])).values());
 
       // Apply filters
@@ -121,7 +115,7 @@ export default function Library() {
 
       if (filters.participants.length > 0) {
         filteredRecordings = filteredRecordings.filter(r =>
-          r.event.participants.some((p: Participant) =>
+          (r.event.participants as EventParticipant[]).some(p =>
             filters.participants.includes(p.email)
           )
         );
