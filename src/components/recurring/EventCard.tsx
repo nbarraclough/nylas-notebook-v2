@@ -5,25 +5,15 @@ import { ChevronRight, Pin, PinOff, Shield, Globe } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { EventParticipants } from "@/components/calendar/EventParticipants";
-
-interface Participant {
-  email: string;
-  name?: string;
-  status?: string;
-}
-
-interface Organizer {
-  email: string;
-  name?: string;
-}
+import type { EventParticipant, EventOrganizer } from "@/types/calendar";
 
 interface EventCardProps {
   event: {
     masterId: string;
     latestEvent: {
       title: string;
-      participants?: Participant[];
-      organizer?: Organizer;
+      participants?: EventParticipant[];
+      organizer?: EventOrganizer;
       start_time?: string;
     } | null;
     nextEvent?: {
