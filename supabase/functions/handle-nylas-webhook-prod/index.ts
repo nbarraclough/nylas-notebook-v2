@@ -1,39 +1,42 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders } from '../_shared/cors.ts'
+import { serve } from "https://deno.fresh.run/std@0.168.0/http/server.ts";
+import { corsHeaders } from "../_shared/cors.ts";
+import { verifyWebhook } from "../_shared/webhook-verification.ts";
+import { logWebhook } from "../_shared/webhook-logger.ts";
+import { handleEvent, handleGrant } from "../_shared/webhook-handlers.ts";
 
-// Log function initialization
-console.log('🚀 Production webhook handler initialized:', new Date().toISOString());
+const NYLAS_API_SERVER = "https://api.us.nylas.com";
 
 serve(async (req) => {
-  const startTime = performance.now();
   const requestId = crypto.randomUUID();
-  
-  // Enhanced request logging
-  console.log(`\n=== New Production Webhook Request ${requestId} ===`);
-  console.log(`⏰ Timestamp: ${new Date().toISOString()}`);
-  console.log(`📍 Method: ${req.method}`);
-  console.log(`🔗 URL: ${req.url}`);
-  
-  // Detailed headers logging
-  const headers = Object.fromEntries(req.headers.entries());
-  console.log('📋 Headers:', JSON.stringify(headers, null, 2));
+  const startTime = performance.now();
 
   try {
-    // Handle CORS preflight
-    if (req.method === 'OPTIONS') {
-      console.log(`✈️ [${requestId}] CORS preflight request`);
-      return new Response(null, { 
-        headers: corsHeaders
+    // Handle CORS
+    if (req.method === "OPTIONS") {
+      return new Response(null, {
+        headers: corsHeaders,
       });
     }
 
-    // Get and log raw body
-    const rawBody = await req.text();
-    console.log(`📦 [${requestId}] Raw body length: ${rawBody.length}`);
-    console.log(`📦 [${requestId}] Raw body:`, rawBody);
+    // Only allow POST requests
+    if (req.method !== "POST") {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: "Method not allowed",
+        }),
+        { 
+          status: 405,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
+    }
 
-    try {
-      // Parse webhook data
+    // Get the raw request body
+    const rawBody = await req.text();
+    console.log(`📥 [${requestId}] Raw webhook body:`, rawBody);
+
+    if (rawBody) {
       const webhookData = JSON.parse(rawBody);
       console.log(`📥 [${requestId}] Webhook data:`, JSON.stringify(webhookData, null, 2));
 
@@ -52,6 +55,37 @@ serve(async (req) => {
         );
       }
 
+      // Verify webhook signature
+      const signature = req.headers.get("x-nylas-signature");
+      if (!signature) {
+        throw new Error("Missing Nylas signature");
+      }
+
+      const isValid = await verifyWebhook(
+        NYLAS_API_SERVER,
+        signature,
+        rawBody
+      );
+
+      if (!isValid) {
+        throw new Error("Invalid webhook signature");
+      }
+
+      // Log webhook
+      await logWebhook(requestId, webhookData);
+
+      // Handle webhook based on type
+      switch (webhookData.type) {
+        case "event":
+          await handleEvent(webhookData.data);
+          break;
+        case "grant":
+          await handleGrant(webhookData.data);
+          break;
+        default:
+          console.log(`⚠️ [${requestId}] Unhandled webhook type:`, webhookData.type);
+      }
+
       const endTime = performance.now();
       console.log(`✅ [${requestId}] Webhook processed successfully in ${(endTime - startTime).toFixed(2)}ms`);
 
@@ -66,28 +100,14 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
-
-    } catch (parseError) {
-      console.error(`❌ [${requestId}] Error parsing webhook JSON:`, parseError);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Invalid JSON payload',
-          details: parseError.message
-        }), 
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
     }
 
+    throw new Error("Empty webhook body");
+
   } catch (error) {
-    const endTime = performance.now();
-    console.error(`❌ [${requestId}] Webhook error after ${(endTime - startTime).toFixed(2)}ms:`, {
-      error: error.message,
-      stack: error.stack
-    });
-    
+    console.error(`❌ [${requestId}] Error processing webhook:`, error);
+
+    // Don't expose internal errors
     return new Response(
       JSON.stringify({
         success: false,
@@ -100,4 +120,4 @@ serve(async (req) => {
       }
     );
   }
-})
+});
