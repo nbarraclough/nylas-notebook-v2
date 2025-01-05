@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { ChevronRight, Pin, PinOff, Shield, Globe } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
+import { EventParticipants } from "@/components/calendar/EventParticipants";
 
 interface EventCardProps {
   event: {
@@ -58,6 +59,11 @@ export function EventCard({ event, onTogglePin }: EventCardProps) {
                     <Pin className="h-4 w-4 text-primary fill-primary" />
                   )}
                   <h3 className="text-lg font-semibold">{event.latestEvent.title}</h3>
+                  <EventParticipants 
+                    participants={event.latestEvent.participants || []}
+                    organizer={event.latestEvent.organizer}
+                    isInternalMeeting={isInternalMeeting}
+                  />
                 </div>
                 <div className="flex gap-2">
                   <Badge variant="outline" className="text-xs">
