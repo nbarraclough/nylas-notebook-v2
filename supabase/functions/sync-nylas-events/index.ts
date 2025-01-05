@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 import { processEvent } from './event-processor.ts'
 import { startOfToday, addMonths, getUnixTime, formatDate } from './timestamp-utils.ts'
 
@@ -23,16 +22,12 @@ serve(async (req) => {
       throw new Error('Either user_id or user_ids is required')
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    )
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('Missing required environment variables')
+    }
 
     const results = []
     const errors = []
@@ -54,40 +49,25 @@ serve(async (req) => {
       try {
         console.log('Processing user:', userId)
         
-        const { data: profile, error: profileError } = await supabaseAdmin
-          .from('profiles')
-          .select('nylas_grant_id')
-          .eq('id', userId)
-          .single()
+        const { data: profile, error: profileError } = await fetch(
+          `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=nylas_grant_id`,
+          {
+            headers: {
+              'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              'apikey': SUPABASE_SERVICE_ROLE_KEY,
+            },
+          }
+        ).then(res => res.json())
 
-        if (profileError) {
-          console.error('Error fetching profile for user:', userId, profileError)
-          errors.push({ userId, error: 'Failed to fetch user profile' })
+        if (profileError || !profile?.[0]?.nylas_grant_id) {
+          console.error('Error fetching profile for user:', userId, profileError || 'No Nylas grant ID found')
+          errors.push({ userId, error: profileError || 'No Nylas grant ID found' })
           continue
         }
 
-        if (!profile?.nylas_grant_id) {
-          console.log('User has no Nylas grant ID, skipping sync:', userId)
-          errors.push({ userId, error: 'No Nylas grant ID found' })
-          continue
-        }
+        const grantId = profile[0].nylas_grant_id
 
-        const { data: existingEvents, error: existingEventsError } = await supabaseAdmin
-          .from('events')
-          .select('ical_uid, last_updated_at')
-          .eq('user_id', userId)
-
-        if (existingEventsError) {
-          console.error('Error fetching existing events:', existingEventsError)
-          errors.push({ userId, error: 'Failed to fetch existing events' })
-          continue
-        }
-
-        const existingEventsMap = new Map(
-          existingEvents?.map(event => [event.ical_uid, new Date(event.last_updated_at)]) || []
-        )
-
-        console.log('Fetching Nylas events for grant ID:', profile.nylas_grant_id)
+        console.log('Fetching Nylas events for grant ID:', grantId)
         
         const NYLAS_CLIENT_SECRET = Deno.env.get('NYLAS_CLIENT_SECRET')
         if (!NYLAS_CLIENT_SECRET) {
@@ -105,7 +85,7 @@ serve(async (req) => {
             calendar_id: 'primary',
             start: startUnix.toString(),
             end: endUnix.toString(),
-            limit: '200', // Increased to maximum allowed limit
+            limit: '200',
             expand_recurring: 'true',
             ...(pageToken && { page_token: pageToken })
           })
@@ -113,7 +93,7 @@ serve(async (req) => {
           console.log('Fetching events with params:', queryParams.toString())
 
           const eventsResponse = await fetch(
-            `https://api-staging.us.nylas.com/v3/grants/${profile.nylas_grant_id}/events?${queryParams}`, 
+            `https://api-staging.us.nylas.com/v3/grants/${grantId}/events?${queryParams}`, 
             {
               headers: {
                 'Authorization': `Bearer ${NYLAS_CLIENT_SECRET}`,
@@ -139,7 +119,6 @@ serve(async (req) => {
           
           console.log(`Fetched ${events.length} events, total: ${totalEventsFetched}, next page token:`, pageToken)
           
-          // Small delay to avoid rate limiting
           if (hasMorePages) {
             await new Promise(resolve => setTimeout(resolve, 100))
           }
@@ -149,7 +128,7 @@ serve(async (req) => {
 
         for (const event of allEvents) {
           try {
-            await processEvent(event, existingEventsMap, userId, supabaseAdmin, force_recording_rules)
+            await processEvent(event, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
           } catch (error) {
             console.error('Error processing event:', event.id, error)
             errors.push({ userId, eventId: event.id, error: 'Failed to process event' })

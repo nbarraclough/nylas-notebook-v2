@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { EventCard } from "./EventCard";
 import { format, isPast, startOfWeek, endOfWeek, addWeeks, subWeeks, isWithinInterval } from "date-fns";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import type { QueryObserverResult, RefetchOptions } from "@tanstack/react-query";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -25,10 +25,14 @@ interface GroupedEvents {
 export const EventsList = ({ events, isLoadingEvents, userId, filter }: EventsListProps) => {
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   
-  const navigateWeek = (direction: 'next' | 'prev') => {
-    setCurrentWeekStart(prev => 
-      direction === 'next' ? addWeeks(prev, 1) : subWeeks(prev, 1)
-    );
+  const navigateWeek = (direction: 'next' | 'prev' | 'current') => {
+    if (direction === 'current') {
+      setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
+    } else {
+      setCurrentWeekStart(prev => 
+        direction === 'next' ? addWeeks(prev, 1) : subWeeks(prev, 1)
+      );
+    }
   };
 
   const groupEventsByDate = (events: Event[]): GroupedEvents => {
@@ -85,14 +89,24 @@ export const EventsList = ({ events, isLoadingEvents, userId, filter }: EventsLi
     <div className="space-y-4">
       {filter === "upcoming" && (
         <div className="flex items-center justify-between mb-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigateWeek('prev')}
-          >
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Previous Week
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigateWeek('prev')}
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Previous Week
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigateWeek('current')}
+            >
+              <Calendar className="h-4 w-4 mr-1" />
+              This Week
+            </Button>
+          </div>
           <h2 className="text-lg font-semibold">{weekRange}</h2>
           <Button
             variant="outline"

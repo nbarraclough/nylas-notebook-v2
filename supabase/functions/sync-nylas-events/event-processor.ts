@@ -36,8 +36,10 @@ interface NylasEvent {
   original_start_time?: number;
 }
 
-export async function processEvent(event: NylasEvent, userId: string, supabaseAdmin: any) {
+export async function processEvent(event: NylasEvent, userId: string, supabaseUrl: string, supabaseKey: string) {
   try {
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
     // Validate timestamps before processing
     if (!event.when?.start_time || !event.when?.end_time || 
         isNaN(event.when.start_time) || isNaN(event.when.end_time)) {
@@ -85,8 +87,7 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseAd
       participants: eventData.participants.length
     });
 
-    // Use upsert with nylas_event_id as the conflict key
-    const { error: upsertError } = await supabaseAdmin
+    const { error: upsertError } = await supabase
       .from('events')
       .upsert(eventData, {
         onConflict: 'nylas_event_id',
