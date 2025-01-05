@@ -44,10 +44,10 @@ export default function Library() {
     titleSearch: null,
   });
 
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
 
-  // Handle deep link on component mount
+  // Handle deep link on component mount and URL changes
   useEffect(() => {
     const recordingId = searchParams.get('recording');
     if (recordingId) {
@@ -181,6 +181,16 @@ export default function Library() {
     refetchInterval: 10000
   });
 
+  // Update URL when a recording is selected
+  const handleRecordingSelect = (recordingId: string | null) => {
+    setSelectedRecording(recordingId);
+    if (recordingId) {
+      setSearchParams({ recording: recordingId });
+    } else {
+      setSearchParams({});
+    }
+  };
+
   return (
     <PageLayout>
       <div className="space-y-6">
@@ -190,7 +200,7 @@ export default function Library() {
           recordings={recordings || []} 
           isLoading={isLoading} 
           selectedRecording={selectedRecording}
-          onRecordingSelect={setSelectedRecording}
+          onRecordingSelect={handleRecordingSelect}
         />
       </div>
     </PageLayout>

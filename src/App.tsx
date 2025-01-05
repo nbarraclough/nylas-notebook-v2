@@ -8,12 +8,46 @@ import Settings from "./pages/Settings";
 import Library from "./pages/Library";
 import { SharedVideoView } from "./components/shared/SharedVideoView";
 import Shared from "./pages/Shared";
+import { Navigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+
+// Protected route wrapper component
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    // Check initial auth state
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsAuthenticated(!!session);
+    });
+
+    // Subscribe to auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsAuthenticated(!!session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Show nothing while checking auth state
+  if (isAuthenticated === null) {
+    return null;
+  }
+
+  // Redirect to auth if not authenticated
+  if (!isAuthenticated) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  return <>{children}</>;
+};
 
 // Define the router with all routes
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <Index />,
+    element: <ProtectedRoute><Index /></ProtectedRoute>,
   },
   {
     path: "/auth",
@@ -21,27 +55,27 @@ const router = createBrowserRouter([
   },
   {
     path: "/calendar",
-    element: <Calendar />,
+    element: <ProtectedRoute><Calendar /></ProtectedRoute>,
   },
   {
     path: "/queue",
-    element: <Queue />,
+    element: <ProtectedRoute><Queue /></ProtectedRoute>,
   },
   {
     path: "/recordings",
-    element: <Recordings />,
+    element: <ProtectedRoute><Recordings /></ProtectedRoute>,
   },
   {
     path: "/settings/*",
-    element: <Settings />,
+    element: <ProtectedRoute><Settings /></ProtectedRoute>,
   },
   {
     path: "/library",
-    element: <Library />,
+    element: <ProtectedRoute><Library /></ProtectedRoute>,
   },
   {
     path: "/shared",
-    element: <Shared />,
+    element: <ProtectedRoute><Shared /></ProtectedRoute>,
   },
   {
     path: "/shared/:token",
