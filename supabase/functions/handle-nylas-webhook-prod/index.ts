@@ -17,7 +17,22 @@ serve(async (req) => {
       });
     }
 
-    // Only allow POST requests
+    // Check for challenge parameter in URL
+    const url = new URL(req.url);
+    const challenge = url.searchParams.get('challenge');
+
+    // If there's a challenge parameter, respond immediately with just the challenge value
+    if (challenge) {
+      console.log(`🔐 [${requestId}] Received Nylas challenge:`, challenge);
+      return new Response(challenge, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/plain'
+        }
+      });
+    }
+
+    // For non-challenge requests, proceed with webhook handling
     if (req.method !== "POST") {
       return new Response(
         JSON.stringify({
@@ -39,22 +54,6 @@ serve(async (req) => {
       // Parse webhook data
       const webhookData = JSON.parse(rawBody);
       console.log(`📥 [${requestId}] Webhook data:`, JSON.stringify(webhookData, null, 2));
-
-      // Handle Nylas webhook challenge
-      if (webhookData.type === 'challenge') {
-        console.log(`🔐 [${requestId}] Handling Nylas webhook challenge:`, webhookData.challenge);
-        // Return the challenge value as plain text
-        return new Response(
-          webhookData.challenge,
-          { 
-            status: 200,
-            headers: { 
-              ...corsHeaders,
-              'Content-Type': 'text/plain'
-            }
-          }
-        );
-      }
 
       // Log webhook metadata
       console.log(`📝 [${requestId}] Webhook type:`, webhookData.type);
