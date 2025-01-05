@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, X, Plus } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Recipients } from "./Recipients";
+import { EmailForm } from "./EmailForm";
 
 interface Recipient {
   name: string;
@@ -50,7 +50,6 @@ export function EmailComposerDialog({
       return;
     }
 
-    // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(newEmail)) {
       toast({
@@ -61,7 +60,6 @@ export function EmailComposerDialog({
       return;
     }
 
-    // Check if email already exists
     if (recipients.some(r => r.email === newEmail)) {
       toast({
         title: "Error",
@@ -76,10 +74,6 @@ export function EmailComposerDialog({
       email: newEmail 
     }]);
     setNewEmail("");
-  };
-
-  const handleRemoveRecipient = (email: string) => {
-    setRecipients(recipients.filter(r => r.email !== email));
   };
 
   const handleSend = async () => {
@@ -113,12 +107,8 @@ export function EmailComposerDialog({
         },
       });
 
-      if (error) {
-        console.error('Error from edge function:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('Email sent successfully:', data);
       toast({
         title: "Email sent",
         description: "The recording has been shared with all recipients.",
@@ -143,66 +133,20 @@ export function EmailComposerDialog({
           <DialogTitle>Share Recording via Email</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Recipients</label>
-            <div className="flex flex-wrap gap-2 p-2 border rounded-md bg-muted min-h-[100px]">
-              {recipients.map((recipient) => (
-                <div 
-                  key={recipient.email}
-                  className="flex items-center gap-2 bg-background px-3 py-1 rounded-full border"
-                >
-                  <span className="text-sm">{recipient.email}</span>
-                  <button
-                    onClick={() => handleRemoveRecipient(recipient.email)}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-2 mt-2">
-              <Input
-                placeholder="Email address"
-                type="email"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddRecipient();
-                  }
-                }}
-                className="flex-1"
-              />
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={handleAddRecipient}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+          <Recipients
+            recipients={recipients}
+            newEmail={newEmail}
+            onNewEmailChange={setNewEmail}
+            onAddRecipient={handleAddRecipient}
+            onRemoveRecipient={(email) => setRecipients(recipients.filter(r => r.email !== email))}
+          />
           
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Subject</label>
-            <Input
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="Enter email subject"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Message</label>
-            <Textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder="Enter your message"
-              rows={8}
-            />
-          </div>
+          <EmailForm
+            subject={subject}
+            onSubjectChange={setSubject}
+            body={body}
+            onBodyChange={setBody}
+          />
         </div>
 
         <div className="flex justify-end gap-2">
