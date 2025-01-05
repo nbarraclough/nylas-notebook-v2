@@ -7,6 +7,8 @@ import { MeetingTypeFilter } from "./filters/MeetingTypeFilter";
 import { DateFilter } from "./filters/DateFilter";
 import { ParticipantFilter } from "./filters/ParticipantFilter";
 import { TitleFilter } from "./filters/TitleFilter";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface LibraryFiltersProps {
   filters: {
@@ -16,6 +18,7 @@ interface LibraryFiltersProps {
     endDate: Date | null;
     participants: string[];
     titleSearch: string | null;
+    hasPublicLink: boolean;
   };
   onFiltersChange: (filters: any) => void;
 }
@@ -41,6 +44,11 @@ export function LibraryFilters({ filters, onFiltersChange }: LibraryFiltersProps
       onFiltersChange({
         ...filters,
         titleSearch: null,
+      });
+    } else if (filterKey === "hasPublicLink") {
+      onFiltersChange({
+        ...filters,
+        hasPublicLink: false,
       });
     }
   };
@@ -123,6 +131,18 @@ export function LibraryFilters({ filters, onFiltersChange }: LibraryFiltersProps
       );
     }
 
+    if (filters.hasPublicLink) {
+      badges.push(
+        <Badge key="public-link" variant="secondary" className="gap-1">
+          Has Public Link
+          <X
+            className="h-3 w-3 cursor-pointer"
+            onClick={() => clearFilter("hasPublicLink")}
+          />
+        </Badge>
+      );
+    }
+
     return badges;
   };
 
@@ -153,6 +173,16 @@ export function LibraryFilters({ filters, onFiltersChange }: LibraryFiltersProps
         <div className="flex flex-wrap gap-2">
           <ParticipantFilter onParticipantSearch={handleParticipantSearch} />
           <TitleFilter onTitleSearch={handleTitleSearch} />
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="public-link"
+              checked={filters.hasPublicLink}
+              onCheckedChange={(checked) =>
+                onFiltersChange({ ...filters, hasPublicLink: checked })
+              }
+            />
+            <Label htmlFor="public-link">Public Link</Label>
+          </div>
         </div>
       </div>
 
@@ -170,6 +200,7 @@ export function LibraryFilters({ filters, onFiltersChange }: LibraryFiltersProps
                 endDate: null,
                 participants: [],
                 titleSearch: null,
+                hasPublicLink: false,
               })
             }
           >

@@ -16,6 +16,7 @@ export default function Library() {
     endDate: null,
     participants: [] as string[],
     titleSearch: null,
+    hasPublicLink: false,
   });
 
   const { recordingId } = useParams();

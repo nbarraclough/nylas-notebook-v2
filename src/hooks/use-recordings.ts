@@ -10,6 +10,7 @@ interface UseRecordingsProps {
     endDate: Date | null;
     participants: string[];
     titleSearch: string | null;
+    hasPublicLink: boolean;
   };
 }
 
@@ -48,6 +49,10 @@ export function useRecordings({ isAuthenticated, recordingId, filters }: UseReco
 
         if (filters.endDate) {
           query = query.lte('event.start_time', filters.endDate.toISOString());
+        }
+
+        if (filters.hasPublicLink) {
+          query = query.contains('video_shares', [{ share_type: 'external' }]);
         }
       }
 
