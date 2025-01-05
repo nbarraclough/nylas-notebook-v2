@@ -28,3 +28,7 @@ export const logWebhookError = (stage: string, error: any) => {
 export const logWebhookSuccess = (type: string) => {
   console.log(`✅ Successfully processed ${type} webhook`);
 };
+
+export const logWebhookProcessing = (stage: string, data?: any) => {
+  console.log(`🔄 Processing ${stage}:`, data || {});
+};
