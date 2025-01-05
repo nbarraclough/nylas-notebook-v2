@@ -8,8 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 
 export default function Library() {
   const [filters, setFilters] = useState({
-    type: null,
-    meetingType: null,
+    types: [],
+    meetingTypes: [],
     startDate: null,
     endDate: null,
   });
@@ -36,23 +36,29 @@ export default function Library() {
         .order('created_at', { ascending: false });
 
       // Apply filters
-      if (filters.type === "my-recordings") {
-        query = query.eq('user_id', (await supabase.auth.getUser()).data.user?.id);
-      } else if (filters.type === "organization") {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id')
-          .single();
-        
-        if (profile?.organization_id) {
-          query = query.eq('profiles.organization_id', profile.organization_id);
+      if (filters.types.length > 0) {
+        if (filters.types.includes("my-recordings")) {
+          query = query.eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+        }
+        if (filters.types.includes("organization")) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('organization_id')
+            .single();
+          
+          if (profile?.organization_id) {
+            query = query.eq('profiles.organization_id', profile.organization_id);
+          }
         }
       }
 
-      if (filters.meetingType === "internal") {
-        query = query.eq('event.is_internal', true);
-      } else if (filters.meetingType === "external") {
-        query = query.eq('event.is_internal', false);
+      if (filters.meetingTypes.length > 0) {
+        if (filters.meetingTypes.includes("internal")) {
+          query = query.eq('event.is_internal', true);
+        }
+        if (filters.meetingTypes.includes("external")) {
+          query = query.eq('event.is_internal', false);
+        }
       }
 
       if (filters.startDate) {
