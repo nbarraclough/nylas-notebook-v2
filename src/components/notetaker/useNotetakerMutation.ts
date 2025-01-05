@@ -105,26 +105,18 @@ export function useNotetakerMutation(onSuccess: () => void) {
       if (eventError) throw eventError;
 
       console.log('Sending notetaker to meeting...');
-      // Send notetaker to the meeting
-      const response = await fetch('/api/send-notetaker', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Send notetaker to the meeting using Supabase Edge Function
+      const { data, error } = await supabase.functions.invoke('send-notetaker', {
+        body: {
           meetingUrl,
           grantId: profile.nylas_grant_id,
           meetingId: meeting.id,
-        }),
+        }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to send notetaker');
-      }
+      if (error) throw error;
 
-      const responseData = await response.json();
-      console.log('Notetaker sent successfully:', responseData);
+      console.log('Notetaker sent successfully:', data);
 
       // Create recording entry
       const { error: recordingError } = await supabase
@@ -132,7 +124,7 @@ export function useNotetakerMutation(onSuccess: () => void) {
         .insert({
           user_id: user.id,
           event_id: event.id,
-          notetaker_id: responseData.notetaker_id,
+          notetaker_id: data.notetaker_id,
           recording_url: '',
           status: 'pending'
         });
