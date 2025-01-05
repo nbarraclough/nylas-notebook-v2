@@ -76,8 +76,7 @@ export function ShareDialogForm({ recordingId, onSuccess }: ShareDialogFormProps
       const internalShare = existingShares.find(share => share.share_type === 'internal');
       const externalShare = existingShares.find(share => share.share_type === 'external');
 
-      // If no existing internal share, use the user's preference
-      setIsInternalEnabled(internalShare ? true : (profile?.share_internal_recordings || false));
+      setIsInternalEnabled(!!internalShare);
       setIsExternalEnabled(!!externalShare);
       
       if (externalShare) {
@@ -86,10 +85,6 @@ export function ShareDialogForm({ recordingId, onSuccess }: ShareDialogFormProps
         setIsPasswordEnabled(!!externalShare.password);
         setPassword(externalShare.password || '');
       }
-    } else if (profile) {
-      // If no existing shares, use the user's preference
-      console.log('Using profile preference:', profile.share_internal_recordings);
-      setIsInternalEnabled(profile.share_internal_recordings || false);
     }
   }, [existingShares, profile]);
 
@@ -128,10 +123,10 @@ export function ShareDialogForm({ recordingId, onSuccess }: ShareDialogFormProps
 
       <Button 
         onClick={handleShare} 
-        disabled={(!isInternalEnabled && !isExternalEnabled) || isLoading}
+        disabled={isLoading}
         className="w-full"
       >
-        {isLoading ? "Sharing..." : "Share Recording"}
+        {isLoading ? "Saving..." : "Save Sharing Settings"}
       </Button>
     </div>
   );
