@@ -1,18 +1,10 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { corsHeaders } from '../_shared/cors.ts'
-
-const NYLAS_API_URL = 'https://api-staging.us.nylas.com'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
-  }
-
   try {
-    console.log('Starting queue processing at:', new Date().toISOString())
-
-    // Initialize Supabase client
+    console.log('Processing notetaker queue...')
+    
+    // Initialize Supabase client with service role key for admin access
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -22,14 +14,19 @@ Deno.serve(async (req) => {
     const { data: queueItems, error: queueError } = await supabaseClient
       .from('notetaker_queue')
       .select(`
-        *,
-        profiles!notetaker_queue_user_id_fkey (
-          nylas_grant_id,
-          notetaker_name
-        ),
-        events!notetaker_queue_event_id_fkey (
+        id,
+        user_id,
+        event_id,
+        scheduled_for,
+        attempts,
+        events!inner (
           conference_url,
-          title
+          title,
+          start_time,
+          end_time
+        ),
+        profiles!inner (
+          notetaker_name
         )
       `)
       .eq('status', 'pending')
@@ -41,133 +38,121 @@ Deno.serve(async (req) => {
       throw queueError
     }
 
-    console.log(`Found ${queueItems?.length || 0} pending notetaker requests to process`)
+    console.log(`Found ${queueItems?.length || 0} pending queue items`)
 
-    // Process each queue item
-    for (const item of queueItems || []) {
-      try {
-        console.log('Processing queue item:', {
-          queueId: item.id,
-          eventId: item.event_id,
-          scheduledFor: item.scheduled_for,
-          grantId: item.profiles?.nylas_grant_id,
-          conferenceUrl: item.events?.conference_url,
-          eventTitle: item.events?.title
-        })
-
-        if (!item.profiles?.nylas_grant_id) {
-          throw new Error('Nylas grant ID not found')
-        }
-
-        if (!item.events?.conference_url) {
-          throw new Error('Conference URL not found')
-        }
-
-        // Prepare the notetaker request payload
-        const notetakerPayload = {
-          meeting_link: item.events.conference_url,
-          notetaker_name: item.profiles.notetaker_name || 'Nylas Notetaker'
-        }
-
-        console.log('Sending notetaker request:', {
-          grantId: item.profiles.nylas_grant_id,
-          payload: notetakerPayload
-        })
-
-        // Send notetaker to the meeting
-        const response = await fetch(
-          `${NYLAS_API_URL}/v3/grants/${item.profiles.nylas_grant_id}/notetakers`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
-              'Content-Type': 'application/json',
-              'Accept': 'application/json, application/gzip'
-            },
-            body: JSON.stringify(notetakerPayload)
-          }
-        )
-
-        if (!response.ok) {
-          const errorText = await response.text()
-          console.error('Nylas API error:', errorText)
-          throw new Error(`Failed to send notetaker: ${errorText}`)
-        }
-
-        const data = await response.json()
-        console.log('Nylas API response:', data)
-
-        // Create a new recording entry
-        const { error: recordingError } = await supabaseClient
-          .from('recordings')
-          .insert({
-            user_id: item.user_id,
-            event_id: item.event_id,
-            notetaker_id: data.data.notetaker_id,
-            recording_url: '',
-            status: 'pending'
-          })
-
-        if (recordingError) {
-          console.error('Error creating recording entry:', recordingError)
-          throw recordingError
-        }
-
-        // Delete the queue item after successful processing
-        const { error: deleteError } = await supabaseClient
-          .from('notetaker_queue')
-          .delete()
-          .eq('id', item.id)
-
-        if (deleteError) {
-          console.error('Error deleting queue item:', deleteError)
-          // Don't throw here, as the main operation was successful
-        }
-
-        console.log('Queue item processed successfully:', {
-          queueId: item.id,
-          eventId: item.event_id,
-          notetakerId: data.data.notetaker_id
-        })
-
-      } catch (error) {
-        console.error('Error processing queue item:', error)
-
-        // Update queue item with error
-        const { error: updateError } = await supabaseClient
-          .from('notetaker_queue')
-          .update({
-            status: 'failed',
-            error: error.message,
-            last_attempt: new Date().toISOString(),
-            attempts: (item.attempts || 0) + 1
-          })
-          .eq('id', item.id)
-
-        if (updateError) {
-          console.error('Error updating queue item status:', updateError)
-        }
-      }
+    if (!queueItems?.length) {
+      return new Response(
+        JSON.stringify({ message: 'No pending queue items found' }),
+        { headers: { 'Content-Type': 'application/json' } }
+      )
     }
 
+    // Process each queue item
+    const results = await Promise.all(
+      queueItems.map(async (item) => {
+        console.log(`Processing queue item ${item.id} for event: ${item.events.title}`)
+        
+        try {
+          // Update attempts count
+          const { error: updateError } = await supabaseClient
+            .from('notetaker_queue')
+            .update({
+              attempts: (item.attempts || 0) + 1,
+              last_attempt: new Date().toISOString()
+            })
+            .eq('id', item.id)
+
+          if (updateError) {
+            console.error(`Error updating attempts for queue item ${item.id}:`, updateError)
+            throw updateError
+          }
+
+          // Send notetaker request
+          const response = await fetch('https://api-staging.us.nylas.com/v3/notetakers', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`
+            },
+            body: JSON.stringify({
+              name: item.profiles.notetaker_name || 'Nylas Notetaker',
+              conference_url: item.events.conference_url,
+              start_time: item.events.start_time,
+              end_time: item.events.end_time
+            })
+          })
+
+          if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(`Nylas API error: ${JSON.stringify(errorData)}`)
+          }
+
+          const notetakerData = await response.json()
+          console.log(`Successfully sent notetaker for queue item ${item.id}:`, notetakerData)
+
+          // Update queue item status to success
+          const { error: successError } = await supabaseClient
+            .from('notetaker_queue')
+            .update({
+              status: 'success',
+              notetaker_id: notetakerData.id
+            })
+            .eq('id', item.id)
+
+          if (successError) {
+            console.error(`Error updating queue item ${item.id} status:`, successError)
+            throw successError
+          }
+
+          return {
+            queueId: item.id,
+            status: 'success',
+            notetakerId: notetakerData.id
+          }
+
+        } catch (error) {
+          console.error(`Error processing queue item ${item.id}:`, error)
+
+          // Update queue item status to error
+          const { error: updateError } = await supabaseClient
+            .from('notetaker_queue')
+            .update({
+              status: 'error',
+              error: error.message
+            })
+            .eq('id', item.id)
+
+          if (updateError) {
+            console.error(`Error updating error status for queue item ${item.id}:`, updateError)
+          }
+
+          return {
+            queueId: item.id,
+            status: 'error',
+            error: error.message
+          }
+        }
+      })
+    )
+
     return new Response(
-      JSON.stringify({ 
-        message: 'Queue processed successfully',
-        processed_items: queueItems?.length || 0
+      JSON.stringify({
+        message: 'Queue processing completed',
+        results
       }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
+      { headers: { 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
-    console.error('Error in process-notetaker-queue:', error)
+    console.error('Error in process-notetaker-queue function:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({
+        error: 'Internal server error',
+        details: error.message
+      }),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
+        headers: { 'Content-Type': 'application/json' }
       }
     )
   }
