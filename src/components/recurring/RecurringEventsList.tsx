@@ -130,7 +130,7 @@ export function RecurringEventsList({
       const now = new Date();
       const latestEvent = [...sortedEvents]
         .reverse()
-        .find(event => new Date(event.start_time) <= now) || sortedEvents[0];
+        .find(event => new Date(event.start_time) <= now);
       
       const nextEvent = sortedEvents
         .find(event => new Date(event.start_time) > now);
@@ -143,7 +143,7 @@ export function RecurringEventsList({
       return {
         masterId,
         events: filteredEvents,
-        latestEvent,
+        latestEvent: latestEvent || sortedEvents[0], // Fallback to first event if no past events
         nextEvent,
         recordingsCount,
         isPinned
