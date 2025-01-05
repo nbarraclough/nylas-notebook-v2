@@ -11,6 +11,7 @@ import type { EventParticipant } from "@/types/calendar";
 type RecordingWithRelations = Database['public']['Tables']['recordings']['Row'] & {
   event: Database['public']['Tables']['events']['Row'] & {
     participants: EventParticipant[];
+    manual_meeting?: Database['public']['Tables']['manual_meetings']['Row'];
   };
   video_shares: Array<{
     share_type: string;
@@ -72,9 +73,7 @@ export default function Library() {
           *,
           event:events (
             *,
-            manual_meeting:manual_meetings (
-              title
-            )
+            manual_meeting:manual_meetings (*)
           ),
           video_shares (
             share_type,
@@ -97,9 +96,7 @@ export default function Library() {
           *,
           event:events (
             *,
-            manual_meeting:manual_meetings (
-              title
-            )
+            manual_meeting:manual_meetings (*)
           ),
           video_shares (
             share_type,
@@ -123,7 +120,7 @@ export default function Library() {
         event: {
           ...recording.event,
           // Use manual meeting title if available
-          title: recording.event.manual_meeting?.title || recording.event.title,
+          title: recording.event?.manual_meeting?.title || recording.event?.title || 'Untitled Recording',
           participants: parseParticipants(recording.event?.participants)
         }
       });

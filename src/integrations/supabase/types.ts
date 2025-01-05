@@ -81,6 +81,7 @@ export type Database = {
           id: string
           last_updated_at: string
           location: string | null
+          manual_meeting_id: string | null
           master_event_id: string | null
           nylas_event_id: string
           organizer: Json | null
@@ -107,6 +108,7 @@ export type Database = {
           id?: string
           last_updated_at?: string
           location?: string | null
+          manual_meeting_id?: string | null
           master_event_id?: string | null
           nylas_event_id: string
           organizer?: Json | null
@@ -133,6 +135,7 @@ export type Database = {
           id?: string
           last_updated_at?: string
           location?: string | null
+          manual_meeting_id?: string | null
           master_event_id?: string | null
           nylas_event_id?: string
           organizer?: Json | null
@@ -149,6 +152,13 @@ export type Database = {
           visibility?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "events_manual_meeting_id_fkey"
+            columns: ["manual_meeting_id"]
+            isOneToOne: false
+            referencedRelation: "manual_meetings"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "events_user_id_fkey"
             columns: ["user_id"]
