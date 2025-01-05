@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
       .eq('status', 'pending')
       .lt('scheduled_for', new Date().toISOString())
       .order('scheduled_for', { ascending: true })
-      .limit(10);
+      .limit(10)
 
     if (queueError) {
       console.error('Error fetching queue items:', queueError)
@@ -47,48 +47,37 @@ Deno.serve(async (req) => {
     // Process each queue item
     for (const item of queueItems || []) {
       try {
-        const profile = item.profiles
-        const event = item.events
-
         console.log('Processing queue item:', {
           queueId: item.id,
           eventId: item.event_id,
           scheduledFor: item.scheduled_for,
-          grantId: profile?.nylas_grant_id,
-          conferenceUrl: event?.conference_url,
-          eventTitle: event?.title
+          grantId: item.profiles?.nylas_grant_id,
+          conferenceUrl: item.events?.conference_url,
+          eventTitle: item.events?.title
         })
 
-        if (!profile) {
-          throw new Error('Profile not found')
-        }
-
-        if (!profile.nylas_grant_id) {
+        if (!item.profiles?.nylas_grant_id) {
           throw new Error('Nylas grant ID not found')
         }
 
-        if (!event) {
-          throw new Error('Event not found')
-        }
-
-        if (!event.conference_url) {
+        if (!item.events?.conference_url) {
           throw new Error('Conference URL not found')
         }
 
         // Prepare the notetaker request payload
         const notetakerPayload = {
-          meeting_link: event.conference_url,
-          notetaker_name: profile.notetaker_name || 'Nylas Notetaker'
+          meeting_link: item.events.conference_url,
+          notetaker_name: item.profiles.notetaker_name || 'Nylas Notetaker'
         }
 
         console.log('Sending notetaker request:', {
-          grantId: profile.nylas_grant_id,
+          grantId: item.profiles.nylas_grant_id,
           payload: notetakerPayload
         })
 
-        // Send notetaker to the meeting with correct headers
+        // Send notetaker to the meeting
         const response = await fetch(
-          `${NYLAS_API_URL}/v3/grants/${profile.nylas_grant_id}/notetakers`,
+          `${NYLAS_API_URL}/v3/grants/${item.profiles.nylas_grant_id}/notetakers`,
           {
             method: 'POST',
             headers: {
@@ -100,27 +89,14 @@ Deno.serve(async (req) => {
           }
         )
 
-        const responseData = await response.json()
-        console.log('Nylas API response:', {
-          status: response.status,
-          data: responseData
-        })
-
         if (!response.ok) {
-          console.error('Nylas API error:', responseData)
-          throw new Error(responseData.message || `Failed to send notetaker: ${response.status}`)
+          const errorText = await response.text()
+          console.error('Nylas API error:', errorText)
+          throw new Error(`Failed to send notetaker: ${errorText}`)
         }
 
-        // Extract notetaker_id from the new response structure
-        const notetakerId = responseData.data?.notetaker_id
-        if (!notetakerId) {
-          throw new Error('No notetaker ID received from Nylas')
-        }
-
-        console.log('Notetaker sent successfully:', {
-          notetakerId,
-          eventTitle: event.title
-        })
+        const data = await response.json()
+        console.log('Nylas API response:', data)
 
         // Create a new recording entry
         const { error: recordingError } = await supabaseClient
@@ -128,8 +104,8 @@ Deno.serve(async (req) => {
           .insert({
             user_id: item.user_id,
             event_id: item.event_id,
-            notetaker_id: notetakerId,
-            recording_url: '', // Will be updated when recording is ready
+            notetaker_id: data.data.notetaker_id,
+            recording_url: '',
             status: 'pending'
           })
 
@@ -147,13 +123,12 @@ Deno.serve(async (req) => {
         if (deleteError) {
           console.error('Error deleting queue item:', deleteError)
           // Don't throw here, as the main operation was successful
-          // Just log the error and continue
         }
 
-        console.log('Queue item processed and deleted successfully:', {
+        console.log('Queue item processed successfully:', {
           queueId: item.id,
           eventId: item.event_id,
-          notetakerId
+          notetakerId: data.data.notetaker_id
         })
 
       } catch (error) {
