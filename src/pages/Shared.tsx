@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Eye, Link2, Calendar } from "lucide-react";
-import { format } from "date-fns";
+import { Link2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Shared() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [userId, setUserId] = useState<string | null>(null);
   const [sharedVideos, setSharedVideos] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,17 +36,17 @@ export default function Shared() {
       const { data, error } = await supabase
         .from('video_shares')
         .select(`
-          *,
+          id,
+          external_token,
+          share_type,
           recording:recordings (
             id,
             event:events (
               title,
               description,
               start_time,
+              end_time,
               participants
-            ),
-            views:video_views (
-              id
             )
           )
         `)
@@ -64,6 +65,15 @@ export default function Shared() {
       fetchSharedVideos();
     }
   }, [userId]);
+
+  const handleCopyLink = (token: string) => {
+    const shareUrl = `${window.location.origin}/shared/${token}`;
+    navigator.clipboard.writeText(shareUrl);
+    toast({
+      title: "Link copied",
+      description: "The share link has been copied to your clipboard.",
+    });
+  };
 
   if (isLoading) {
     return (
@@ -94,42 +104,28 @@ export default function Shared() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {sharedVideos.map((share) => (
-              <Card key={share.id}>
-                <CardHeader>
-                  <CardTitle className="text-lg">
-                    {share.recording?.event?.title}
-                  </CardTitle>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
-                    {share.recording?.event?.start_time && 
-                      format(new Date(share.recording.event.start_time), "PPP")}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {share.recording?.event?.description && (
-                    <p className="text-sm text-muted-foreground">
-                      {share.recording.event.description}
-                    </p>
-                  )}
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Eye className="h-4 w-4" />
-                      <span className="text-sm">
-                        {share.recording?.views?.length || 0} views
-                      </span>
+              <Card key={share.id} className="overflow-hidden">
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="font-semibold">
+                        {share.recording?.event?.title}
+                      </h3>
+                      {share.recording?.event?.description && (
+                        <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+                          {share.recording.event.description}
+                        </p>
+                      )}
                     </div>
+                    
                     {share.share_type === 'external' && (
                       <Button
                         variant="outline"
                         size="sm"
-                        className="flex items-center gap-2"
-                        onClick={() => {
-                          const shareUrl = `${window.location.origin}/shared/${share.external_token}`;
-                          navigator.clipboard.writeText(shareUrl);
-                        }}
+                        className="w-full flex items-center justify-center gap-2"
+                        onClick={() => handleCopyLink(share.external_token)}
                       >
                         <Link2 className="h-4 w-4" />
                         Copy Link
