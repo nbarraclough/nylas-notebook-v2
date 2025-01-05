@@ -100,8 +100,6 @@ export default function RecurringEvents() {
       console.log('Grouped recurring events:', groupedEvents);
       return groupedEvents;
     },
-    staleTime: 30000, // Consider data fresh for 30 seconds
-    refetchOnWindowFocus: true, // Refetch when window regains focus
   });
 
   return (
