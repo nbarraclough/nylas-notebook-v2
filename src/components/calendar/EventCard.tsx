@@ -58,6 +58,11 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
   const { data: profile } = useQuery({
     queryKey: ['profile', userId],
     queryFn: async () => {
+      if (!userId) {
+        console.log('No user ID provided, skipping profile fetch');
+        return null;
+      }
+
       console.log('Fetching profile for user:', userId);
       const { data, error } = await supabase
         .from('profiles')
@@ -73,10 +78,16 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
       console.log('Profile data:', data);
       return data;
     },
+    enabled: !!userId, // Only run query if userId exists
   });
 
   // Check if event is already in queue
   const checkQueueStatus = async () => {
+    if (!userId) {
+      console.log('No user ID available, skipping queue check');
+      return;
+    }
+
     console.log('Checking queue status for event:', event.id);
     const { data, error } = await supabase
       .from('notetaker_queue')
@@ -96,7 +107,9 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
 
   // Load initial queue status
   useEffect(() => {
-    checkQueueStatus();
+    if (userId) {
+      checkQueueStatus();
+    }
   }, [event.id, userId]);
 
   const handleQueueToggle = (newState: boolean) => {
