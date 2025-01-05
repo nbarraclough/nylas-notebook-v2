@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { format } from "date-fns";
 import { VideoPlayerView } from "./VideoPlayerView";
+import { Badge } from "@/components/ui/badge";
+import { Shield, Globe } from "lucide-react";
 
 interface RecordingGridProps {
   recordings: any[];
@@ -10,6 +12,16 @@ interface RecordingGridProps {
 
 export function RecordingGrid({ recordings, isLoading }: RecordingGridProps) {
   const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
+
+  const isInternalMeeting = (recording: any) => {
+    const organizerDomain = recording.event?.organizer?.email?.split('@')[1];
+    if (!organizerDomain || !Array.isArray(recording.event?.participants)) return false;
+    
+    return recording.event.participants.every((participant: any) => {
+      const participantDomain = participant.email?.split('@')[1];
+      return participantDomain === organizerDomain;
+    });
+  };
 
   if (isLoading) {
     return (
@@ -38,37 +50,60 @@ export function RecordingGrid({ recordings, isLoading }: RecordingGridProps) {
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {recordings.map((recording) => (
-          <Card
-            key={recording.id}
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => setSelectedRecording(recording.id)}
-          >
-            <div className="aspect-video bg-muted relative">
-              {(recording.video_url || recording.recording_url) && (
-                <video
-                  src={recording.video_url || recording.recording_url}
-                  className="w-full h-full object-cover"
-                  preload="metadata"
-                />
-              )}
-              {recording.duration && (
-                <div className="absolute bottom-2 right-2 bg-black/75 text-white text-sm px-2 py-1 rounded">
-                  {Math.floor(recording.duration / 60)} min
+        {recordings.map((recording) => {
+          const internal = isInternalMeeting(recording);
+          return (
+            <Card
+              key={recording.id}
+              className="cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => setSelectedRecording(recording.id)}
+            >
+              <div className="aspect-video bg-muted relative">
+                {(recording.video_url || recording.recording_url) && (
+                  <video
+                    src={recording.video_url || recording.recording_url}
+                    className="w-full h-full object-cover"
+                    preload="metadata"
+                  />
+                )}
+                {recording.duration && (
+                  <div className="absolute bottom-2 right-2 bg-black/75 text-white text-sm px-2 py-1 rounded">
+                    {Math.floor(recording.duration / 60)} min
+                  </div>
+                )}
+              </div>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="font-medium line-clamp-1">
+                      {recording.event?.title || 'Untitled Recording'}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {recording.event?.start_time && 
+                        format(new Date(recording.event.start_time), "PPp")}
+                    </p>
+                  </div>
+                  <Badge 
+                    variant={internal ? "secondary" : "outline"}
+                    className={`text-xs ${internal ? 'bg-purple-100 hover:bg-purple-100 text-purple-800' : 'border-blue-200 text-blue-700 hover:bg-blue-50'}`}
+                  >
+                    {internal ? (
+                      <>
+                        <Shield className="w-3 h-3 mr-1" />
+                        Internal
+                      </>
+                    ) : (
+                      <>
+                        <Globe className="w-3 h-3 mr-1" />
+                        External
+                      </>
+                    )}
+                  </Badge>
                 </div>
-              )}
-            </div>
-            <CardContent className="p-4">
-              <h3 className="font-medium line-clamp-1">
-                {recording.event?.title || 'Untitled Recording'}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {recording.event?.start_time && 
-                  format(new Date(recording.event.start_time), "PPp")}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {selectedRecording && (

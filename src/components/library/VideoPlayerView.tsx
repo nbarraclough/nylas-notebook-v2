@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Share2, Mail } from "lucide-react";
+import { Share2, Mail, Shield, Globe } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { ShareVideoDialog } from "@/components/recordings/ShareVideoDialog";
 import { ShareViaEmailButton } from "@/components/recordings/email/ShareViaEmailButton";
 import { VideoPlayer } from "@/components/recordings/player/VideoPlayer";
@@ -60,6 +61,16 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
     },
   });
 
+  const isInternalMeeting = () => {
+    const organizerDomain = recording?.event?.organizer?.email?.split('@')[1];
+    if (!organizerDomain || !Array.isArray(recording?.event?.participants)) return false;
+    
+    return recording.event.participants.every((participant: any) => {
+      const participantDomain = participant.email?.split('@')[1];
+      return participantDomain === organizerDomain;
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -97,13 +108,32 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
 
   const publicShare = recording.video_shares?.find(share => share.share_type === 'external');
   const shareUrl = publicShare ? `${window.location.origin}/shared/${publicShare.external_token}` : null;
+  const internal = isInternalMeeting();
 
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
       <Card className="w-full max-w-6xl mx-4">
         <CardContent className="p-6 space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold">{recording.event?.title}</h2>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-semibold">{recording.event?.title}</h2>
+              <Badge 
+                variant={internal ? "secondary" : "outline"}
+                className={`text-xs ${internal ? 'bg-purple-100 hover:bg-purple-100 text-purple-800' : 'border-blue-200 text-blue-700 hover:bg-blue-50'}`}
+              >
+                {internal ? (
+                  <>
+                    <Shield className="w-3 h-3 mr-1" />
+                    Internal
+                  </>
+                ) : (
+                  <>
+                    <Globe className="w-3 h-3 mr-1" />
+                    External
+                  </>
+                )}
+              </Badge>
+            </div>
             <div className="flex items-center gap-2">
               <ShareVideoDialog recordingId={recordingId} />
               {shareUrl && (
