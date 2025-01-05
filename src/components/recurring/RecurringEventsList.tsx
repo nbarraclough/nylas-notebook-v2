@@ -7,6 +7,7 @@ import { VideoPlayerView } from "@/components/library/VideoPlayerView";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@supabase/auth-helpers-react";
 
 interface RecurringEventsListProps {
   recurringEvents: Record<string, any[]>;
@@ -28,6 +29,7 @@ export function RecurringEventsList({
   const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const toggleExpanded = (masterId: string) => {
     setExpandedEvents(prev =>
@@ -38,12 +40,22 @@ export function RecurringEventsList({
   };
 
   const handleSaveNotes = async (masterId: string) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to save notes.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('recurring_event_notes')
         .upsert({
           master_event_id: masterId,
           content: notes[masterId],
+          user_id: user.id
         });
 
       if (error) throw error;
