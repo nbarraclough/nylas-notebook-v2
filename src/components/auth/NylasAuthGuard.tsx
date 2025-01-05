@@ -31,7 +31,9 @@ export const NylasAuthGuard = ({ children }: { children: React.ReactNode }) => {
         .eq('id', session.user.id)
         .single();
 
-      if (profile?.grant_status && profile.grant_status !== 'active') {
+      // Redirect unless grant_status is explicitly 'active'
+      if (profile?.grant_status !== 'active') {
+        console.log('Redirecting due to grant_status:', profile?.grant_status);
         toast({
           title: "Calendar Connection Required",
           description: "Your calendar access needs to be reconnected. Redirecting to calendar page...",
