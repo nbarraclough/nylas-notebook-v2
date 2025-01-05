@@ -62,6 +62,16 @@ export function EmailComposerDialog({
       return;
     }
 
+    // Check if email already exists
+    if (recipients.some(r => r.email === newEmail)) {
+      toast({
+        title: "Error",
+        description: "This email address is already in the recipients list.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setRecipients([...recipients, { 
       name: newName || newEmail.split('@')[0], 
       email: newEmail 

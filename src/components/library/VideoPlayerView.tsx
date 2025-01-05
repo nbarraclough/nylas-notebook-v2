@@ -111,8 +111,8 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
     ? [{ name: profile?.email?.split('@')[0] || '', email: profile?.email || '' }]
     : Array.isArray(recording.event?.participants)
       ? recording.event.participants.map((p: any) => ({
-          name: typeof p === 'object' ? p.name || '' : '',
-          email: typeof p === 'object' ? p.email || '' : p || ''
+          name: typeof p === 'object' && p !== null ? p.name || p.email?.split('@')[0] || '' : '',
+          email: typeof p === 'object' && p !== null ? p.email || '' : p || ''
         }))
       : [];
 
