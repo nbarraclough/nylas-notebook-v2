@@ -28,11 +28,20 @@ export const ConnectNylas = () => {
 
       if (profile) {
         setGrantStatus(profile.grant_status);
+        
+        // If grant is expired, show a toast notification
+        if (profile.grant_status === 'expired') {
+          toast({
+            title: "Calendar Connection Expired",
+            description: "Your calendar access has expired. Please reconnect to continue using Notebook.",
+            variant: "destructive",
+          });
+        }
       }
     };
 
     checkGrantStatus();
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     const code = searchParams.get('code');
@@ -137,12 +146,15 @@ export const ConnectNylas = () => {
     if (!grantStatus || grantStatus === 'active') return null;
 
     let message = "";
+    let variant = "destructive";
+
     switch (grantStatus) {
       case 'pending':
         message = "Your calendar connection is pending. Please authenticate to continue.";
+        variant = "default";
         break;
       case 'expired':
-        message = "Your calendar connection has expired. Please reconnect to continue.";
+        message = "⚠️ Your calendar access has expired. You must reconnect to continue using Notebook.";
         break;
       case 'error':
         message = "There was an error with your calendar connection. Please reconnect to continue.";
@@ -155,7 +167,7 @@ export const ConnectNylas = () => {
     }
 
     return (
-      <Alert variant="destructive" className="mb-4">
+      <Alert variant={variant as "default" | "destructive"} className="mb-4">
         <AlertTriangle className="h-4 w-4" />
         <AlertDescription>{message}</AlertDescription>
       </Alert>
@@ -175,7 +187,9 @@ export const ConnectNylas = () => {
           ) : (
             <>
               <p className="text-muted-foreground">
-                Connect your calendar to start recording meetings with Notebook.
+                {grantStatus === 'expired' 
+                  ? "Your calendar access has expired. Please reconnect to continue using Notebook."
+                  : "Connect your calendar to start recording meetings with Notebook."}
               </p>
               <Button 
                 size="lg" 
