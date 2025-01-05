@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Send } from "lucide-react";
+import { InteractiveHoverButton } from "../ui/interactive-hover-button";
 
 export function SendNotetaker() {
   const [meetingInfo, setMeetingInfo] = useState("");
@@ -14,7 +14,6 @@ export function SendNotetaker() {
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
 
-  // Extract meeting URL from meeting info
   const extractMeetingUrl = (info: string) => {
     // Regular expressions for common meeting URL patterns
     const patterns = [
@@ -131,10 +130,10 @@ export function SendNotetaker() {
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <Button variant="default" size="sm" className="gap-2">
-          <Send className="h-4 w-4" />
-          Send Notetaker
-        </Button>
+        <InteractiveHoverButton 
+          text="Send Notetaker"
+          className="w-40"
+        />
       </PopoverTrigger>
       <PopoverContent className="w-80">
         <div className="space-y-4">
