@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from '../_shared/cors.ts'
-import { validateWebhook } from './webhook-validator.ts'
+import { verifyWebhookSignature } from '../_shared/webhook-verification.ts'
 import { 
   handleEventCreated, 
   handleEventUpdated, 
@@ -10,91 +10,73 @@ import {
   handleGrantDeleted,
   handleGrantExpired
 } from '../_shared/webhook-handlers.ts'
-import { 
-  logWebhookRequest, 
-  logRawBody,
-  logParsedWebhook,
-  logWebhookError,
-  logWebhookSuccess
-} from '../_shared/webhook-logger.ts'
 
 serve(async (req) => {
-  // Log every single request immediately
-  console.log('🔍 Raw request:', {
-    method: req.method,
-    url: req.url,
-    headers: Object.fromEntries(req.headers.entries())
-  });
+  const requestId = crypto.randomUUID();
+  console.log(`⚡ [${requestId}] Webhook handler started at ${new Date().toISOString()}`);
 
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { 
-      headers: corsHeaders
-    });
-  }
-
-  // Handle GET requests (webhook verification)
-  if (req.method === 'GET') {
-    const url = new URL(req.url);
-    const challenge = url.searchParams.get('challenge');
-    
-    console.log('🎯 Challenge verification request:', {
-      challenge,
-      params: Object.fromEntries(url.searchParams.entries())
-    });
-    
-    if (challenge) {
-      console.log('✅ Returning challenge:', challenge);
-      return new Response(challenge, {
-        status: 200,
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'text/plain'
-        }
+  try {
+    // Handle CORS preflight
+    if (req.method === 'OPTIONS') {
+      console.log(`🔄 [${requestId}] CORS preflight request`);
+      return new Response(null, { 
+        headers: corsHeaders 
       });
     }
 
-    console.log('❌ Missing challenge parameter');
-    return new Response('Missing challenge parameter', { 
-      status: 400,
-      headers: { 
-        ...corsHeaders, 
-        'Content-Type': 'text/plain'
-      }
+    // Log request details
+    console.log(`🔍 [${requestId}] Request details:`, {
+      method: req.method,
+      url: req.url,
+      headers: Object.fromEntries(req.headers.entries())
     });
-  }
 
-  // Handle POST requests (webhook events)
-  if (req.method === 'POST') {
-    try {
-      // Log raw request body before any processing
-      const rawBody = await req.text();
-      console.log('📦 Raw webhook body:', rawBody);
+    // Handle challenge parameter in URL for both GET and POST requests
+    const url = new URL(req.url);
+    const challenge = url.searchParams.get('challenge');
+    if (challenge) {
+      console.log(`🎯 [${requestId}] Challenge received:`, challenge);
+      return new Response(challenge, {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
+      });
+    }
 
-      // Validate webhook signature
+    // Only proceed with webhook processing for POST requests
+    if (req.method === 'POST') {
+      // Get signature and body
       const signature = req.headers.get('x-nylas-signature');
-      console.log('🔐 Webhook signature:', signature);
+      console.log(`🔑 [${requestId}] Signature received:`, signature);
       
-      const { isValid } = await validateWebhook(rawBody, signature);
+      const rawBody = await req.text();
+      console.log(`📦 [${requestId}] Raw webhook body:`, rawBody);
+      
+      const webhookSecret = Deno.env.get('NYLAS_WEBHOOK_SECRET');
+
+      // Validate webhook
+      if (!webhookSecret) {
+        console.error(`❌ [${requestId}] NYLAS_WEBHOOK_SECRET not configured`);
+        throw new Error('NYLAS_WEBHOOK_SECRET not configured');
+      }
+
+      const isValid = await verifyWebhookSignature(rawBody, signature || '', webhookSecret);
+      console.log(`🔐 [${requestId}] Signature validation:`, isValid ? 'valid' : 'invalid');
       
       if (!isValid) {
-        console.log('❌ Invalid webhook signature');
-        return new Response(
-          JSON.stringify({ success: false, message: 'Invalid signature' }),
-          { 
-            status: 401,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
+        console.error(`❌ [${requestId}] Invalid webhook signature`);
+        return new Response('Invalid signature', { 
+          status: 401,
+          headers: corsHeaders 
+        });
       }
 
       // Parse webhook data
       let webhookData;
       try {
         webhookData = JSON.parse(rawBody);
-        console.log('🔍 Parsed webhook data:', webhookData);
+        console.log(`✅ [${requestId}] Successfully parsed webhook data:`, webhookData);
       } catch (error) {
-        console.error('❌ JSON parsing error:', error);
+        console.error(`❌ [${requestId}] Failed to parse webhook data:`, error);
         return new Response(
           JSON.stringify({ success: false, message: 'Invalid JSON payload' }),
           { 
@@ -109,7 +91,7 @@ serve(async (req) => {
         const grantId = webhookData.data.object.grant_id;
         let result;
         
-        console.log('🎯 Processing webhook type:', webhookData.type);
+        console.log(`🎯 [${requestId}] Processing webhook type:`, webhookData.type);
         
         switch (webhookData.type) {
           case 'event.created':
@@ -134,7 +116,7 @@ serve(async (req) => {
             result = await handleGrantExpired(webhookData.data);
             break;
           default:
-            console.log('⚠️ Unhandled webhook type:', webhookData.type);
+            console.log(`⚠️ [${requestId}] Unhandled webhook type:`, webhookData.type);
             return new Response(
               JSON.stringify({
                 success: false,
@@ -147,7 +129,7 @@ serve(async (req) => {
             );
         }
 
-        console.log('✅ Successfully processed webhook:', {
+        console.log(`✅ [${requestId}] Successfully processed webhook:`, {
           type: webhookData.type,
           result
         });
@@ -161,7 +143,7 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (error) {
-        console.error('❌ Error processing webhook:', error);
+        console.error(`❌ [${requestId}] Error processing webhook:`, error);
         return new Response(
           JSON.stringify({ success: false, message: error.message }),
           { 
@@ -170,32 +152,31 @@ serve(async (req) => {
           }
         );
       }
-    } catch (error) {
-      console.error('❌ Error handling webhook request:', error);
-      return new Response(
-        JSON.stringify({ success: false, message: 'Internal server error' }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
     }
-  }
 
-  // Handle unsupported methods
-  console.log('⚠️ Unsupported method:', req.method);
-  return new Response(
-    JSON.stringify({
-      success: false,
-      message: `Method ${req.method} not allowed`
-    }),
-    { 
+    // If we get here, it's a non-POST request without a challenge
+    console.error(`❌ [${requestId}] Invalid request method: ${req.method}`);
+    return new Response(`Method not allowed`, { 
       status: 405,
-      headers: { 
-        ...corsHeaders,
-        'Allow': 'POST, GET, OPTIONS',
-        'Content-Type': 'application/json'
+      headers: corsHeaders 
+    });
+
+  } catch (error) {
+    console.error(`❌ [${requestId}] Webhook error:`, {
+      error: error.message,
+      stack: error.stack
+    });
+    
+    return new Response(
+      JSON.stringify({
+        success: false,
+        message: error.message,
+        status: 'acknowledged'
+      }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
-    }
-  );
+    );
+  }
 })
