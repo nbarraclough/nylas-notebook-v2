@@ -38,15 +38,16 @@ interface NylasEvent {
 
 export async function processEvent(event: NylasEvent, userId: string, supabaseAdmin: any) {
   try {
-    // Skip events without valid timestamps
-    if (!event.when?.start_time || !event.when?.end_time) {
+    // Validate timestamps before processing
+    if (!event.when?.start_time || !event.when?.end_time || 
+        isNaN(event.when.start_time) || isNaN(event.when.end_time)) {
       console.log('Skipping event with invalid timestamps:', {
         id: event.id,
         title: event.title,
         startTime: event.when?.start_time,
         endTime: event.when?.end_time
       });
-      return;
+      return; // Skip this event but continue processing others
     }
 
     const eventData = {
@@ -94,10 +95,10 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseAd
 
     if (upsertError) {
       console.error('Error upserting event:', event.id, upsertError);
-      throw upsertError;
+      // Don't throw the error, just log it and continue with the next event
+    } else {
+      console.log('Successfully processed event:', event.id);
     }
-
-    console.log('Successfully processed event:', event.id);
   } catch (error) {
     console.error('Error processing event:', {
       eventId: event.id,
