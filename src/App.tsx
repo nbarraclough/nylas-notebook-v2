@@ -5,6 +5,7 @@ import Calendar from "./pages/Calendar";
 import Queue from "./pages/Queue";
 import Recordings from "./pages/Recordings";
 import Settings from "./pages/Settings";
+import Library from "./pages/Library";
 import { SharedVideoView } from "./components/shared/SharedVideoView";
 import Shared from "./pages/Shared";
 
@@ -33,6 +34,10 @@ const router = createBrowserRouter([
   {
     path: "/settings",
     element: <Settings />,
+  },
+  {
+    path: "/library",
+    element: <Library />,
   },
   {
     path: "/shared",
