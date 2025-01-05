@@ -123,7 +123,7 @@ export function WelcomeCard({ email }: WelcomeCardProps) {
             onChange={(e) => setInviteEmail(e.target.value)}
             className="flex-1"
           />
-          <Button onClick={handleInvite} disabled={isInviting}>
+          <Button onClick={handleInvite} disabled={isInviting} className="text-white">
             <UserPlus className="mr-2 h-4 w-4" />
             Invite
           </Button>
