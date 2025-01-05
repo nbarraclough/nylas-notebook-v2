@@ -23,35 +23,39 @@ export const processEvent = async (
       return;
     }
 
-    // Check if this is an all-day event by examining the 'when' object
-    if (event.when?.object === 'date' || event.when?.all_day === true) {
-      console.log('Skipping all-day event:', event.id);
-      return;
-    }
-
     // Handle timestamps based on source (Nylas API vs Database)
-    let startTime: string | null;
-    let endTime: string | null;
+    let startTime: string | null = null;
+    let endTime: string | null = null;
 
     if (event.when) {
       // Coming from Nylas API - convert Unix timestamp to ISO string
-      startTime = event.when.start_time ? new Date(event.when.start_time * 1000).toISOString() : null;
-      endTime = event.when.end_time ? new Date(event.when.end_time * 1000).toISOString() : null;
+      if (event.when.start_time && event.when.end_time) {
+        startTime = new Date(event.when.start_time * 1000).toISOString();
+        endTime = new Date(event.when.end_time * 1000).toISOString();
+      }
     } else {
       // Coming from Database or other source
-      startTime = event.start_time ? new Date(event.start_time).toISOString() : null;
-      endTime = event.end_time ? new Date(event.end_time).toISOString() : null;
+      if (event.start_time && event.end_time) {
+        startTime = new Date(event.start_time).toISOString();
+        endTime = new Date(event.end_time).toISOString();
+      }
     }
 
     // Skip events without valid timestamps
     if (!startTime || !endTime) {
-      console.error('Invalid timestamps for event:', {
+      console.log('Skipping event with invalid timestamps:', {
         id: event.id,
         startTime,
         endTime,
         rawStartTime: event.when?.start_time || event.start_time,
         rawEndTime: event.when?.end_time || event.end_time
       });
+      return;
+    }
+
+    // Check if this is an all-day event by examining the 'when' object
+    if (event.when?.object === 'date' || event.when?.all_day === true) {
+      console.log('Skipping all-day event:', event.id);
       return;
     }
 
@@ -124,6 +128,7 @@ export const processEvent = async (
 
   } catch (error) {
     console.error('Error processing event:', event.id, error);
-    throw error;
+    // Don't throw the error, just log it and continue with the next event
+    return;
   }
 };
