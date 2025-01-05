@@ -20,6 +20,8 @@ interface EventCardProps {
 export function EventCard({ event, onTogglePin }: EventCardProps) {
   // Determine if meeting is internal based on email domains
   const isInternalMeeting = (() => {
+    if (!event.latestEvent?.participants) return true;
+    
     const participants = event.latestEvent.participants || [];
     if (participants.length === 0) return true;
     
@@ -30,6 +32,11 @@ export function EventCard({ event, onTogglePin }: EventCardProps) {
       participant.email?.split('@')[1] === organizerDomain
     );
   })();
+
+  // Ensure latestEvent exists before rendering
+  if (!event.latestEvent) {
+    return null;
+  }
 
   return (
     <div className="relative group">
