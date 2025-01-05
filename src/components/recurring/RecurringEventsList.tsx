@@ -3,8 +3,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { EventsSection } from "./EventsSection";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RecurringEventSkeleton } from "./RecurringEventSkeleton";
 
 interface RecurringEventsListProps {
   recurringEvents: Record<string, any[]>;
@@ -24,6 +25,14 @@ export function RecurringEventsList({
 }: RecurringEventsListProps) {
   const { toast } = useToast();
   const [localEvents, setLocalEvents] = useState(recurringEvents);
+  const [hasInitialData, setHasInitialData] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading && Object.keys(recurringEvents).length > 0 && !hasInitialData) {
+      setHasInitialData(true);
+      setLocalEvents(recurringEvents);
+    }
+  }, [recurringEvents, isLoading, hasInitialData]);
 
   const togglePin = useCallback(async (masterId: string, currentPinned: boolean) => {
     try {
@@ -62,29 +71,9 @@ export function RecurringEventsList({
     }
   }, [toast]);
 
-  if (isLoading) {
-    return (
-      <div className="space-y-8">
-        {[1, 2].map((section) => (
-          <div key={section} className="space-y-4">
-            <Skeleton className="h-8 w-48" />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {[1, 2].map((card) => (
-                <Card key={card}>
-                  <CardContent className="p-6">
-                    <div className="space-y-4">
-                      <Skeleton className="h-6 w-3/4" />
-                      <Skeleton className="h-4 w-1/2" />
-                      <Skeleton className="h-4 w-1/4" />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
+  // Show loading skeleton while loading or waiting for initial data
+  if (isLoading || !hasInitialData) {
+    return <RecurringEventSkeleton />;
   }
 
   const filterEvents = (events: any[]) => {
@@ -157,8 +146,8 @@ export function RecurringEventsList({
     .sort((a, b) => new Date(b.latestEvent.start_time).getTime() - 
                     new Date(a.latestEvent.start_time).getTime());
 
-  // Only show no data message if we're not loading and there are no events after filtering
-  if (!isLoading && (!processedEvents || processedEvents.length === 0)) {
+  // Only show no data message if we have initial data but no events after filtering
+  if (hasInitialData && (!processedEvents || processedEvents.length === 0)) {
     return (
       <Card>
         <CardContent className="p-6 text-center text-muted-foreground">
