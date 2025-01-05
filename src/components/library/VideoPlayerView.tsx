@@ -65,15 +65,17 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   });
 
   const isInternalMeeting = () => {
-    const organizerEmail = typeof recording?.event?.organizer === 'object' ? 
-      recording?.event?.organizer?.email : 
+    const organizerEmail = typeof recording?.event?.organizer === 'object' && recording?.event?.organizer !== null ? 
+      (recording.event.organizer as { email?: string })?.email : 
       profile?.email; // Fallback to user's email for manual meetings
     
     if (!organizerEmail || !Array.isArray(recording?.event?.participants)) return false;
     
     const organizerDomain = organizerEmail.split('@')[1];
     return recording.event.participants.every((participant: any) => {
-      const participantEmail = typeof participant === 'object' ? participant.email : participant;
+      const participantEmail = typeof participant === 'object' && participant !== null ? 
+        (participant as { email?: string })?.email : 
+        participant as string;
       const participantDomain = participantEmail?.split('@')[1];
       return participantDomain === organizerDomain;
     });
