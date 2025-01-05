@@ -18,6 +18,20 @@ type RecordingWithRelations = Database['public']['Tables']['recordings']['Row'] 
   }>;
 };
 
+const parseParticipants = (participants: unknown): EventParticipant[] => {
+  if (!Array.isArray(participants)) return [];
+  
+  return participants.map(p => {
+    if (typeof p === 'object' && p !== null) {
+      return {
+        name: String(p.name || ''),
+        email: String(p.email || '')
+      };
+    }
+    return { name: '', email: '' };
+  });
+};
+
 export default function Library() {
   const [filters, setFilters] = useState({
     types: [],
@@ -31,9 +45,13 @@ export default function Library() {
   const { data: recordings, isLoading } = useQuery({
     queryKey: ['library-recordings', filters],
     queryFn: async () => {
+      console.log('Fetching recordings...');
+      
       // First, get the current user's profile to know their organization
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
+
+      console.log('Current user:', user.id);
 
       const { data: profile } = await supabase
         .from('profiles')
@@ -41,18 +59,15 @@ export default function Library() {
         .eq('id', user.id)
         .single();
 
+      console.log('User profile:', profile);
+
       // Get user's own recordings and recordings shared with their organization
       const { data: userRecordings, error: userError } = await supabase
         .from('recordings')
         .select(`
           *,
           event:events (
-            title,
-            description,
-            start_time,
-            end_time,
-            participants,
-            organizer
+            *
           ),
           video_shares (
             share_type,
@@ -62,7 +77,11 @@ export default function Library() {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (userError) throw userError;
+      console.log('User recordings:', userRecordings);
+      if (userError) {
+        console.error('Error fetching user recordings:', userError);
+        throw userError;
+      }
 
       // Get recordings shared within the organization
       const { data: sharedRecordings, error: sharedError } = await supabase
@@ -70,24 +89,23 @@ export default function Library() {
         .select(`
           *,
           event:events (
-            title,
-            description,
-            start_time,
-            end_time,
-            participants,
-            organizer
+            *
           ),
           video_shares (
             share_type,
             organization_id
           )
         `)
-        .neq('user_id', user.id) // Exclude user's own recordings
+        .neq('user_id', user.id)
         .eq('video_shares.share_type', 'internal')
         .eq('video_shares.organization_id', profile?.organization_id)
         .order('created_at', { ascending: false });
 
-      if (sharedError) throw sharedError;
+      console.log('Shared recordings:', sharedRecordings);
+      if (sharedError) {
+        console.error('Error fetching shared recordings:', sharedError);
+        throw sharedError;
+      }
 
       // Combine and deduplicate recordings
       const allRecordings = [...(userRecordings || []), ...(sharedRecordings || [])]
@@ -95,9 +113,11 @@ export default function Library() {
           ...recording,
           event: {
             ...recording.event,
-            participants: (recording.event?.participants || []) as EventParticipant[]
+            participants: parseParticipants(recording.event?.participants)
           }
         })) as RecordingWithRelations[];
+
+      console.log('All recordings after processing:', allRecordings);
 
       const uniqueRecordings = Array.from(new Map(allRecordings.map(r => [r.id, r])).values());
 
@@ -130,6 +150,7 @@ export default function Library() {
         );
       }
 
+      console.log('Filtered recordings:', filteredRecordings);
       return filteredRecordings;
     }
   });
