@@ -327,8 +327,10 @@ export type Database = {
         Row: {
           created_at: string
           email: string
+          first_name: string | null
           grant_status: string | null
           id: string
+          last_name: string | null
           notetaker_name: string | null
           nylas_grant_id: string | null
           organization_id: string | null
@@ -341,8 +343,10 @@ export type Database = {
         Insert: {
           created_at?: string
           email: string
+          first_name?: string | null
           grant_status?: string | null
           id: string
+          last_name?: string | null
           notetaker_name?: string | null
           nylas_grant_id?: string | null
           organization_id?: string | null
@@ -355,8 +359,10 @@ export type Database = {
         Update: {
           created_at?: string
           email?: string
+          first_name?: string | null
           grant_status?: string | null
           id?: string
+          last_name?: string | null
           notetaker_name?: string | null
           nylas_grant_id?: string | null
           organization_id?: string | null

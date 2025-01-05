@@ -56,6 +56,15 @@ serve(async (req) => {
       throw new Error('No grant_id in Nylas response')
     }
 
+    // Get user info from Nylas
+    const userInfoResponse = await fetch(`https://api-staging.us.nylas.com/v3/grants/${grant_id}/user`, {
+      headers: {
+        'Authorization': `Bearer ${clientId}:${clientSecret}`,
+      },
+    });
+
+    const userInfo = await userInfoResponse.json();
+
     // Get user ID from auth header
     const authHeader = req.headers.get('Authorization')?.split(' ')[1]
     if (!authHeader) {
@@ -89,14 +98,18 @@ serve(async (req) => {
       console.error('Error deleting events:', deleteEventsError)
     }
 
-    // Update the profile with new nylas_grant_id using RPC call
-    const { data: updateData, error: updateError } = await supabase.rpc(
-      'update_profile_grant_id',
-      {
-        p_user_id: userId,
-        p_grant_id: grant_id
-      }
-    )
+    // Update the profile with new nylas_grant_id and user info
+    const { data: updateData, error: updateError } = await supabase
+      .from('profiles')
+      .update({
+        nylas_grant_id: grant_id,
+        first_name: userInfo.name?.given_name || null,
+        last_name: userInfo.name?.surname || null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId)
+      .select()
+      .single();
 
     if (updateError) {
       throw new Error(`Failed to update profile: ${updateError.message}`)
@@ -105,6 +118,9 @@ serve(async (req) => {
     if (!updateData) {
       throw new Error('Profile update returned no data')
     }
+
+    // Remove code from URL without triggering a page reload
+    window.history.replaceState({}, '', '/calendar');
 
     return new Response(
       JSON.stringify({ 
@@ -118,6 +134,7 @@ serve(async (req) => {
       }
     )
   } catch (error) {
+    console.error('Error during Nylas authentication:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
