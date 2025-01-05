@@ -1,6 +1,3 @@
-import { Button } from "@/components/ui/button";
-import { Video } from "lucide-react";
-
 interface LibraryHeaderProps {
   recordingsCount: number;
 }
@@ -14,10 +11,6 @@ export function LibraryHeader({ recordingsCount }: LibraryHeaderProps) {
           {recordingsCount} recordings
         </p>
       </div>
-      <Button>
-        <Video className="mr-2 h-4 w-4" />
-        New recording
-      </Button>
     </div>
   );
 }
