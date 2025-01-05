@@ -16,30 +16,30 @@ Deno.serve(async (req) => {
       throw new Error('Missing required parameters')
     }
 
-    // Get user's notetaker name preference
+    // Initialize Supabase client
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { data: profile, error: profileError } = await supabaseClient
-      .from('profiles')
-      .select('notetaker_name')
-      .eq('nylas_grant_id', grantId)
+    // Get user's profile for notetaker name
+    const { data: event, error: eventError } = await supabaseClient
+      .from('events')
+      .select(`
+        *,
+        profiles:user_id (
+          notetaker_name
+        )
+      `)
+      .eq('id', meetingId)
       .single()
 
-    if (profileError) {
-      console.error('Error fetching profile:', profileError)
-      throw new Error('Failed to fetch user profile')
+    if (eventError) {
+      console.error('Error fetching event:', eventError)
+      throw new Error('Failed to fetch event details')
     }
 
-    // Send notetaker to the meeting using Nylas API
-    console.log('Sending request to Nylas API:', {
-      url: `${NYLAS_API_URL}/v3/grants/${grantId}/notetakers`,
-      meetingUrl,
-      notetakerName: profile?.notetaker_name || 'Nylas Notetaker'
-    })
-
+    // Send notetaker to the meeting
     const response = await fetch(
       `${NYLAS_API_URL}/v3/grants/${grantId}/notetakers`,
       {
@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           meeting_link: meetingUrl,
-          notetaker_name: profile?.notetaker_name || 'Nylas Notetaker'
+          notetaker_name: event.profiles?.notetaker_name || 'Nylas Notetaker'
         })
       }
     )
@@ -68,12 +68,31 @@ Deno.serve(async (req) => {
     // Update the notetaker queue with the notetaker_id
     const { error: queueError } = await supabaseClient
       .from('notetaker_queue')
-      .update({ notetaker_id: data.data.notetaker_id })
+      .update({ 
+        notetaker_id: data.data.notetaker_id,
+        status: 'sent'
+      })
       .eq('event_id', meetingId)
 
     if (queueError) {
       console.error('Error updating notetaker queue:', queueError)
       throw new Error('Failed to update notetaker queue')
+    }
+
+    // Create a recording entry with the notetaker_id
+    const { error: recordingError } = await supabaseClient
+      .from('recordings')
+      .insert({
+        user_id: event.user_id,
+        event_id: meetingId,
+        notetaker_id: data.data.notetaker_id,
+        recording_url: '',
+        status: 'pending'
+      })
+
+    if (recordingError) {
+      console.error('Error creating recording:', recordingError)
+      throw new Error('Failed to create recording entry')
     }
 
     return new Response(
