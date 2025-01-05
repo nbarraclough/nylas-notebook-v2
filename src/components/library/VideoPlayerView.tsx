@@ -29,6 +29,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
             title,
             description,
             start_time,
+            end_time,
             participants,
             organizer,
             manual_meeting:manual_meetings (
@@ -150,6 +151,8 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
             grantId={profile?.nylas_grant_id}
             recordingId={recordingId}
             onClose={onClose}
+            startTime={recording.event?.start_time}
+            endTime={recording.event?.end_time}
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

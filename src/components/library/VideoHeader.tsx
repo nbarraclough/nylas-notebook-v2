@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Share2, Shield, Globe, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { format } from "date-fns";
 import { ShareVideoDialog } from "@/components/recordings/ShareVideoDialog";
 import { ShareViaEmailButton } from "@/components/recordings/email/ShareViaEmailButton";
 import {
@@ -18,6 +19,8 @@ interface VideoHeaderProps {
   grantId?: string;
   recordingId: string;
   onClose: () => void;
+  startTime?: string;
+  endTime?: string;
 }
 
 export function VideoHeader({
@@ -27,12 +30,19 @@ export function VideoHeader({
   participants,
   grantId,
   recordingId,
-  onClose
+  onClose,
+  startTime,
+  endTime
 }: VideoHeaderProps) {
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-start justify-between">
       <div className="space-y-1">
         <h2 className="text-2xl font-semibold">{title}</h2>
+        {startTime && endTime && (
+          <p className="text-sm text-muted-foreground">
+            {format(new Date(startTime), "EEEE, MMMM d, yyyy 'at' h:mm a")} - {format(new Date(endTime), "h:mm a")}
+          </p>
+        )}
         <div className="flex items-center gap-2">
           <Badge 
             variant={isInternal ? "secondary" : "outline"}
