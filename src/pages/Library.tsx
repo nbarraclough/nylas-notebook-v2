@@ -50,7 +50,7 @@ export default function Library() {
             organization_id
           )
         `)
-        .or(`user_id.eq.${user.id}, video_shares.and(share_type.eq.internal,organization_id.eq.${profile?.organization_id})`)
+        .or(`user_id.eq.${user.id},video_shares.share_type.eq.internal,video_shares.organization_id.eq.${profile?.organization_id}`)
         .order('created_at', { ascending: false });
 
       // Apply filters
