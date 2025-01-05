@@ -12,6 +12,7 @@ import {
   Video,
   Home,
   Menu,
+  Library,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -80,6 +81,14 @@ export function Navbar() {
       >
         <Video className="h-4 w-4" />
         Recordings
+      </Link>
+      <Link
+        to="/library"
+        className="text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2"
+        onClick={onClick}
+      >
+        <Library className="h-4 w-4" />
+        Library
       </Link>
       <Link
         to="/shared"
