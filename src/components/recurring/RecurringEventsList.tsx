@@ -1,10 +1,8 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
-import { Link } from "react-router-dom";
-import { ChevronRight, Pin, PinOff } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { EventsSection } from "./EventsSection";
+import { useState, useCallback } from "react";
 
 interface RecurringEventsListProps {
   recurringEvents: Record<string, any[]>;
@@ -23,8 +21,9 @@ export function RecurringEventsList({
   filters,
 }: RecurringEventsListProps) {
   const { toast } = useToast();
+  const [localEvents, setLocalEvents] = useState(recurringEvents);
 
-  const togglePin = async (masterId: string, currentPinned: boolean) => {
+  const togglePin = useCallback(async (masterId: string, currentPinned: boolean) => {
     try {
       const { error } = await supabase
         .from('recurring_event_notes')
@@ -32,6 +31,21 @@ export function RecurringEventsList({
         .eq('master_event_id', masterId);
 
       if (error) throw error;
+
+      // Update local state immediately
+      setLocalEvents(prev => {
+        const updated = { ...prev };
+        const events = updated[masterId];
+        if (events?.[0]) {
+          events[0].recurring_event_notes = events[0].recurring_event_notes || [];
+          if (events[0].recurring_event_notes[0]) {
+            events[0].recurring_event_notes[0].pinned = !currentPinned;
+          } else {
+            events[0].recurring_event_notes[0] = { pinned: !currentPinned };
+          }
+        }
+        return updated;
+      });
 
       toast({
         title: currentPinned ? "Event unpinned" : "Event pinned",
@@ -45,7 +59,7 @@ export function RecurringEventsList({
         variant: "destructive",
       });
     }
-  };
+  }, [toast]);
 
   if (isLoading) {
     return (
@@ -64,7 +78,7 @@ export function RecurringEventsList({
     );
   }
 
-  if (!recurringEvents || Object.keys(recurringEvents).length === 0) {
+  if (!localEvents || Object.keys(localEvents).length === 0) {
     return (
       <Card>
         <CardContent className="p-6 text-center text-muted-foreground">
@@ -101,8 +115,7 @@ export function RecurringEventsList({
     });
   };
 
-  // Process and sort events
-  const processedEvents = Object.entries(recurringEvents)
+  const processedEvents = Object.entries(localEvents)
     .map(([masterId, events]) => {
       const filteredEvents = filterEvents(events);
       if (filteredEvents.length === 0) return null;
@@ -123,80 +136,28 @@ export function RecurringEventsList({
     })
     .filter(Boolean);
 
-  // Separate pinned and unpinned events
-  const pinnedEvents = processedEvents.filter(event => event.isPinned)
+  const pinnedEvents = processedEvents
+    .filter(event => event.isPinned)
     .sort((a, b) => new Date(b.latestEvent.start_time).getTime() - 
                     new Date(a.latestEvent.start_time).getTime());
   
-  const unpinnedEvents = processedEvents.filter(event => !event.isPinned)
+  const unpinnedEvents = processedEvents
+    .filter(event => !event.isPinned)
     .sort((a, b) => new Date(b.latestEvent.start_time).getTime() - 
                     new Date(a.latestEvent.start_time).getTime());
 
-  const EventCard = ({ event }) => (
-    <div key={event.masterId} className="relative group">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-        onClick={(e) => {
-          e.preventDefault();
-          togglePin(event.masterId, event.isPinned);
-        }}
-      >
-        {event.isPinned ? (
-          <Pin className="h-4 w-4 text-primary fill-primary" />
-        ) : (
-          <PinOff className="h-4 w-4 text-muted-foreground" />
-        )}
-      </Button>
-
-      <Link to={`/recurring-events/${event.masterId}`}>
-        <Card className="h-full transition-colors hover:bg-muted/50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  {event.isPinned && (
-                    <Pin className="h-4 w-4 text-primary fill-primary" />
-                  )}
-                  <h3 className="text-lg font-semibold">{event.latestEvent.title}</h3>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {event.recordingsCount} recordings
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Last occurrence: {format(new Date(event.latestEvent.start_time), "PPp")}
-                </p>
-              </div>
-              <ChevronRight className="h-5 w-5 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-      </Link>
-    </div>
-  );
-
   return (
     <div className="space-y-8">
-      {pinnedEvents.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Pinned Meetings</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {pinnedEvents.map(event => (
-              <EventCard key={event.masterId} event={event} />
-            ))}
-          </div>
-        </div>
-      )}
-      
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Recurring Meetings</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {unpinnedEvents.map(event => (
-            <EventCard key={event.masterId} event={event} />
-          ))}
-        </div>
-      </div>
+      <EventsSection 
+        title="Pinned Meetings" 
+        events={pinnedEvents}
+        onTogglePin={togglePin}
+      />
+      <EventsSection 
+        title="Recurring Meetings" 
+        events={unpinnedEvents}
+        onTogglePin={togglePin}
+      />
     </div>
   );
 }
