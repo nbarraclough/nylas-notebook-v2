@@ -65,7 +65,6 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
     }
   };
 
-  // Filter and group events by date in user's timezone
   const groupEventsByDate = (events: Event[]): GroupedEvents => {
     const now = new Date();
     const filteredEvents = events.filter(event => {
@@ -113,7 +112,7 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
           <Button 
             onClick={syncEvents} 
             disabled={isSyncing}
-            className="w-full sm:w-auto"
+            className="w-full sm:w-auto bg-[#0F172A] text-white hover:bg-[#0F172A]/90"
           >
             {isSyncing ? "Syncing..." : "Sync Events"}
           </Button>

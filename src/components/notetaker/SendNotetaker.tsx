@@ -131,7 +131,11 @@ export function SendNotetaker() {
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <Button variant="default" size="sm" className="gap-2">
+        <Button 
+          variant="default" 
+          size="sm" 
+          className="gap-2 bg-[#0F172A] text-white hover:bg-[#0F172A]/90"
+        >
           <Send className="h-4 w-4" />
           Send Notetaker
         </Button>
