@@ -172,6 +172,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
                 title={recording.event?.title || ''}
                 participants={participants}
                 grantId={profile?.nylas_grant_id}
+                notetakerId={recording.notetaker_id}
               />
             </div>
             

@@ -1,8 +1,10 @@
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export function useRecordingMedia() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const refreshMedia = async (recordingId: string, notetakerId: string | null) => {
     if (!notetakerId) return null;
@@ -28,6 +30,9 @@ export function useRecordingMedia() {
         }
         throw error;
       }
+
+      // Invalidate the recording query to get the latest URL
+      queryClient.invalidateQueries({ queryKey: ['recording', recordingId] });
 
       toast({
         title: "Media Refreshed",
