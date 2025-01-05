@@ -20,20 +20,6 @@ type RecordingWithRelations = Database['public']['Tables']['recordings']['Row'] 
   }>;
 };
 
-const parseParticipants = (participants: unknown): EventParticipant[] => {
-  if (!Array.isArray(participants)) return [];
-  
-  return participants.map(p => {
-    if (typeof p === 'object' && p !== null) {
-      return {
-        name: String(p.name || ''),
-        email: String(p.email || '')
-      };
-    }
-    return { name: '', email: '' };
-  });
-};
-
 export default function Library() {
   const [filters, setFilters] = useState({
     types: [],
@@ -47,17 +33,18 @@ export default function Library() {
   const { recordingId } = useParams();
   const navigate = useNavigate();
   const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   // Check authentication status
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        // Redirect to login if not authenticated
+      setIsAuthenticated(!!session);
+      
+      // Only redirect to auth if there's no recordingId parameter
+      if (!session && !recordingId) {
         navigate('/auth', { state: { returnTo: `/library/${recordingId || ''}` } });
       }
-      setAuthChecked(true);
     };
     checkAuth();
   }, [navigate, recordingId]);
@@ -68,30 +55,11 @@ export default function Library() {
   }, [recordingId]);
 
   const { data: recordings, isLoading } = useQuery({
-    queryKey: ['library-recordings', filters],
+    queryKey: ['library-recordings', filters, isAuthenticated, recordingId],
     queryFn: async () => {
       console.log('Fetching recordings...');
       
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      console.log('Current user:', user.id);
-
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (profileError) {
-        console.error('Error fetching profile:', profileError);
-        throw profileError;
-      }
-
-      console.log('User profile:', profile);
-
-      // Get user's own recordings and recordings shared with their organization
-      const { data: userRecordings, error: userError } = await supabase
+      let query = supabase
         .from('recordings')
         .select(`
           *,
@@ -104,92 +72,80 @@ export default function Library() {
             organization_id
           )
         `)
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      console.log('User recordings:', userRecordings);
-      if (userError) {
-        console.error('Error fetching user recordings:', userError);
-        throw userError;
+      // If not authenticated, only fetch the shared recording
+      if (!isAuthenticated) {
+        if (!recordingId) return [];
+        query = query.eq('id', recordingId);
+      } else {
+        // Get user's own recordings and recordings shared with their organization
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('organization_id')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        // Apply filters for authenticated users
+        if (filters.startDate) {
+          query = query.gte('event.start_time', filters.startDate.toISOString());
+        }
+
+        if (filters.endDate) {
+          query = query.lte('event.start_time', filters.endDate.toISOString());
+        }
+
+        if (filters.participants.length > 0) {
+          // This is handled in post-processing
+        }
+
+        if (filters.titleSearch) {
+          // This is handled in post-processing
+        }
       }
 
-      // Get recordings shared within the organization
-      const { data: sharedRecordings, error: sharedError } = await supabase
-        .from('recordings')
-        .select(`
-          *,
-          event:events (
-            *,
-            manual_meeting:manual_meetings (*)
-          ),
-          video_shares (
-            share_type,
-            organization_id
-          )
-        `)
-        .neq('user_id', user.id)
-        .eq('video_shares.share_type', 'internal')
-        .eq('video_shares.organization_id', profile?.organization_id)
-        .order('created_at', { ascending: false });
+      const { data, error } = await query;
 
-      console.log('Shared recordings:', sharedRecordings);
-      if (sharedError) {
-        console.error('Error fetching shared recordings:', sharedError);
-        throw sharedError;
+      if (error) {
+        console.error('Error fetching recordings:', error);
+        throw error;
       }
 
-      // Process recordings to handle both regular and manual meetings
-      const processRecording = (recording: any) => ({
+      // Process recordings
+      const processedRecordings = data.map(recording => ({
         ...recording,
         event: {
           ...recording.event,
-          title: recording.event?.manual_meeting?.title || recording.event?.title || 'Untitled Recording',
-          participants: parseParticipants(recording.event?.participants)
+          participants: Array.isArray(recording.event?.participants) 
+            ? recording.event.participants.map(p => ({
+                name: typeof p === 'object' ? p.name || '' : '',
+                email: typeof p === 'object' ? p.email || '' : p
+              }))
+            : []
         }
-      });
+      }));
 
-      // Combine and deduplicate recordings
-      const allRecordings = [...(userRecordings || []), ...(sharedRecordings || [])]
-        .map(processRecording) as RecordingWithRelations[];
-
-      console.log('All recordings after processing:', allRecordings);
-
-      const uniqueRecordings = Array.from(new Map(allRecordings.map(r => [r.id, r])).values());
-
-      // Apply filters
-      let filteredRecordings = uniqueRecordings;
-
-      if (filters.startDate) {
-        filteredRecordings = filteredRecordings.filter(
-          r => new Date(r.event.start_time) >= filters.startDate
-        );
-      }
-
-      if (filters.endDate) {
-        filteredRecordings = filteredRecordings.filter(
-          r => new Date(r.event.start_time) <= filters.endDate
-        );
-      }
-
-      if (filters.participants.length > 0) {
-        filteredRecordings = filteredRecordings.filter(r =>
-          r.event.participants.some(p =>
+      // Apply post-fetch filters
+      return processedRecordings.filter(recording => {
+        if (filters.participants.length > 0) {
+          const hasParticipant = recording.event?.participants.some(p =>
             filters.participants.includes(p.email)
-          )
-        );
-      }
+          );
+          if (!hasParticipant) return false;
+        }
 
-      if (filters.titleSearch) {
-        filteredRecordings = filteredRecordings.filter(r =>
-          r.event.title.toLowerCase().includes(filters.titleSearch.toLowerCase())
-        );
-      }
+        if (filters.titleSearch) {
+          const title = recording.event?.title?.toLowerCase() || '';
+          if (!title.includes(filters.titleSearch.toLowerCase())) return false;
+        }
 
-      console.log('Filtered recordings:', filteredRecordings);
-      return filteredRecordings;
+        return true;
+      });
     },
-    enabled: authChecked, // Only run query after auth check
-    refetchInterval: 10000
+    enabled: isAuthenticated !== null || !!recordingId
   });
 
   // Update URL when a recording is selected
@@ -202,15 +158,20 @@ export default function Library() {
     }
   };
 
-  if (!authChecked) {
-    return null; // Or a loading spinner
+  // Show nothing while checking auth state
+  if (isAuthenticated === null && !recordingId) {
+    return null;
   }
 
   return (
     <PageLayout>
       <div className="space-y-6">
-        <LibraryHeader recordingsCount={recordings?.length || 0} />
-        <LibraryFilters filters={filters} onFiltersChange={setFilters} />
+        {isAuthenticated && (
+          <>
+            <LibraryHeader recordingsCount={recordings?.length || 0} />
+            <LibraryFilters filters={filters} onFiltersChange={setFilters} />
+          </>
+        )}
         <RecordingGrid 
           recordings={recordings || []} 
           isLoading={isLoading} 
