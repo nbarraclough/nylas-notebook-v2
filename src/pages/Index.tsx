@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { RecentRecordings } from "@/components/dashboard/RecentRecordings";
 import { OrganizationShares } from "@/components/dashboard/OrganizationShares";
 import { WelcomeCard } from "@/components/dashboard/WelcomeCard";
 import { format } from "date-fns";
-import { Calendar, Eye, Mail, MousePointerClick } from "lucide-react";
+import { Calendar, Eye, Mail, MousePointerClick, ArrowRight } from "lucide-react";
 
 export default function Index() {
+  const navigate = useNavigate();
   const [userEmail, setUserEmail] = useState<string>("");
 
   // Fetch user profile
@@ -78,49 +81,53 @@ export default function Index() {
           </Card>
           
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle>Quick Stats</CardTitle>
+              <Button 
+                variant="ghost" 
+                className="text-sm" 
+                onClick={() => navigate("/shared?tab=external")}
+              >
+                View more
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
-                <p className="text-lg text-muted-foreground">
-                  Recent Public Shares
-                </p>
+              <div className="space-y-4">
                 {publicShares?.map((share) => (
-                  <div key={share.id} className="space-y-4 border-b pb-6 last:border-0">
-                    <p className="text-2xl font-semibold">
-                      {share.recording?.event?.title || 'Untitled Event'}
-                    </p>
-                    <div className="grid grid-cols-2 gap-y-4">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Calendar className="h-5 w-5" />
-                        <span className="text-base">
+                  <div key={share.id} className="space-y-2 border-b pb-4 last:border-0">
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium line-clamp-1">
+                        {share.recording?.event?.title || 'Untitled Event'}
+                      </p>
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <Calendar className="h-4 w-4" />
+                        <span>
                           {share.recording?.event?.start_time ? 
-                            format(new Date(share.recording.event.start_time), 'MMMM do, yyyy') : 
+                            format(new Date(share.recording.event.start_time), 'MMM d') : 
                             'No date'
                           }
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Eye className="h-5 w-5 text-blue-500" />
-                        <span className="text-xl font-medium">{share.recording?.views?.length || 0}</span>
-                        <span className="text-muted-foreground">views</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm">
+                      <div className="flex items-center gap-1">
+                        <Eye className="h-4 w-4 text-blue-500" />
+                        <span>{share.recording?.views?.length || 0}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-5 w-5 text-purple-500" />
-                        <span className="text-xl font-medium">{share.recording?.email_metrics?.[0]?.opens || 0}</span>
-                        <span className="text-muted-foreground">opens</span>
+                      <div className="flex items-center gap-1">
+                        <Mail className="h-4 w-4 text-purple-500" />
+                        <span>{share.recording?.email_metrics?.[0]?.opens || 0}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <MousePointerClick className="h-5 w-5 text-green-500" />
-                        <span className="text-xl font-medium">{share.recording?.email_metrics?.[0]?.link_clicks || 0}</span>
-                        <span className="text-muted-foreground">clicks</span>
+                      <div className="flex items-center gap-1">
+                        <MousePointerClick className="h-4 w-4 text-green-500" />
+                        <span>{share.recording?.email_metrics?.[0]?.link_clicks || 0}</span>
                       </div>
                     </div>
                   </div>
                 ))}
                 {(!publicShares || publicShares.length === 0) && (
-                  <p className="text-center py-8 text-muted-foreground">
+                  <p className="text-center py-4 text-muted-foreground">
                     No public shares yet
                   </p>
                 )}
