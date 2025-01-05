@@ -63,11 +63,6 @@ export function SharedVideoView() {
 
         if (shareError) throw shareError;
         if (!share?.recording) {
-          toast({
-            title: "Video Not Found",
-            description: "This shared video link may have expired or been removed.",
-            variant: "destructive",
-          });
           setRecording(null);
           setIsLoading(false);
           return;

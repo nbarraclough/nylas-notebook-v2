@@ -38,7 +38,7 @@ export function SharedVideoPlayer({ videoUrl, recordingUrl, onRetrieveMedia }: S
   if (!finalVideoUrl) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-muted rounded-lg">
-        <p className="text-muted-foreground">Video not available</p>
+        <p className="text-muted-foreground">This video is no longer available or has been removed.</p>
       </div>
     );
   }
