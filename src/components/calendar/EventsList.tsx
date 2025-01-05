@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { EventCard } from "./EventCard";
 import { Progress } from "@/components/ui/progress";
-import { format, isSameDay, isPast } from "date-fns";
+import { format, isPast } from "date-fns";
 import type { QueryObserverResult, RefetchOptions } from "@tanstack/react-query";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -113,6 +113,7 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
           <Button 
             onClick={syncEvents} 
             disabled={isSyncing}
+            className="w-full sm:w-auto"
           >
             {isSyncing ? "Syncing..." : "Sync Events"}
           </Button>
@@ -129,7 +130,7 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
       </div>
 
       <Card>
-        <CardContent className="p-6">
+        <CardContent className="p-4 sm:p-6">
           {isLoadingEvents ? (
             <div className="animate-pulse space-y-4">
               {[1, 2, 3].map((n) => (
@@ -137,13 +138,13 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
               ))}
             </div>
           ) : sortedGroupedEvents.length > 0 ? (
-            <div className="space-y-8">
+            <div className="space-y-6 sm:space-y-8">
               {sortedGroupedEvents.map(({ date, events }) => (
-                <div key={date.toISOString()} className="space-y-4">
-                  <h2 className="text-lg font-semibold text-muted-foreground">
+                <div key={date.toISOString()} className="space-y-3 sm:space-y-4">
+                  <h2 className="text-base sm:text-lg font-semibold text-muted-foreground px-2 sm:px-0">
                     {format(date, "EEEE, MMMM d")}
                   </h2>
-                  <div className="space-y-4">
+                  <div className="space-y-3 sm:space-y-4">
                     {events.map((event) => (
                       <EventCard 
                         key={event.id} 
@@ -157,7 +158,7 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
               ))}
             </div>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-6 sm:py-8 text-muted-foreground">
               No {filter} events found. Click "Sync Events" to fetch your calendar events.
             </div>
           )}

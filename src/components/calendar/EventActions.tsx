@@ -20,7 +20,7 @@ export const EventActions = ({
           <Button 
             variant="outline"
             size="sm"
-            className="hover:bg-accent"
+            className="w-full sm:w-auto hover:bg-accent"
             asChild
           >
             <a 

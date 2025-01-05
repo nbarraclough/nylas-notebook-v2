@@ -105,8 +105,8 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
 
   return (
     <Card className={isPast ? "opacity-60" : ""}>
-      <CardContent className="p-6">
-        <div className="flex flex-col space-y-4">
+      <CardContent className="p-3 sm:p-6">
+        <div className="flex flex-col space-y-3 sm:space-y-4">
           <EventHeader 
             title={event.title}
             startTime={event.start_time}

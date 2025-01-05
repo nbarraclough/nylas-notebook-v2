@@ -41,7 +41,7 @@ export const EventHeader = ({
   htmlLink
 }: EventHeaderProps) => {
   return (
-    <div className="flex justify-between items-start">
+    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
       <div className="flex items-start gap-3">
         <div className="mt-1">
           <EventParticipants 
@@ -50,26 +50,26 @@ export const EventHeader = ({
             isInternalMeeting={isInternalMeeting}
           />
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
           {htmlLink ? (
             <a 
               href={htmlLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="group inline-flex items-center gap-1 hover:text-blue-600"
+              className="group inline-flex items-center gap-1 hover:text-blue-600 break-words"
             >
               <h3 className="font-semibold leading-snug">{title}</h3>
-              <ExternalLink className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <ExternalLink className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
             </a>
           ) : (
-            <h3 className="font-semibold leading-snug">{title}</h3>
+            <h3 className="font-semibold leading-snug break-words">{title}</h3>
           )}
           <p className="text-sm text-muted-foreground mt-1">
             {format(new Date(startTime), "EEEE, MMMM d, yyyy 'at' h:mm a")} - {format(new Date(endTime), "h:mm a")}
           </p>
         </div>
       </div>
-      <div className="flex flex-col items-end gap-2">
+      <div className="flex flex-row sm:flex-col items-center sm:items-end gap-3 sm:gap-2">
         <Badge 
           variant={isInternalMeeting ? "secondary" : "outline"}
           className={`text-xs ${isInternalMeeting ? 'bg-purple-100 hover:bg-purple-100 text-purple-800' : 'border-blue-200 text-blue-700 hover:bg-blue-50'}`}
