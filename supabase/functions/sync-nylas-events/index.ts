@@ -40,11 +40,14 @@ serve(async (req) => {
     // Get date range - now explicitly set to 3 months
     const startDate = startOfToday()
     const endDate = addMonths(startDate, 3)
+    const startUnix = getUnixTime(startDate)
+    const endUnix = getUnixTime(endDate)
+    
     console.log('Date range:', { 
       start: formatDate(startDate), 
       end: formatDate(endDate),
-      startUnix: getUnixTime(startDate),
-      endUnix: getUnixTime(endDate)
+      startUnix,
+      endUnix
     })
 
     for (const userId of userIdsToProcess) {
@@ -99,8 +102,8 @@ serve(async (req) => {
         do {
           const queryParams = new URLSearchParams({
             calendar_id: 'primary',
-            start: getUnixTime(startDate).toString(),
-            end: getUnixTime(endDate).toString(),
+            start: startUnix.toString(),
+            end: endUnix.toString(),
             limit: '50',
             ...(pageToken && { page_token: pageToken })
           })
