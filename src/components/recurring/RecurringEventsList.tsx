@@ -2,7 +2,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Pin, PinOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 
 interface RecurringEventsListProps {
   recurringEvents: Record<string, any[]>;
@@ -20,6 +22,31 @@ export function RecurringEventsList({
   isLoading,
   filters,
 }: RecurringEventsListProps) {
+  const { toast } = useToast();
+
+  const togglePin = async (masterId: string, currentPinned: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('recurring_event_notes')
+        .update({ pinned: !currentPinned })
+        .eq('master_event_id', masterId);
+
+      if (error) throw error;
+
+      toast({
+        title: currentPinned ? "Event unpinned" : "Event pinned",
+        description: currentPinned ? "Event removed from pinned items" : "Event will now appear at the top of the list",
+      });
+    } catch (error) {
+      console.error('Error toggling pin:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update pin status",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -49,11 +76,9 @@ export function RecurringEventsList({
 
   const filterEvents = (events: any[]) => {
     return events.filter(event => {
-      // Filter by date range
       if (filters.startDate && new Date(event.start_time) < filters.startDate) return false;
       if (filters.endDate && new Date(event.start_time) > filters.endDate) return false;
 
-      // Filter by participants
       if (filters.participants.length > 0) {
         const eventParticipants = event.participants || [];
         const hasMatchingParticipant = filters.participants.some(email =>
@@ -62,7 +87,6 @@ export function RecurringEventsList({
         if (!hasMatchingParticipant) return false;
       }
 
-      // Filter by search query in transcripts
       if (filters.searchQuery && event.recordings) {
         const hasMatchingTranscript = event.recordings.some((recording: any) =>
           recording.transcript_content &&
@@ -77,28 +101,69 @@ export function RecurringEventsList({
     });
   };
 
+  // Sort events by pin status first, then by date
+  const sortedEvents = Object.entries(recurringEvents)
+    .map(([masterId, events]) => {
+      const filteredEvents = filterEvents(events);
+      if (filteredEvents.length === 0) return null;
+
+      const latestEvent = events[0];
+      const recordingsCount = events.reduce((count, event) => 
+        count + (event.recordings?.length || 0), 0
+      );
+      const isPinned = events[0]?.recurring_event_notes?.[0]?.pinned || false;
+
+      return {
+        masterId,
+        events: filteredEvents,
+        latestEvent,
+        recordingsCount,
+        isPinned
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      // Sort by pin status first
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      // Then sort by date
+      return new Date(b.latestEvent.start_time).getTime() - 
+             new Date(a.latestEvent.start_time).getTime();
+    });
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {Object.entries(recurringEvents).map(([masterId, events]) => {
-        if (!masterId) return null;
-        
-        const filteredEvents = filterEvents(events);
-        if (filteredEvents.length === 0) return null;
+      {sortedEvents.map(({ masterId, latestEvent, recordingsCount, isPinned }) => (
+        <div key={masterId} className="relative group">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+            onClick={(e) => {
+              e.preventDefault();
+              togglePin(masterId, isPinned);
+            }}
+          >
+            {isPinned ? (
+              <Pin className="h-4 w-4 text-primary fill-primary" />
+            ) : (
+              <PinOff className="h-4 w-4 text-muted-foreground" />
+            )}
+          </Button>
 
-        const latestEvent = events[0];
-        const recordingsCount = events.reduce((count, event) => 
-          count + (event.recordings?.length || 0), 0
-        );
-
-        return (
-          <Link key={masterId} to={`/recurring-events/${masterId}`}>
+          <Link to={`/recurring-events/${masterId}`}>
             <Card className="h-full transition-colors hover:bg-muted/50">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
-                    <h3 className="text-lg font-semibold">{latestEvent.title}</h3>
+                    <div className="flex items-center gap-2">
+                      {isPinned && (
+                        <Pin className="h-4 w-4 text-primary fill-primary" />
+                      )}
+                      <h3 className="text-lg font-semibold">{latestEvent.title}</h3>
+                    </div>
                     <p className="text-sm text-muted-foreground">
-                      {events.length} occurrences • {recordingsCount} recordings
+                      {recordingsCount} recordings
                     </p>
                     <p className="text-sm text-muted-foreground">
                       Last occurrence: {format(new Date(latestEvent.start_time), "PPp")}
@@ -109,8 +174,8 @@ export function RecurringEventsList({
               </CardContent>
             </Card>
           </Link>
-        );
-      })}
+        </div>
+      ))}
     </div>
   );
 }

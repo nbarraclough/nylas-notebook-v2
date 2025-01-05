@@ -475,6 +475,7 @@ export type Database = {
           created_at: string
           id: string
           master_event_id: string
+          pinned: boolean | null
           updated_at: string
           user_id: string
         }
@@ -483,6 +484,7 @@ export type Database = {
           created_at?: string
           id?: string
           master_event_id: string
+          pinned?: boolean | null
           updated_at?: string
           user_id: string
         }
@@ -491,6 +493,7 @@ export type Database = {
           created_at?: string
           id?: string
           master_event_id?: string
+          pinned?: boolean | null
           updated_at?: string
           user_id?: string
         }
