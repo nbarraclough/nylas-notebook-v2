@@ -7,7 +7,7 @@ NYLAS_WEBHOOK_SECRET = "env"
 
 [functions.handle-nylas-webhook]
 verify_jwt = false
-verify_webhook = false
+verify_webhook = true
 # Increase max instances to handle concurrent webhooks
 max_instances = 10
 # Reduce timeout to prevent function from hanging
