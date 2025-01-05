@@ -13,33 +13,47 @@ import {
 
 serve(async (req) => {
   const startTime = performance.now();
-  console.log(`⚡ Webhook handler started at ${new Date().toISOString()}`);
+  const requestId = crypto.randomUUID();
+  console.log(`⚡ [${requestId}] Webhook handler started at ${new Date().toISOString()}`);
 
   try {
-    // Handle CORS preflight
+    // Handle CORS preflight with detailed logging
     if (req.method === 'OPTIONS') {
+      console.log(`🔄 [${requestId}] CORS preflight request`);
       return new Response(null, { headers: corsHeaders });
     }
+
+    // Log full request details
+    console.log(`📝 [${requestId}] Request details:`, {
+      method: req.method,
+      url: req.url,
+      headers: Object.fromEntries(req.headers.entries())
+    });
 
     // Handle challenge parameter in URL
     const url = new URL(req.url);
     const challenge = url.searchParams.get('challenge');
     if (challenge) {
-      console.log('🎯 Challenge received:', challenge);
+      console.log(`🎯 [${requestId}] Challenge received:`, challenge);
       return new Response(challenge, {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
       });
     }
 
-    // Get signature and body
+    // Get signature and body with validation logging
     const signature = req.headers.get('x-nylas-signature');
-    const rawBody = await req.text();
+    console.log(`🔑 [${requestId}] Signature received:`, signature);
     
-    // Validate webhook immediately
+    const rawBody = await req.text();
+    console.log(`📦 [${requestId}] Raw body received, length:`, rawBody.length);
+    
+    // Validate webhook immediately with detailed logging
     const { isValid } = await validateWebhook(rawBody, signature);
+    console.log(`✅ [${requestId}] Signature validation:`, isValid);
+    
     if (!isValid) {
-      console.error('❌ Invalid webhook signature');
+      console.error(`❌ [${requestId}] Invalid webhook signature`);
       return new Response('Invalid signature', { 
         status: 401,
         headers: corsHeaders 
@@ -48,38 +62,45 @@ serve(async (req) => {
 
     // Parse webhook data after validation
     const webhookData = JSON.parse(rawBody);
-    console.log('📥 Received webhook:', {
-      type: webhookData.type,
-      timestamp: new Date().toISOString()
-    });
+    console.log(`📥 [${requestId}] Webhook type:`, webhookData.type);
+    console.log(`🔍 [${requestId}] Webhook data:`, JSON.stringify(webhookData, null, 2));
 
     const grantId = webhookData.data.object.grant_id;
+    console.log(`🎫 [${requestId}] Grant ID:`, grantId);
     
-    // Process webhook based on type
+    // Process webhook based on type with enhanced logging
     let processingResult;
     switch (webhookData.type) {
       case 'event.created':
+        console.log(`📅 [${requestId}] Processing event.created`);
         processingResult = await handleEventCreated(webhookData.data.object, grantId);
         break;
       case 'event.updated':
+        console.log(`📝 [${requestId}] Processing event.updated`);
         processingResult = await handleEventUpdated(webhookData.data.object, grantId);
         break;
       case 'event.deleted':
+        console.log(`🗑️ [${requestId}] Processing event.deleted`);
         processingResult = await handleEventDeleted(webhookData.data.object, grantId);
         break;
       case 'grant.created':
+        console.log(`🔑 [${requestId}] Processing grant.created`);
         processingResult = await handleGrantCreated(webhookData.data);
         break;
       case 'grant.updated':
+        console.log(`📝 [${requestId}] Processing grant.updated`);
         processingResult = await handleGrantUpdated(webhookData.data);
         break;
       case 'grant.deleted':
+        console.log(`🗑️ [${requestId}] Processing grant.deleted`);
         processingResult = await handleGrantDeleted(webhookData.data);
         break;
       case 'grant.expired':
+        console.log(`⚠️ [${requestId}] Processing grant.expired`);
         processingResult = await handleGrantExpired(webhookData.data);
         break;
       default:
+        console.warn(`⚠️ [${requestId}] Unhandled webhook type:`, webhookData.type);
         return new Response(
           JSON.stringify({
             success: false,
@@ -94,7 +115,7 @@ serve(async (req) => {
     }
 
     const endTime = performance.now();
-    console.log(`✅ Webhook processed in ${endTime - startTime}ms:`, {
+    console.log(`✅ [${requestId}] Webhook processed in ${endTime - startTime}ms:`, {
       type: webhookData.type,
       result: processingResult
     });
@@ -112,7 +133,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('❌ Webhook error:', {
+    console.error(`❌ [${requestId}] Webhook error:`, {
       error: error.message,
       stack: error.stack
     });

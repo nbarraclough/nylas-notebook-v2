@@ -1,18 +1,23 @@
 export const validateWebhook = async (rawBody: string, signature: string | null) => {
+  const requestId = crypto.randomUUID();
+  console.log(`🔐 [${requestId}] Starting webhook validation`);
+
   // Get and validate webhook secret
   const webhookSecret = Deno.env.get('NYLAS_WEBHOOK_SECRET');
   if (!webhookSecret) {
-    console.error('❌ NYLAS_WEBHOOK_SECRET not configured');
+    console.error(`❌ [${requestId}] NYLAS_WEBHOOK_SECRET not configured`);
     throw new Error('NYLAS_WEBHOOK_SECRET not configured');
   }
 
   // Validate signature presence
   if (!signature) {
-    console.error('❌ No signature in webhook request');
+    console.error(`❌ [${requestId}] No signature in webhook request`);
     throw new Error('No signature in webhook request');
   }
 
   try {
+    console.log(`🔍 [${requestId}] Validating signature:`, signature);
+
     // Create HMAC using webhook secret
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(
@@ -37,11 +42,15 @@ export const validateWebhook = async (rawBody: string, signature: string | null)
 
     // Compare signatures
     const isValid = calculatedSignature === signature;
-    console.log(`🔐 Webhook signature validation: ${isValid ? 'valid' : 'invalid'}`);
+    console.log(`✅ [${requestId}] Webhook signature validation: ${isValid ? 'valid' : 'invalid'}`);
+    console.log(`📊 [${requestId}] Signature comparison:`, {
+      received: signature,
+      calculated: calculatedSignature
+    });
 
     return { isValid };
   } catch (error) {
-    console.error('❌ Error validating webhook signature:', error);
+    console.error(`❌ [${requestId}] Error validating webhook signature:`, error);
     return { isValid: false };
   }
 };
