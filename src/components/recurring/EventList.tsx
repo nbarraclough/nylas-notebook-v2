@@ -1,24 +1,32 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, ChevronDown, ChevronUp, Calendar } from "lucide-react";
+import { Users, ChevronDown, ChevronUp, Calendar, Play } from "lucide-react";
 import { format } from "date-fns";
 import { EventDescription } from "@/components/calendar/EventDescription";
 import { EventParticipants } from "@/components/calendar/EventParticipants";
+import { VideoPlayerDialog } from "@/components/recordings/VideoPlayerDialog";
 
 interface EventListProps {
   events: any[];
   expandedEvents: Set<string>;
   onToggleExpand: (eventId: string) => void;
   onSelectRecording: (recordingId: string) => void;
+  isUpcoming?: boolean;
 }
 
 export function EventList({ 
   events, 
   expandedEvents, 
   onToggleExpand,
-  onSelectRecording 
+  onSelectRecording,
+  isUpcoming = false
 }: EventListProps) {
+  // Find the next upcoming meeting if we're in the upcoming view
+  const now = new Date();
+  const nextUpcomingMeeting = isUpcoming ? 
+    events.find(event => new Date(event.start_time) > now) : null;
+
   return (
     <div className="space-y-4">
       {events.map((event) => (
@@ -83,27 +91,68 @@ export function EventList({
                 </div>
               )}
 
-              {event.recordings && event.recordings.length > 0 && (
-                <div className="space-y-2">
-                  <h5 className="text-sm font-medium text-slate-700">Recordings</h5>
-                  {event.recordings.map((recording: any) => (
-                    <Button
-                      key={recording.id}
-                      variant="outline"
-                      size="sm"
-                      className="w-full text-left justify-between hover:bg-slate-50"
-                      onClick={() => onSelectRecording(recording.id)}
+              <div className="space-y-2">
+                {/* Show Join Meeting button only for the next upcoming meeting */}
+                {isUpcoming && event === nextUpcomingMeeting && event.conference_url && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-left justify-between hover:bg-slate-50"
+                    asChild
+                  >
+                    <a 
+                      href={event.conference_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      <span>View Recording</span>
-                      {recording.duration && (
-                        <span className="text-muted-foreground text-xs">
-                          {Math.floor(recording.duration / 60)} min
-                        </span>
-                      )}
-                    </Button>
-                  ))}
-                </div>
-              )}
+                      Join meeting
+                    </a>
+                  </Button>
+                )}
+
+                {/* Show recordings if available */}
+                {event.recordings && event.recordings.length > 0 && (
+                  <div className="space-y-2">
+                    <h5 className="text-sm font-medium text-slate-700">Recordings</h5>
+                    {event.recordings.map((recording: any) => (
+                      <div key={recording.id} className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-left justify-between hover:bg-slate-50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectRecording(recording.id);
+                          }}
+                        >
+                          <span>View Recording</span>
+                          {recording.duration && (
+                            <span className="text-muted-foreground text-xs">
+                              {Math.floor(recording.duration / 60)} min
+                            </span>
+                          )}
+                        </Button>
+                        {recording.video_url && (
+                          <VideoPlayerDialog
+                            videoUrl={recording.video_url}
+                            title={event.title}
+                          >
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="hover:bg-slate-50"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Play className="h-4 w-4" />
+                            </Button>
+                          </VideoPlayerDialog>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </Card>
