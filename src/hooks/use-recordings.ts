@@ -52,12 +52,20 @@ export function useRecordings({ isAuthenticated, recordingId, filters }: UseReco
         }
 
         if (filters.hasPublicLink) {
-          query = query.in('id', 
-            supabase
-              .from('video_shares')
-              .select('recording_id')
-              .eq('share_type', 'external')
-          );
+          // First get the recording IDs that have external video shares
+          const { data: shareData } = await supabase
+            .from('video_shares')
+            .select('recording_id')
+            .eq('share_type', 'external');
+
+          // If we have recording IDs with public links, filter the main query
+          if (shareData && shareData.length > 0) {
+            const recordingIds = shareData.map(share => share.recording_id);
+            query = query.in('id', recordingIds);
+          } else {
+            // If no recordings have public links, return empty result
+            return [];
+          }
         }
       }
 
