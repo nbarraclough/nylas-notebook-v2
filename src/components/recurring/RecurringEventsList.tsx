@@ -147,6 +147,16 @@ export function RecurringEventsList({
     })
     .filter(Boolean);
 
+  const pinnedEvents = processedEvents
+    .filter(event => event.isPinned)
+    .sort((a, b) => new Date(b.latestEvent.start_time).getTime() - 
+                    new Date(a.latestEvent.start_time).getTime());
+  
+  const unpinnedEvents = processedEvents
+    .filter(event => !event.isPinned)
+    .sort((a, b) => new Date(b.latestEvent.start_time).getTime() - 
+                    new Date(a.latestEvent.start_time).getTime());
+
   // Only show no data message if we're not loading and there are no events after filtering
   if (!isLoading && (!processedEvents || processedEvents.length === 0)) {
     return (
@@ -157,16 +167,6 @@ export function RecurringEventsList({
       </Card>
     );
   }
-
-  const pinnedEvents = processedEvents
-    .filter(event => event.isPinned)
-    .sort((a, b) => new Date(b.latestEvent.start_time).getTime() - 
-                    new Date(a.latestEvent.start_time).getTime());
-  
-  const unpinnedEvents = processedEvents
-    .filter(event => !event.isPinned)
-    .sort((a, b) => new Date(b.latestEvent.start_time).getTime() - 
-                    new Date(a.latestEvent.start_time).getTime());
 
   return (
     <div className="space-y-8">
