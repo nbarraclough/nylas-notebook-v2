@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
-import { MessageOpenedWebhook, MessageLinkClickedWebhook } from '../../../src/integrations/supabase/types/webhook-types/message.ts';
+import { MessageOpenedWebhook, MessageLinkClickedWebhook } from '../../../src/integrations/supabase/types/webhook-types.ts';
 
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
