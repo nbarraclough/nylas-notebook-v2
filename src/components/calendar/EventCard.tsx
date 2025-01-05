@@ -122,6 +122,7 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
             nylasGrantId={profile?.nylas_grant_id}
             onToggle={handleQueueToggle}
             isPast={isPast}
+            htmlLink={event.html_link}
           />
 
           <EventDescription description={event.description} />

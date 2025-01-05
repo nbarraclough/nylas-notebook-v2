@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
-import { Globe, Shield } from "lucide-react";
+import { Globe, Shield, ExternalLink } from "lucide-react";
 import { EventParticipants } from "./EventParticipants";
 import { RecordingToggle } from "./RecordingToggle";
 import type { EventParticipant, EventOrganizer } from "@/types/calendar";
@@ -20,6 +20,7 @@ interface EventHeaderProps {
   nylasGrantId?: string | null;
   onToggle: (newState: boolean) => void;
   isPast: boolean;
+  htmlLink?: string | null;
 }
 
 export const EventHeader = ({ 
@@ -36,7 +37,8 @@ export const EventHeader = ({
   scheduledFor,
   nylasGrantId,
   onToggle,
-  isPast
+  isPast,
+  htmlLink
 }: EventHeaderProps) => {
   return (
     <div className="flex justify-between items-start">
@@ -49,7 +51,19 @@ export const EventHeader = ({
           />
         </div>
         <div>
-          <h3 className="font-semibold leading-snug">{title}</h3>
+          {htmlLink ? (
+            <a 
+              href={htmlLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group inline-flex items-center gap-1 hover:text-blue-600"
+            >
+              <h3 className="font-semibold leading-snug">{title}</h3>
+              <ExternalLink className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </a>
+          ) : (
+            <h3 className="font-semibold leading-snug">{title}</h3>
+          )}
           <p className="text-sm text-muted-foreground mt-1">
             {format(new Date(startTime), "EEEE, MMMM d, yyyy 'at' h:mm a")} - {format(new Date(endTime), "h:mm a")}
           </p>
