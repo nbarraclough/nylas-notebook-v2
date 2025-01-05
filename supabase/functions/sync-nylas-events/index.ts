@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 import { processEvent } from './event-processor.ts'
 
@@ -44,6 +44,14 @@ serve(async (req) => {
       throw new Error('Failed to fetch user profile')
     }
 
+    if (!profile?.nylas_grant_id) {
+      console.log('User has no Nylas grant ID, skipping sync:', user_id)
+      return new Response(
+        JSON.stringify({ success: false, message: 'No Nylas grant ID found for user' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Get existing events to track updates
     const { data: existingEvents, error: existingEventsError } = await supabaseAdmin
       .from('events')
@@ -60,93 +68,51 @@ serve(async (req) => {
       existingEvents?.map(event => [event.ical_uid, new Date(event.last_updated_at)]) || []
     )
 
-    // If user has Nylas connected, sync calendar events
-    if (profile?.nylas_grant_id) {
-      console.log('Fetching Nylas events for grant ID:', profile.nylas_grant_id)
-      
-      const NYLAS_CLIENT_SECRET = Deno.env.get('NYLAS_CLIENT_SECRET')
-      if (!NYLAS_CLIENT_SECRET) {
-        console.error('NYLAS_CLIENT_SECRET environment variable is not set')
-        throw new Error('Nylas client secret not configured')
-      }
-
-      // Fetch events from Nylas
-      const eventsResponse = await fetch(
-        `https://api-staging.us.nylas.com/v3/grants/${profile.nylas_grant_id}/events?calendar_id=primary`, 
-        {
-          headers: {
-            'Authorization': `Bearer ${NYLAS_CLIENT_SECRET}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-        }
-      )
-
-      if (!eventsResponse.ok) {
-        const errorData = await eventsResponse.text()
-        console.error('Failed to fetch Nylas events:', errorData)
-        throw new Error('Failed to fetch events from Nylas')
-      }
-
-      const events = await eventsResponse.json()
-      console.log(`Fetched ${events.data?.length || 0} events from Nylas`)
-
-      // Process each event
-      for (const event of events.data || []) {
-        try {
-          await processEvent(event, existingEventsMap, user_id, supabaseAdmin, force_recording_rules)
-        } catch (error) {
-          console.error('Error processing event:', event.id, error)
-          // Continue processing other events even if one fails
-        }
-      }
+    console.log('Fetching Nylas events for grant ID:', profile.nylas_grant_id)
+    
+    const NYLAS_CLIENT_SECRET = Deno.env.get('NYLAS_CLIENT_SECRET')
+    if (!NYLAS_CLIENT_SECRET) {
+      console.error('NYLAS_CLIENT_SECRET environment variable is not set')
+      throw new Error('Nylas client secret not configured')
     }
 
-    // Get and process manual meetings
-    const { data: manualMeetings, error: manualMeetingsError } = await supabaseAdmin
-      .from('manual_meetings')
-      .select('*')
-      .eq('user_id', user_id)
+    // Fetch events from Nylas
+    const eventsResponse = await fetch(
+      `https://api-staging.us.nylas.com/v3/grants/${profile.nylas_grant_id}/events?calendar_id=primary`, 
+      {
+        headers: {
+          'Authorization': `Bearer ${NYLAS_CLIENT_SECRET}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      }
+    )
 
-    if (manualMeetingsError) {
-      console.error('Error fetching manual meetings:', manualMeetingsError)
-      // Don't throw, continue with what we have
-    } else {
-      console.log(`Processing ${manualMeetings?.length || 0} manual meetings`)
-      
-      // Process each manual meeting
-      for (const meeting of manualMeetings || []) {
-        try {
-          const eventData = {
-            user_id,
-            title: meeting.title,
-            conference_url: meeting.meeting_url,
-            start_time: new Date().toISOString(), // Default to now
-            end_time: new Date(Date.now() + 3600000).toISOString(), // Default to 1 hour duration
-            manual_meeting_id: meeting.id,
-            participants: [],
-            last_updated_at: meeting.updated_at
-          }
+    if (!eventsResponse.ok) {
+      const errorData = await eventsResponse.text()
+      console.error('Failed to fetch Nylas events:', errorData)
+      throw new Error('Failed to fetch events from Nylas')
+    }
 
-          const { error: upsertError } = await supabaseAdmin
-            .from('events')
-            .upsert(eventData, {
-              onConflict: 'manual_meeting_id',
-              ignoreDuplicates: false
-            })
+    const events = await eventsResponse.json()
+    console.log(`Fetched ${events.data?.length || 0} events from Nylas`)
 
-          if (upsertError) {
-            console.error('Error upserting manual meeting event:', upsertError)
-          }
-        } catch (error) {
-          console.error('Error processing manual meeting:', meeting.id, error)
-          // Continue processing other meetings even if one fails
-        }
+    // Process each event
+    for (const event of events.data || []) {
+      try {
+        await processEvent(event, existingEventsMap, user_id, supabaseAdmin, force_recording_rules)
+      } catch (error) {
+        console.error('Error processing event:', event.id, error)
+        // Continue processing other events even if one fails
       }
     }
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Events synced successfully' }),
+      JSON.stringify({ 
+        success: true, 
+        message: 'Events synced successfully',
+        eventsProcessed: events.data?.length || 0
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
