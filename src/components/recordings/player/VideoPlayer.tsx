@@ -8,6 +8,7 @@ import type { EventParticipant } from "@/types/calendar";
 interface VideoPlayerProps {
   recordingId: string;
   videoUrl: string | null;
+  recordingUrl: string | null;
   title: string;
   participants: EventParticipant[];
   grantId: string | null;
@@ -16,6 +17,7 @@ interface VideoPlayerProps {
 export function VideoPlayer({ 
   recordingId, 
   videoUrl,
+  recordingUrl,
   title,
   participants,
   grantId
@@ -40,7 +42,10 @@ export function VideoPlayer({
     },
   });
 
-  if (!videoUrl) {
+  // Use video_url if available, fall back to recording_url
+  const finalVideoUrl = videoUrl || recordingUrl;
+
+  if (!finalVideoUrl) {
     return (
       <Card className="w-full">
         <VideoPlayerHeader
@@ -68,14 +73,14 @@ export function VideoPlayer({
       />
       <div className="aspect-video">
         <video
-          src={videoUrl}
+          src={finalVideoUrl}
           controls
           className="w-full h-full"
           playsInline
           preload="metadata"
           controlsList="nodownload"
         >
-          <source src={videoUrl} type="video/webm" />
+          <source src={finalVideoUrl} type="video/webm" />
           Your browser does not support the video tag.
         </video>
       </div>

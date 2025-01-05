@@ -87,6 +87,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
     );
   }
 
+  const participants = (recording.event?.participants || []) as EventParticipant[];
   const publicShare = recording.video_shares?.find(share => share.share_type === 'external');
   const shareUrl = publicShare ? `${window.location.origin}/shared/${publicShare.external_token}` : null;
 
@@ -102,7 +103,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
                 <ShareViaEmailButton
                   shareUrl={shareUrl}
                   eventTitle={recording.event?.title || ''}
-                  participants={(recording.event?.participants || []) as EventParticipant[]}
+                  participants={participants}
                   grantId={profile?.nylas_grant_id}
                   recordingId={recordingId}
                 />
@@ -115,8 +116,12 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
 
           <div className="aspect-video bg-muted rounded-lg overflow-hidden">
             <VideoPlayer
+              recordingId={recordingId}
               videoUrl={recording.video_url}
               recordingUrl={recording.recording_url}
+              title={recording.event?.title || ''}
+              participants={participants}
+              grantId={profile?.nylas_grant_id}
             />
           </div>
 
