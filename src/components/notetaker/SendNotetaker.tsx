@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Send } from "lucide-react";
+import { Send, Check } from "lucide-react";
 import { NotetakerPopoverContent } from "./NotetakerPopoverContent";
 import { useNotetakerMutation } from "./useNotetakerMutation";
 
@@ -22,6 +22,20 @@ export function SendNotetaker() {
     if (!meetingInfo.trim()) return;
     mutation.mutate(meetingInfo);
   };
+
+  if (mutation.isSuccess) {
+    return (
+      <Button 
+        variant="outline" 
+        size="sm" 
+        className="gap-2 text-green-600 border-green-600"
+        disabled
+      >
+        <Check className="h-4 w-4" />
+        Sent
+      </Button>
+    );
+  }
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
