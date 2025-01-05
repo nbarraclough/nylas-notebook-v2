@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { OrganizationShare } from "./OrganizationShare";
 import { PublicLinkShare } from "./PublicLinkShare";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 interface ShareDialogFormProps {
   recordingId: string;
@@ -19,6 +20,43 @@ export function ShareDialogForm({ recordingId, onSuccess }: ShareDialogFormProps
   const [isCopied, setIsCopied] = useState(false);
   const [password, setPassword] = useState("");
   const [isPasswordEnabled, setIsPasswordEnabled] = useState(false);
+
+  // Fetch existing shares when the dialog opens
+  const { data: existingShares } = useQuery({
+    queryKey: ['shares', recordingId],
+    queryFn: async () => {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .single();
+
+      const { data: shares, error } = await supabase
+        .from('video_shares')
+        .select('*')
+        .eq('recording_id', recordingId);
+
+      if (error) throw error;
+      return shares;
+    },
+  });
+
+  // Set initial states based on existing shares
+  useEffect(() => {
+    if (existingShares) {
+      const internalShare = existingShares.find(share => share.share_type === 'internal');
+      const externalShare = existingShares.find(share => share.share_type === 'external');
+
+      setIsInternalEnabled(!!internalShare);
+      setIsExternalEnabled(!!externalShare);
+      
+      if (externalShare) {
+        const shareUrl = `${window.location.origin}/shared/${externalShare.external_token}`;
+        setExternalShareUrl(shareUrl);
+        setIsPasswordEnabled(!!externalShare.password);
+        setPassword(externalShare.password || '');
+      }
+    }
+  }, [existingShares]);
 
   const handleShare = async () => {
     try {
