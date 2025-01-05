@@ -31,7 +31,6 @@ export function AuthGuard({ children }: AuthGuardProps) {
     }
   };
 
-  // Add a timeout to prevent infinite loading
   const setupAuthTimeout = () => {
     if (authTimeoutRef.current) {
       clearTimeout(authTimeoutRef.current);
@@ -45,6 +44,18 @@ export function AuthGuard({ children }: AuthGuardProps) {
         redirectToAuth("Authentication timed out. Please sign in again.");
       }
     }, 10000); // 10 second timeout
+  };
+
+  const completeAuthCheck = (authenticated: boolean) => {
+    console.log('Completing auth check, authenticated:', authenticated);
+    if (mountedRef.current) {
+      setIsAuthenticated(authenticated);
+      setIsLoading(false);
+      authCheckedRef.current = true;
+    }
+    if (authTimeoutRef.current) {
+      clearTimeout(authTimeoutRef.current);
+    }
   };
 
   useEffect(() => {
@@ -72,10 +83,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
         if (!session) {
           console.log('No session found, redirecting to auth page');
-          if (mountedRef.current) {
-            setIsAuthenticated(false);
-            setIsLoading(false);
-          }
+          completeAuthCheck(false);
           if (!location.pathname.startsWith('/shared')) {
             redirectToAuth();
           }
@@ -91,20 +99,12 @@ export function AuthGuard({ children }: AuthGuardProps) {
         }
 
         console.log('User verified, setting authenticated state');
-        if (mountedRef.current) {
-          setIsAuthenticated(true);
-          setIsLoading(false);
-        }
+        completeAuthCheck(true);
         
-        authCheckedRef.current = true;
       } catch (error) {
         console.error('Unexpected error during auth check:', error);
         if (mountedRef.current) {
           await handleAuthError(error);
-        }
-      } finally {
-        if (authTimeoutRef.current) {
-          clearTimeout(authTimeoutRef.current);
         }
       }
     };
@@ -119,8 +119,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
             console.log('User signed out or session expired');
             if (mountedRef.current) {
               await clearAuthStorage();
-              setIsAuthenticated(false);
-              setIsLoading(false);
+              completeAuthCheck(false);
               redirectToAuth();
             }
           } else if (event === 'SIGNED_IN' && session) {
@@ -131,19 +130,14 @@ export function AuthGuard({ children }: AuthGuardProps) {
               if (verifyError) {
                 console.error('Session verification error:', verifyError);
                 await handleAuthError(verifyError);
-              } else if (mountedRef.current) {
+              } else {
                 console.log('Session verified, updating state');
-                setIsAuthenticated(true);
-                setIsLoading(false);
+                completeAuthCheck(true);
               }
             } catch (error) {
               console.error('Unexpected error during session verification:', error);
               if (mountedRef.current) {
                 await handleAuthError(error);
-              }
-            } finally {
-              if (authTimeoutRef.current) {
-                clearTimeout(authTimeoutRef.current);
               }
             }
           }
