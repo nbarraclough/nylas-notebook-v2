@@ -16,8 +16,8 @@ export default function RecurringEventSeries() {
     queryFn: async () => {
       console.log('Fetching recurring event series:', masterId);
       
-      // First try to find events by master_event_id
-      let { data: events, error: eventsError } = await supabase
+      // First get events by master_event_id
+      const { data: events, error: eventsError } = await supabase
         .from('events')
         .select(`
           *,
@@ -30,51 +30,46 @@ export default function RecurringEventSeries() {
             created_at
           )
         `)
-        .or(`master_event_id.eq.${masterId},id.eq.${masterId}`);
+        .eq('master_event_id', masterId)
+        .order('start_time', { ascending: false });
 
       if (eventsError) throw eventsError;
 
       // If no events found by master_event_id, try finding by ical_uid
-      if (!events?.length) {
-        const { data: sourceEvent } = await supabase
+      let finalEvents = events;
+      if (!events?.length && masterId) {
+        const { data: icalEvents, error: icalError } = await supabase
           .from('events')
-          .select('ical_uid')
-          .eq('id', masterId)
-          .single();
+          .select(`
+            *,
+            recordings (
+              id,
+              recording_url,
+              video_url,
+              duration,
+              transcript_content,
+              created_at
+            )
+          `)
+          .like('ical_uid', `${masterId}@%`)
+          .order('start_time', { ascending: false });
 
-        if (sourceEvent?.ical_uid) {
-          const baseIcalUid = sourceEvent.ical_uid.split('@')[0];
-          const { data: relatedEvents, error } = await supabase
-            .from('events')
-            .select(`
-              *,
-              recordings (
-                id,
-                recording_url,
-                video_url,
-                duration,
-                transcript_content,
-                created_at
-              )
-            `)
-            .like('ical_uid', `${baseIcalUid}%`);
-
-          if (error) throw error;
-          events = relatedEvents;
-        }
+        if (icalError) throw icalError;
+        finalEvents = icalEvents;
       }
 
+      // Get notes separately
       const { data: notes, error: notesError } = await supabase
         .from('recurring_event_notes')
         .select('*')
         .eq('master_event_id', masterId)
-        .maybeSingle();
+        .order('created_at', { ascending: false });
 
       if (notesError) throw notesError;
 
       return {
-        events: events || [],
-        notes
+        events: finalEvents || [],
+        notes: notes || []
       };
     },
   });
@@ -115,7 +110,7 @@ export default function RecurringEventSeries() {
           <div>
             <RecurringEventNotes 
               masterId={masterId || ''}
-              initialContent={events?.notes?.content || ''}
+              initialContent={events?.notes?.[0]?.content || ''}
               onSave={async (masterId, content) => {
                 const { error } = await supabase
                   .from('recurring_event_notes')

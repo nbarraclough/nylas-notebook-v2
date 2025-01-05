@@ -17,7 +17,7 @@ export default function RecurringEvents() {
     queryFn: async () => {
       console.log('Fetching recurring events...');
       
-      // First fetch events with master_event_id
+      // Get all events with master_event_id
       const { data: events, error: eventsError } = await supabase
         .from('events')
         .select(`
@@ -39,7 +39,7 @@ export default function RecurringEvents() {
         throw eventsError;
       }
 
-      // Then fetch events with ical_uid but no master_event_id
+      // Get events with ical_uid but no master_event_id
       const { data: icalEvents, error: icalError } = await supabase
         .from('events')
         .select(`
