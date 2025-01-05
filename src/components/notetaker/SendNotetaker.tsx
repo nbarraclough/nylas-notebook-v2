@@ -44,6 +44,11 @@ export function SendNotetaker() {
         throw new Error('No valid meeting URL found');
       }
 
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) throw new Error('Not authenticated');
+
       // Get user's profile for Nylas grant ID
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -61,6 +66,7 @@ export function SendNotetaker() {
         .insert({
           title: 'Manual Meeting',
           meeting_url: meetingUrl,
+          user_id: user.id
         })
         .select()
         .single();
