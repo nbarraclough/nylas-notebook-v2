@@ -1,8 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
-const NYLAS_API_SERVER = "https://api.us.nylas.com";
-
 serve(async (req) => {
   const requestId = crypto.randomUUID();
   const startTime = performance.now();
@@ -33,10 +31,7 @@ serve(async (req) => {
     const rawBody = await req.text();
     console.log(`📥 [${requestId}] Raw webhook body:`, rawBody);
 
-    if (!rawBody) {
-      throw new Error("Empty webhook body");
-    }
-
+    // Parse webhook data
     const webhookData = JSON.parse(rawBody);
     console.log(`📥 [${requestId}] Webhook data:`, JSON.stringify(webhookData, null, 2));
 
@@ -44,32 +39,30 @@ serve(async (req) => {
     if (webhookData.type === 'challenge') {
       console.log(`🔐 [${requestId}] Handling Nylas webhook challenge:`, webhookData.challenge);
       return new Response(
-        JSON.stringify({ challenge: webhookData.challenge }),
+        webhookData.challenge,
         { 
           status: 200,
           headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json'
+            ...corsHeaders,
+            'Content-Type': 'text/plain'
           }
         }
       );
     }
 
-    // Verify webhook signature
-    const signature = req.headers.get("x-nylas-signature");
-    if (!signature) {
-      throw new Error("Missing Nylas signature");
-    }
-
-    // For non-challenge requests, process normally
+    // Log webhook metadata
+    console.log(`📝 [${requestId}] Webhook type:`, webhookData.type);
+    console.log(`📝 [${requestId}] Webhook timestamp:`, new Date(webhookData.time * 1000).toISOString());
+    
+    // For non-challenge requests, just acknowledge receipt
     const endTime = performance.now();
     console.log(`✅ [${requestId}] Webhook processed successfully in ${(endTime - startTime).toFixed(2)}ms`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Successfully processed ${webhookData.type} webhook`,
-        status: 'acknowledged'
+        message: `Successfully received ${webhookData.type} webhook`,
+        requestId
       }),
       { 
         status: 200,
@@ -84,7 +77,7 @@ serve(async (req) => {
       JSON.stringify({
         success: false,
         message: error.message,
-        status: 'error'
+        requestId
       }),
       { 
         status: 500,
