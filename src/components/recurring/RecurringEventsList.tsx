@@ -34,7 +34,6 @@ export function RecurringEventsList({
 
       if (error) throw error;
 
-      // Update local state immediately
       setLocalEvents(prev => {
         const updated = { ...prev };
         const events = updated[masterId];
@@ -88,6 +87,7 @@ export function RecurringEventsList({
     );
   }
 
+  // Only show no data message if we're not loading and there are no events
   if (!localEvents || Object.keys(localEvents).length === 0) {
     return (
       <Card>
@@ -130,12 +130,10 @@ export function RecurringEventsList({
       const filteredEvents = filterEvents(events);
       if (filteredEvents.length === 0) return null;
 
-      // Sort events by start_time
       const sortedEvents = [...events].sort((a, b) => 
         new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
       );
 
-      // Find the latest past event and next upcoming event
       const now = new Date();
       const latestEvent = [...sortedEvents]
         .reverse()
@@ -152,7 +150,7 @@ export function RecurringEventsList({
       return {
         masterId,
         events: filteredEvents,
-        latestEvent: latestEvent || sortedEvents[0], // Fallback to first event if no past events
+        latestEvent: latestEvent || sortedEvents[0],
         nextEvent,
         recordingsCount,
         isPinned
