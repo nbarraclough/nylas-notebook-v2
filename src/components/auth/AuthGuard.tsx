@@ -1,64 +1,44 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { LoadingScreen } from "@/components/LoadingScreen";
-import { useAuthRedirect } from "@/hooks/useAuthRedirect";
 
 interface AuthGuardProps {
   children: React.ReactNode;
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
-  const [authState, setAuthState] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const location = useLocation();
-  const { redirectToAuth } = useAuthRedirect();
+  const navigate = useNavigate();
+
+  // Define public routes that don't require authentication
+  const isPublicRoute = location.pathname === '/auth' || location.pathname.startsWith('/shared');
 
   useEffect(() => {
     // Initial session check
     const checkSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('Session check error:', error);
-          setAuthState('unauthenticated');
-          return;
-        }
-
-        if (!session) {
-          setAuthState('unauthenticated');
-          return;
-        }
-
-        // Verify user exists
-        const { error: userError } = await supabase.auth.getUser();
-        if (userError) {
-          console.error('User verification error:', userError);
-          setAuthState('unauthenticated');
-          return;
-        }
-
-        setAuthState('authenticated');
+        const { data: { session } } = await supabase.auth.getSession();
+        setIsAuthenticated(!!session);
       } catch (error) {
-        console.error('Auth check error:', error);
-        setAuthState('unauthenticated');
+        console.error('Session check error:', error);
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event);
+      setIsAuthenticated(!!session);
+      setIsLoading(false);
 
-      if (event === 'SIGNED_OUT' || !session) {
-        setAuthState('unauthenticated');
-      } else if (event === 'SIGNED_IN' && session) {
-        const { error: verifyError } = await supabase.auth.getUser();
-        if (verifyError) {
-          console.error('User verification error:', verifyError);
-          setAuthState('unauthenticated');
-        } else {
-          setAuthState('authenticated');
-        }
+      // If user signs out and isn't on a public route, redirect to auth
+      if (!session && !isPublicRoute) {
+        navigate('/auth', { state: { returnTo: location.pathname } });
       }
     });
 
@@ -69,24 +49,24 @@ export function AuthGuard({ children }: AuthGuardProps) {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [navigate, location.pathname, isPublicRoute]);
 
-  // Show loading screen while checking auth
-  if (authState === 'loading') {
+  // Show loading screen only for protected routes during initial load
+  if (isLoading && !isPublicRoute) {
     return <LoadingScreen />;
   }
 
-  // Allow access to shared routes even when unauthenticated
-  if (location.pathname.startsWith('/shared')) {
+  // Allow access to public routes regardless of auth state
+  if (isPublicRoute) {
     return <>{children}</>;
   }
 
-  // Redirect to auth page if unauthenticated
-  if (authState === 'unauthenticated') {
-    redirectToAuth();
+  // Redirect to auth if not authenticated and trying to access protected route
+  if (!isAuthenticated && !isPublicRoute) {
+    navigate('/auth', { state: { returnTo: location.pathname } });
     return null;
   }
 
-  // User is authenticated, render protected content
+  // User is authenticated or accessing public route
   return <>{children}</>;
 }
