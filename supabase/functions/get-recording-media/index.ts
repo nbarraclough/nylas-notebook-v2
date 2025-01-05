@@ -48,6 +48,19 @@ Deno.serve(async (req) => {
     )
 
     if (!response.ok) {
+      // If media is not available yet, return a structured error response
+      if (response.status === 404) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'MEDIA_NOT_READY',
+            message: 'Media is not available yet'
+          }),
+          { 
+            status: 202, // Using 202 Accepted to indicate the request is valid but processing
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        )
+      }
       throw new Error(`Failed to fetch media: ${response.statusText}`)
     }
 
@@ -101,7 +114,10 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Error in get-recording-media:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        type: 'INTERNAL_ERROR'
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,

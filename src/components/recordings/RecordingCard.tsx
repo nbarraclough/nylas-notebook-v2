@@ -80,14 +80,25 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
       setIsRetrievingMedia(true);
       console.log('Retrieving media for recording:', recording.id);
 
-      const { error } = await supabase.functions.invoke('get-recording-media', {
+      const { data, error } = await supabase.functions.invoke('get-recording-media', {
         body: { 
           recordingId: recording.id,
           notetakerId: recording.notetaker_id
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        // Check if this is a "media not ready" response
+        const errorBody = JSON.parse(error.message);
+        if (errorBody?.error === 'MEDIA_NOT_READY') {
+          toast({
+            title: "Media Not Ready",
+            description: "The recording is still being processed. Please try again in a few moments.",
+          });
+          return;
+        }
+        throw error;
+      }
 
       toast({
         title: "Success",
