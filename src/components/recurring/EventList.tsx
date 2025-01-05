@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { EventDescription } from "@/components/calendar/EventDescription";
 import { EventParticipants } from "@/components/calendar/EventParticipants";
 import { VideoPlayerDialog } from "@/components/recordings/VideoPlayerDialog";
+import { RecurringEventSkeleton } from "./RecurringEventSkeleton";
 
 interface EventListProps {
   events: any[];
@@ -13,6 +14,7 @@ interface EventListProps {
   onToggleExpand: (eventId: string) => void;
   onSelectRecording: (recordingId: string) => void;
   isUpcoming?: boolean;
+  isLoading?: boolean;
 }
 
 export function EventList({ 
@@ -20,32 +22,35 @@ export function EventList({
   expandedEvents, 
   onToggleExpand,
   onSelectRecording,
-  isUpcoming = false
+  isUpcoming = false,
+  isLoading = false
 }: EventListProps) {
+  if (isLoading) {
+    return <RecurringEventSkeleton />;
+  }
+
   // Find the next upcoming meeting if we're in the upcoming view
   const now = new Date();
   const nextUpcomingMeeting = isUpcoming ? 
     events.find(event => {
       const eventDate = new Date(event.start_time);
-      // Remove time zone offset for accurate comparison
       return eventDate.getTime() > now.getTime();
     }) : null;
 
-  console.log('Current time:', now);
-  console.log('Is upcoming view:', isUpcoming);
-  console.log('Next upcoming meeting:', nextUpcomingMeeting);
-  console.log('All events:', events);
+  if (events.length === 0) {
+    return (
+      <Card className="p-6">
+        <div className="text-center text-muted-foreground">
+          No recurring events found
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-4">
       {events.map((event) => {
         const isNextUpcoming = event === nextUpcomingMeeting;
-        console.log('Event:', {
-          id: event.id,
-          startTime: event.start_time,
-          isNextUpcoming,
-          hasConferenceUrl: !!event.conference_url
-        });
 
         return (
           <Card 
