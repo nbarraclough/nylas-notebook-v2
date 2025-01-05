@@ -73,7 +73,6 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
     });
 
     return filteredEvents.reduce((groups: GroupedEvents, event) => {
-      // Convert the UTC timestamp to local date for grouping
       const localDate = new Date(event.start_time).toLocaleDateString('en-US', {
         year: 'numeric',
         month: '2-digit',
@@ -89,14 +88,11 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
     }, {});
   };
 
-  // Sort events by start time within each group
   const sortedGroupedEvents = (() => {
     const grouped = groupEventsByDate(events);
-    // Sort dates using local timezone comparison
     const sortedDates = Object.keys(grouped).sort((a, b) => 
       new Date(a).getTime() - new Date(b).getTime()
     );
-    // Sort events within each date
     return sortedDates.map(date => ({
       date: new Date(date),
       events: grouped[date].sort((a, b) => 
@@ -112,7 +108,7 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
           <Button 
             onClick={syncEvents} 
             disabled={isSyncing}
-            className="w-full sm:w-auto bg-[#0F172A] text-white hover:bg-[#0F172A]/90"
+            className="w-full sm:w-auto !bg-[#0F172A] !text-white hover:!bg-[#0F172A]/90"
           >
             {isSyncing ? "Syncing..." : "Sync Events"}
           </Button>
