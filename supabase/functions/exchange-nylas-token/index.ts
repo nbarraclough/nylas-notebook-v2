@@ -123,14 +123,14 @@ serve(async (req) => {
 
     console.log('Successfully updated profile with new grant info')
 
-    // First, delete existing events for this user
-    const { error: deleteEventsError } = await supabase
-      .from('events')
-      .delete()
-      .eq('user_id', userId)
+    // Trigger events sync
+    const { error: syncError } = await supabase.functions.invoke('sync-nylas-events', {
+      body: { user_id: userId }
+    });
 
-    if (deleteEventsError) {
-      console.error('Error deleting events:', deleteEventsError)
+    if (syncError) {
+      console.error('Error triggering events sync:', syncError)
+      // Don't throw here, as the authentication was successful
     }
 
     return new Response(
