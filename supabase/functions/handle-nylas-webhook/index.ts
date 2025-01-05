@@ -26,11 +26,7 @@ serve(async (req) => {
     // Handle CORS preflight
     if (req.method === 'OPTIONS') {
       return new Response(null, { 
-        headers: {
-          ...corsHeaders,
-          'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-          'Access-Control-Max-Age': '86400',
-        } 
+        headers: corsHeaders
       });
     }
 
@@ -40,6 +36,7 @@ serve(async (req) => {
       const challenge = url.searchParams.get('challenge');
       
       if (challenge) {
+        console.log('🎯 Received challenge verification request:', challenge);
         return new Response(challenge, {
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
@@ -56,7 +53,7 @@ serve(async (req) => {
     if (req.method === 'POST') {
       const signature = req.headers.get('x-nylas-signature');
       
-      // Get raw body and log it before parsing
+      // Get raw body and log it
       const rawBody = await req.text();
       logRawBody(rawBody);
 
