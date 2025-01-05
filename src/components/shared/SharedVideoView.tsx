@@ -8,11 +8,13 @@ import type { Json } from "@/integrations/supabase/types/json";
 import { SharedEventHeader } from "./SharedEventHeader";
 import { SharedVideoPlayer } from "./SharedVideoPlayer";
 import { SharedContentTabs } from "./SharedContentTabs";
+import { TranscriptSection } from "@/components/recordings/transcript/TranscriptSection";
 
 interface SharedRecording {
   video_url: string | null;
   recording_url: string | null;
   id: string;
+  transcript_content: Json | null;
   event: {
     title: string;
     description: string | null;
@@ -21,15 +23,6 @@ interface SharedRecording {
     participants: EventParticipant[];
   };
 }
-
-// Helper function to transform Json to EventParticipant[]
-const transformParticipants = (participants: Json): EventParticipant[] => {
-  if (!Array.isArray(participants)) return [];
-  return participants.map(p => ({
-    name: (p as any)?.name || 'Unknown',
-    email: (p as any)?.email || ''
-  }));
-};
 
 export function SharedVideoView() {
   const { token } = useParams();
@@ -50,6 +43,7 @@ export function SharedVideoView() {
               id,
               video_url,
               recording_url,
+              transcript_content,
               event:events!inner (
                 title,
                 description,
@@ -79,6 +73,7 @@ export function SharedVideoView() {
             id: share.recording.id,
             video_url: share.recording.video_url,
             recording_url: share.recording.recording_url,
+            transcript_content: share.recording.transcript_content,
             event: {
               ...share.recording.event,
               participants: transformParticipants(share.recording.event.participants)
@@ -144,11 +139,17 @@ export function SharedVideoView() {
 
         <Card>
           <CardContent className="p-6">
-            <div className="aspect-video mb-6">
-              <SharedVideoPlayer
-                videoUrl={recording?.video_url}
-                recordingUrl={recording?.recording_url}
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="aspect-video">
+                <SharedVideoPlayer
+                  videoUrl={recording?.video_url}
+                  recordingUrl={recording?.recording_url}
+                />
+              </div>
+              
+              {recording?.transcript_content && (
+                <TranscriptSection content={recording.transcript_content} />
+              )}
             </div>
 
             <SharedContentTabs description={eventData.description} />
@@ -158,3 +159,12 @@ export function SharedVideoView() {
     </div>
   );
 }
+
+// Helper function to transform Json to EventParticipant[]
+const transformParticipants = (participants: Json): EventParticipant[] => {
+  if (!Array.isArray(participants)) return [];
+  return participants.map(p => ({
+    name: (p as any)?.name || 'Unknown',
+    email: (p as any)?.email || ''
+  }));
+};
