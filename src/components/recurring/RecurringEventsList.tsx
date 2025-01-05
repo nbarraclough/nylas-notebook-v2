@@ -22,7 +22,7 @@ export function RecurringEventsList({
 }: RecurringEventsListProps) {
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {[1, 2, 3].map((n) => (
           <Card key={n}>
             <CardContent className="p-4">
@@ -78,7 +78,7 @@ export function RecurringEventsList({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {Object.entries(recurringEvents).map(([masterId, events]) => {
         if (!masterId) return null;
         
@@ -92,7 +92,7 @@ export function RecurringEventsList({
 
         return (
           <Link key={masterId} to={`/recurring-events/${masterId}`}>
-            <Card className="transition-colors hover:bg-muted/50">
+            <Card className="h-full transition-colors hover:bg-muted/50">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
