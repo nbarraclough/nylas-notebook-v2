@@ -20,6 +20,12 @@ serve(async (req) => {
     const { grantId, subject, body, recipients, recordingId } = await req.json() as EmailRequest;
     console.log('📧 Received email request:', { grantId, subject, recipients, recordingId });
 
+    // Format the body text into HTML, preserving newlines
+    const formattedHtml = body
+      .split('\n')
+      .map(line => `<p style="margin: 0 0 10px 0;">${line}</p>`)
+      .join('');
+
     // Initialize Supabase client
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -40,7 +46,7 @@ serve(async (req) => {
 
     const requestBody = {
       subject,
-      body,
+      body: formattedHtml,
       to: recipients,
       tracking_options: {
         opens: true,
