@@ -12,9 +12,14 @@ export function NotetakersSettings({ userId }: { userId: string }) {
   const [isRetrieving, setIsRetrieving] = useState<{ [key: string]: boolean }>({});
   const { data: recordings, isLoading, error } = useNotetakers(userId);
 
-  console.log('Notetakers data:', recordings);
-  console.log('Notetakers loading:', isLoading);
-  console.log('Notetakers error:', error);
+  console.log('NotetakersSettings state:', { 
+    userId,
+    recordings,
+    isLoading,
+    error,
+    isKicking,
+    isRetrieving
+  });
 
   const handleManualKick = async (notetakerId: string, recordingId: string) => {
     try {
@@ -99,6 +104,23 @@ export function NotetakersSettings({ userId }: { userId: string }) {
     );
   }
 
+  if (!recordings || recordings.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-lg font-semibold">Notetakers</h2>
+        </div>
+        <div className="text-muted-foreground">
+          No notetakers found. This could mean either:
+          <ul className="list-disc list-inside mt-2">
+            <li>You haven't sent any notetakers to meetings yet</li>
+            <li>Your notetakers haven't joined any meetings yet</li>
+          </ul>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -106,7 +128,7 @@ export function NotetakersSettings({ userId }: { userId: string }) {
       </div>
 
       <NotetakersTable
-        recordings={recordings || []}
+        recordings={recordings}
         isKicking={isKicking}
         isRetrieving={isRetrieving}
         onKick={handleManualKick}

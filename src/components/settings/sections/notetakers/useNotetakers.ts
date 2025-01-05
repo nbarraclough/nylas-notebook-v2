@@ -23,9 +23,11 @@ export function useNotetakers(userId: string) {
             )
           )
         `)
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .not('notetaker_id', 'is', null);  // Only get recordings with notetaker_id
 
-      console.log('Recordings data:', recordingsData);
+      console.log('Recordings query result:', { recordingsData, recordingsError });
+      
       if (recordingsError) {
         console.error('Recordings error:', recordingsError);
         throw recordingsError;
@@ -49,7 +51,8 @@ export function useNotetakers(userId: string) {
         .eq('user_id', userId)
         .not('notetaker_id', 'is', null);
 
-      console.log('Queue data:', queueData);
+      console.log('Queue query result:', { queueData, queueError });
+
       if (queueError) {
         console.error('Queue error:', queueError);
         throw queueError;
