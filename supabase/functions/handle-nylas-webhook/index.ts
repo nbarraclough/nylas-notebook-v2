@@ -160,10 +160,14 @@ serve(async (req) => {
     }
 
     // If we get here, it's a non-POST request without a challenge
-    console.error(`❌ [${requestId}] Invalid request method: ${req.method}`);
+    console.log(`⚠️ [${requestId}] Received ${req.method} request without challenge parameter`);
     return new Response(`Method not allowed`, { 
       status: 405,
-      headers: corsHeaders 
+      headers: { 
+        ...corsHeaders,
+        'Allow': 'POST, GET, OPTIONS',
+        'Content-Type': 'text/plain'
+      }
     });
 
   } catch (error) {
