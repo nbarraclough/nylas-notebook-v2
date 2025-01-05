@@ -87,17 +87,6 @@ export function RecurringEventsList({
     );
   }
 
-  // Only show no data message if we're not loading and there are no events
-  if (!localEvents || Object.keys(localEvents).length === 0) {
-    return (
-      <Card>
-        <CardContent className="p-6 text-center text-muted-foreground">
-          No recurring events found.
-        </CardContent>
-      </Card>
-    );
-  }
-
   const filterEvents = (events: any[]) => {
     return events.filter(event => {
       if (filters.startDate && new Date(event.start_time) < filters.startDate) return false;
@@ -125,7 +114,7 @@ export function RecurringEventsList({
     });
   };
 
-  const processedEvents = Object.entries(localEvents)
+  const processedEvents = Object.entries(localEvents || {})
     .map(([masterId, events]) => {
       const filteredEvents = filterEvents(events);
       if (filteredEvents.length === 0) return null;
@@ -167,6 +156,17 @@ export function RecurringEventsList({
     .filter(event => !event.isPinned)
     .sort((a, b) => new Date(b.latestEvent.start_time).getTime() - 
                     new Date(a.latestEvent.start_time).getTime());
+
+  // Only show no data message if we're not loading and there are no events after filtering
+  if (!isLoading && (!processedEvents || processedEvents.length === 0)) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-center text-muted-foreground">
+          No recurring events found.
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-8">
