@@ -4,8 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { QueueCard } from "@/components/queue/QueueCard";
 import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Play } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { NotetakerQueue } from "@/integrations/supabase/types/notetaker-queue";
 
@@ -13,7 +11,6 @@ export default function Queue() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [userId, setUserId] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -28,7 +25,7 @@ export default function Queue() {
     checkAuth();
   }, [navigate]);
 
-  const { data: queueItems, isLoading, error, refetch } = useQuery({
+  const { data: queueItems, isLoading, error } = useQuery({
     queryKey: ['queue', userId],
     queryFn: async () => {
       if (!userId) return [];
@@ -56,44 +53,12 @@ export default function Queue() {
     enabled: !!userId,
   });
 
-  const handleProcessQueue = async () => {
-    try {
-      setIsProcessing(true);
-      const { error } = await supabase.functions.invoke('process-notetaker-queue');
-      
-      if (error) throw error;
-      
-      toast({
-        title: "Queue Processing Started",
-        description: "The notetaker queue is being processed. Check back in a few moments.",
-      });
-      
-      setTimeout(() => {
-        refetch();
-      }, 2000);
-      
-    } catch (error) {
-      console.error('Error processing queue:', error);
-      toast({
-        title: "Error Processing Queue",
-        description: "There was an error processing the queue. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
   if (isLoading) {
     return (
       <PageLayout>
         <div className="space-y-4 px-4 sm:px-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <h1 className="text-2xl font-bold">Recording Queue</h1>
-            <Button disabled variant="outline" className="w-full sm:w-auto">
-              <Play className="mr-2 h-4 w-4" />
-              Process Queue
-            </Button>
           </div>
           <div className="animate-pulse space-y-4">
             {[1, 2, 3].map((i) => (
@@ -111,10 +76,6 @@ export default function Queue() {
         <div className="space-y-4 px-4 sm:px-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <h1 className="text-2xl font-bold">Recording Queue</h1>
-            <Button disabled variant="outline" className="w-full sm:w-auto">
-              <Play className="mr-2 h-4 w-4" />
-              Process Queue
-            </Button>
           </div>
           <div className="text-red-500">
             Error loading queue items. Please try again later.
@@ -129,15 +90,6 @@ export default function Queue() {
       <div className="space-y-4 px-4 sm:px-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h1 className="text-2xl font-bold">Recording Queue</h1>
-          <Button 
-            variant="outline"
-            onClick={handleProcessQueue}
-            disabled={isProcessing}
-            className="w-full sm:w-auto"
-          >
-            <Play className="mr-2 h-4 w-4" />
-            {isProcessing ? "Processing..." : "Process Queue"}
-          </Button>
         </div>
         {queueItems && queueItems.length > 0 ? (
           <div className="grid gap-4">
