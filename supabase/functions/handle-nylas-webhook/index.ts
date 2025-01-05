@@ -2,8 +2,17 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from '../_shared/cors.ts'
 import { verifyWebhookSignature } from '../_shared/webhook-verification.ts'
 import { logWebhookRequest, logWebhookBody, logSignatureVerification } from '../_shared/webhook-logger.ts'
-import { handleEventCreated, handleEventUpdated, handleEventDeleted } from '../_shared/handlers/event-handlers.ts'
-import { handleGrantCreated, handleGrantUpdated, handleGrantDeleted, handleGrantExpired } from '../_shared/handlers/user-handlers.ts'
+import { 
+  handleEventCreated, 
+  handleEventUpdated, 
+  handleEventDeleted,
+  handleGrantCreated,
+  handleGrantUpdated,
+  handleGrantDeleted,
+  handleGrantExpired,
+  handleMessageOpened,
+  handleMessageLinkClicked
+} from '../_shared/webhook-handlers.ts'
 
 serve(async (req) => {
   const timestamp = new Date().toISOString();
@@ -107,6 +116,14 @@ serve(async (req) => {
           case 'grant.expired':
             console.log('⚠️ Processing grant.expired webhook:', webhookData.data);
             processingResult = await handleGrantExpired(webhookData.data);
+            break;
+          case 'message.opened':
+            console.log('📨 Processing message.opened webhook:', webhookData.data);
+            processingResult = await handleMessageOpened(webhookData);
+            break;
+          case 'message.link_clicked':
+            console.log('🔗 Processing message.link_clicked webhook:', webhookData.data);
+            processingResult = await handleMessageLinkClicked(webhookData);
             break;
           default:
             console.log('⚠️ Unhandled webhook type:', webhookData.type);
