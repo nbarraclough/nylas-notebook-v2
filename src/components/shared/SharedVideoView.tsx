@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import type { EventParticipant } from "@/types/calendar";
-import type { Json } from "@/integrations/supabase/types/json";
+import type { Json } from "@/integrations/supabase/types";
 import { SharedEventHeader } from "./SharedEventHeader";
 import { SharedVideoPlayer } from "./SharedVideoPlayer";
 import { SharedContentTabs } from "./SharedContentTabs";
@@ -36,6 +36,8 @@ export function SharedVideoView() {
       try {
         if (!token) throw new Error('No share token provided');
 
+        console.log('Fetching shared video with token:', token);
+
         const { data: share, error: shareError } = await supabase
           .from('video_shares')
           .select(`
@@ -56,7 +58,10 @@ export function SharedVideoView() {
           .eq('external_token', token)
           .maybeSingle();
 
-        if (shareError) throw shareError;
+        if (shareError) {
+          console.error('Error fetching shared video:', shareError);
+          throw shareError;
+        }
         
         // Set event data regardless of recording availability
         if (share?.recording?.event) {
@@ -79,14 +84,6 @@ export function SharedVideoView() {
               participants: transformParticipants(share.recording.event.participants)
             }
           };
-
-          // Record the view
-          await supabase
-            .from('video_views')
-            .insert({
-              recording_id: share.recording.id,
-              external_viewer_ip: 'anonymous'
-            });
 
           setRecording(transformedRecording);
         }
