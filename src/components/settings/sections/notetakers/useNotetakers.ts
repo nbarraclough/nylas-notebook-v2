@@ -21,11 +21,14 @@ export function useNotetakers(userId: string) {
           )
         `)
         .eq('user_id', userId)
-        .not('notetaker_id', 'is', null)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as NotetakerRecord[];
+      
+      // Filter out any records without notetaker_id after fetching
+      // This ensures we get historical data where notetaker_id might have been set
+      const recordingsWithNotetakers = data?.filter(record => record.notetaker_id) as NotetakerRecord[];
+      return recordingsWithNotetakers;
     },
   });
 }
