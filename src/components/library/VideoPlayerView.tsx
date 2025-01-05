@@ -28,7 +28,10 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
             description,
             start_time,
             participants,
-            organizer
+            organizer,
+            manual_meeting:manual_meetings (
+              user_id
+            )
           ),
           video_shares (
             id,
@@ -52,7 +55,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('nylas_grant_id')
+        .select('nylas_grant_id, email')
         .eq('id', user.id)
         .single();
 
@@ -62,11 +65,16 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   });
 
   const isInternalMeeting = () => {
-    const organizerDomain = recording?.event?.organizer?.email?.split('@')[1];
-    if (!organizerDomain || !Array.isArray(recording?.event?.participants)) return false;
+    const organizerEmail = typeof recording?.event?.organizer === 'object' ? 
+      recording?.event?.organizer?.email : 
+      profile?.email; // Fallback to user's email for manual meetings
     
+    if (!organizerEmail || !Array.isArray(recording?.event?.participants)) return false;
+    
+    const organizerDomain = organizerEmail.split('@')[1];
     return recording.event.participants.every((participant: any) => {
-      const participantDomain = participant.email?.split('@')[1];
+      const participantEmail = typeof participant === 'object' ? participant.email : participant;
+      const participantDomain = participantEmail?.split('@')[1];
       return participantDomain === organizerDomain;
     });
   };
@@ -98,13 +106,15 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
     );
   }
 
-  // Properly type and map the participants data
-  const participants: EventParticipant[] = Array.isArray(recording.event?.participants) 
-    ? recording.event.participants.map((p: any) => ({
-        name: p.name || '',
-        email: p.email || ''
-      }))
-    : [];
+  // For manual meetings, use the user's email as the participant
+  const participants: EventParticipant[] = recording.event?.manual_meeting
+    ? [{ name: profile?.email?.split('@')[0] || '', email: profile?.email || '' }]
+    : Array.isArray(recording.event?.participants)
+      ? recording.event.participants.map((p: any) => ({
+          name: typeof p === 'object' ? p.name || '' : '',
+          email: typeof p === 'object' ? p.email || '' : p || ''
+        }))
+      : [];
 
   const publicShare = recording.video_shares?.find(share => share.share_type === 'external');
   const shareUrl = publicShare ? `${window.location.origin}/shared/${publicShare.external_token}` : null;
