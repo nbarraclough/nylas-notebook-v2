@@ -8,6 +8,7 @@ import Settings from "./pages/Settings";
 import Library from "./pages/Library";
 import { SharedVideoView } from "./components/shared/SharedVideoView";
 import Shared from "./pages/Shared";
+import RecurringEvents from "./pages/RecurringEvents";
 import { Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -85,6 +86,10 @@ const router = createBrowserRouter([
   {
     path: "/shared/:token",
     element: <SharedVideoView />,
+  },
+  {
+    path: "/recurring-events",
+    element: <ProtectedRoute><RecurringEvents /></ProtectedRoute>,
   },
 ]);
 

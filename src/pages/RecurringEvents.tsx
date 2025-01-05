@@ -1,7 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { RecurringEventsList } from "@/components/recurring/RecurringEventsList";
 import { RecurringEventsFilters } from "@/components/recurring/RecurringEventsFilters";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 
@@ -10,7 +10,7 @@ export default function RecurringEvents() {
     participants: [] as string[],
     startDate: null as Date | null,
     endDate: null as Date | null,
-    searchQuery: "" as string | null,
+    searchQuery: null as string | null,
   });
 
   const { data: recurringEvents, isLoading } = useQuery({
