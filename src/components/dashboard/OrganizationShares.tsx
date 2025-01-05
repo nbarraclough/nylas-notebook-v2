@@ -3,11 +3,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, ArrowRight } from "lucide-react";
+import { ExternalLink, ArrowRight, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 export function OrganizationShares() {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [isInviting, setIsInviting] = useState(false);
   
   const { data: shares, isLoading } = useQuery({
     queryKey: ['org-shares'],
@@ -42,6 +48,39 @@ export function OrganizationShares() {
     }
   });
 
+  const handleInvite = async () => {
+    if (!inviteEmail) return;
+    
+    setIsInviting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('No session found');
+
+      const response = await supabase.functions.invoke('send-organization-invite', {
+        body: { email: inviteEmail },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.error) throw response.error;
+
+      toast({
+        title: "Invitation Sent",
+        description: `An invitation has been sent to ${inviteEmail}`,
+      });
+      setInviteEmail("");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send invitation",
+        variant: "destructive",
+      });
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
   return (
     <>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -64,9 +103,26 @@ export function OrganizationShares() {
             ))}
           </div>
         ) : shares?.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4 text-center">
-            No shared recordings in your organization yet.
-          </p>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground text-center">
+              No shared recordings in your organization yet.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                placeholder="colleague@company.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                type="email"
+              />
+              <Button 
+                onClick={handleInvite}
+                disabled={!inviteEmail || isInviting}
+              >
+                <UserPlus className="mr-2 h-4 w-4" />
+                {isInviting ? "Inviting..." : "Invite"}
+              </Button>
+            </div>
+          </div>
         ) : (
           <div className="space-y-4">
             {shares?.map((share) => (
