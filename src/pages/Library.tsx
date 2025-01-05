@@ -6,6 +6,9 @@ import { RecordingGrid } from "@/components/library/RecordingGrid";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useParams, useNavigate } from "react-router-dom";
+import { Card, CardContent } from "@/components/ui/card";
+import { AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { Database } from "@/integrations/supabase/types";
 import type { EventParticipant } from "@/types/calendar";
 
@@ -34,6 +37,7 @@ export default function Library() {
   const navigate = useNavigate();
   const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Check authentication status
   useEffect(() => {
@@ -112,7 +116,16 @@ export default function Library() {
 
       if (error) {
         console.error('Error fetching recordings:', error);
+        if (error.code === 'PGRST116') {
+          setError('You do not have permission to view this recording.');
+          return [];
+        }
         throw error;
+      }
+
+      if (recordingId && data.length === 0) {
+        setError('Recording not found or you do not have permission to view it.');
+        return [];
       }
 
       // Process recordings
@@ -167,18 +180,28 @@ export default function Library() {
   return (
     <PageLayout>
       <div className="space-y-6">
-        {isAuthenticated && (
+        {error ? (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : (
           <>
-            <LibraryHeader recordingsCount={recordings?.length || 0} />
-            <LibraryFilters filters={filters} onFiltersChange={setFilters} />
+            {isAuthenticated && (
+              <>
+                <LibraryHeader recordingsCount={recordings?.length || 0} />
+                <LibraryFilters filters={filters} onFiltersChange={setFilters} />
+              </>
+            )}
+            <RecordingGrid 
+              recordings={recordings || []} 
+              isLoading={isLoading} 
+              selectedRecording={selectedRecording}
+              onRecordingSelect={handleRecordingSelect}
+            />
           </>
         )}
-        <RecordingGrid 
-          recordings={recordings || []} 
-          isLoading={isLoading} 
-          selectedRecording={selectedRecording}
-          onRecordingSelect={handleRecordingSelect}
-        />
       </div>
     </PageLayout>
   );
