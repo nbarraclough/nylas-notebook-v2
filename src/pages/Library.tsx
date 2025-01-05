@@ -47,6 +47,20 @@ export default function Library() {
   const { recordingId } = useParams();
   const navigate = useNavigate();
   const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // Check authentication status
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        // Redirect to login if not authenticated
+        navigate('/auth', { state: { returnTo: `/library/${recordingId || ''}` } });
+      }
+      setAuthChecked(true);
+    };
+    checkAuth();
+  }, [navigate, recordingId]);
 
   // Handle URL parameter changes
   useEffect(() => {
@@ -129,7 +143,6 @@ export default function Library() {
         ...recording,
         event: {
           ...recording.event,
-          // Use manual meeting title if available
           title: recording.event?.manual_meeting?.title || recording.event?.title || 'Untitled Recording',
           participants: parseParticipants(recording.event?.participants)
         }
@@ -175,7 +188,7 @@ export default function Library() {
       console.log('Filtered recordings:', filteredRecordings);
       return filteredRecordings;
     },
-    // Refresh data every 10 seconds to catch new recordings
+    enabled: authChecked, // Only run query after auth check
     refetchInterval: 10000
   });
 
@@ -188,6 +201,10 @@ export default function Library() {
       navigate('/library');
     }
   };
+
+  if (!authChecked) {
+    return null; // Or a loading spinner
+  }
 
   return (
     <PageLayout>
