@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ShareVideoDialog } from "@/components/recordings/ShareVideoDialog";
 import { ShareViaEmailButton } from "@/components/recordings/email/ShareViaEmailButton";
 import { VideoPlayer } from "@/components/recordings/player/VideoPlayer";
+import { TranscriptViewer } from "@/components/recordings/transcript/TranscriptViewer";
 import type { EventParticipant } from "@/types/calendar";
 import type { Json } from "@/integrations/supabase/types";
 
@@ -184,15 +185,24 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
             </div>
           </div>
 
-          <div className="aspect-video bg-muted rounded-lg overflow-hidden">
-            <VideoPlayer
-              recordingId={recordingId}
-              videoUrl={recording.video_url}
-              recordingUrl={recording.recording_url}
-              title={recording.event?.title || ''}
-              participants={participants}
-              grantId={profile?.nylas_grant_id}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="aspect-video bg-muted rounded-lg overflow-hidden">
+              <VideoPlayer
+                recordingId={recordingId}
+                videoUrl={recording.video_url}
+                recordingUrl={recording.recording_url}
+                title={recording.event?.title || ''}
+                participants={participants}
+                grantId={profile?.nylas_grant_id}
+              />
+            </div>
+            
+            {recording.transcript_content && (
+              <div className="h-full">
+                <h3 className="text-lg font-medium mb-4">Transcript</h3>
+                <TranscriptViewer content={recording.transcript_content as any} />
+              </div>
+            )}
           </div>
 
           {recording.event?.description && (
