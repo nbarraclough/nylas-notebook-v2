@@ -9,6 +9,66 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      email_shares: {
+        Row: {
+          created_at: string | null
+          id: string
+          link_clicks: number | null
+          message_id: string
+          opens: number | null
+          recipients: Json
+          recording_id: string
+          sent_at: string | null
+          shared_by: string
+          subject: string
+          thread_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          link_clicks?: number | null
+          message_id: string
+          opens?: number | null
+          recipients?: Json
+          recording_id: string
+          sent_at?: string | null
+          shared_by: string
+          subject: string
+          thread_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          link_clicks?: number | null
+          message_id?: string
+          opens?: number | null
+          recipients?: Json
+          recording_id?: string
+          sent_at?: string | null
+          shared_by?: string
+          subject?: string
+          thread_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_shares_recording_id_fkey"
+            columns: ["recording_id"]
+            isOneToOne: false
+            referencedRelation: "recordings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_shares_shared_by_fkey"
+            columns: ["shared_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           busy: boolean | null

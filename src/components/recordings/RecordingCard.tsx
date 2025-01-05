@@ -222,6 +222,7 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
               eventTitle={recording.event.title}
               participants={participants}
               grantId={profile?.nylas_grant_id}
+              recordingId={recording.id}
             />
           )}
         </div>

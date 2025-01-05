@@ -10,13 +10,15 @@ interface ShareViaEmailButtonProps {
   eventTitle: string;
   participants: EventParticipant[];
   grantId: string | null;
+  recordingId: string;
 }
 
 export function ShareViaEmailButton({ 
   shareUrl, 
   eventTitle, 
   participants,
-  grantId
+  grantId,
+  recordingId
 }: ShareViaEmailButtonProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
@@ -52,6 +54,7 @@ export function ShareViaEmailButton({
         recipients={participants}
         shareUrl={shareUrl}
         grantId={grantId}
+        recordingId={recordingId}
       />
     </>
   );

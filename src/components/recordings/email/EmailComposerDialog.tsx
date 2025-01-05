@@ -19,6 +19,7 @@ interface EmailComposerDialogProps {
   recipients: Recipient[];
   shareUrl: string;
   grantId: string | null;
+  recordingId: string;
 }
 
 export function EmailComposerDialog({
@@ -27,7 +28,8 @@ export function EmailComposerDialog({
   eventTitle,
   recipients,
   shareUrl,
-  grantId
+  grantId,
+  recordingId
 }: EmailComposerDialogProps) {
   const { toast } = useToast();
   const [isSending, setIsSending] = useState(false);
@@ -54,6 +56,7 @@ export function EmailComposerDialog({
           subject,
           body,
           recipients,
+          recordingId,
         },
       });
 
