@@ -11,18 +11,34 @@ import {
   handleGrantExpired
 } from '../_shared/webhook-handlers.ts'
 
+// Log function initialization
+console.log('🚀 Webhook handler function initialized:', new Date().toISOString());
+
 serve(async (req) => {
   const startTime = performance.now();
   const requestId = crypto.randomUUID();
-  console.log(`⚡ [${requestId}] Webhook handler started at ${new Date().toISOString()}`);
-  console.log(`📝 [${requestId}] Request URL:`, req.url);
-  console.log(`📝 [${requestId}] Request method:`, req.method);
-  console.log(`📝 [${requestId}] Request headers:`, Object.fromEntries(req.headers.entries()));
+  
+  // Enhanced request logging
+  console.log(`\n=== New Request ${requestId} ===`);
+  console.log(`⏰ Timestamp: ${new Date().toISOString()}`);
+  console.log(`📍 Method: ${req.method}`);
+  console.log(`🔗 URL: ${req.url}`);
+  
+  // Detailed headers logging
+  const headers = Object.fromEntries(req.headers.entries());
+  console.log('📋 Headers:', JSON.stringify(headers, null, 2));
+  
+  // Log specific important headers
+  console.log('🔍 Important Headers:');
+  console.log(`- Origin: ${req.headers.get('origin')}`);
+  console.log(`- User-Agent: ${req.headers.get('user-agent')}`);
+  console.log(`- Content-Type: ${req.headers.get('content-type')}`);
+  console.log(`- X-Nylas-Signature: ${req.headers.get('x-nylas-signature')}`);
 
   try {
-    // Handle CORS preflight with detailed logging
+    // Handle CORS preflight
     if (req.method === 'OPTIONS') {
-      console.log(`🔄 [${requestId}] CORS preflight request`);
+      console.log(`✈️ [${requestId}] CORS preflight request`);
       return new Response(null, { 
         headers: {
           ...corsHeaders,
@@ -34,117 +50,111 @@ serve(async (req) => {
 
     // Verify it's a POST request
     if (req.method !== 'POST') {
-      console.error(`❌ [${requestId}] Invalid request method: ${req.method}`);
-      return new Response('Method not allowed', { 
-        status: 405,
-        headers: corsHeaders 
-      });
+      console.error(`❌ [${requestId}] Invalid method: ${req.method}`);
+      return new Response(
+        JSON.stringify({ error: 'Method not allowed' }), 
+        { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Handle challenge parameter in URL
-    const url = new URL(req.url);
-    const challenge = url.searchParams.get('challenge');
-    if (challenge) {
-      console.log(`🎯 [${requestId}] Challenge received:`, challenge);
-      return new Response(challenge, {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
-      });
-    }
-
-    // Get signature and body with validation logging
-    const signature = req.headers.get('x-nylas-signature');
-    console.log(`🔑 [${requestId}] Signature received:`, signature);
-    
+    // Get and log raw body
     const rawBody = await req.text();
-    console.log(`📦 [${requestId}] Raw body received:`, rawBody);
-    
-    // Validate webhook immediately with detailed logging
-    const { isValid } = await validateWebhook(rawBody, signature);
-    console.log(`✅ [${requestId}] Signature validation:`, isValid);
-    
-    if (!isValid) {
-      console.error(`❌ [${requestId}] Invalid webhook signature`);
-      return new Response('Invalid signature', { 
-        status: 401,
-        headers: corsHeaders 
-      });
-    }
+    console.log(`📦 [${requestId}] Raw body length: ${rawBody.length}`);
+    console.log(`📦 [${requestId}] Raw body preview: ${rawBody.substring(0, 200)}...`);
 
-    // Parse webhook data after validation
-    const webhookData = JSON.parse(rawBody);
-    console.log(`📥 [${requestId}] Webhook type:`, webhookData.type);
-    console.log(`🔍 [${requestId}] Webhook data:`, JSON.stringify(webhookData, null, 2));
+    try {
+      // Parse webhook data
+      const webhookData = JSON.parse(rawBody);
+      console.log(`📥 [${requestId}] Webhook type: ${webhookData.type}`);
+      console.log(`📥 [${requestId}] Webhook data:`, JSON.stringify(webhookData, null, 2));
 
-    const grantId = webhookData.data.object.grant_id;
-    console.log(`🎫 [${requestId}] Grant ID:`, grantId);
-    
-    // Process webhook based on type with enhanced logging
-    let processingResult;
-    switch (webhookData.type) {
-      case 'event.created':
-        console.log(`📅 [${requestId}] Processing event.created`);
-        processingResult = await handleEventCreated(webhookData.data.object, grantId);
-        break;
-      case 'event.updated':
-        console.log(`📝 [${requestId}] Processing event.updated`);
-        processingResult = await handleEventUpdated(webhookData.data.object, grantId);
-        break;
-      case 'event.deleted':
-        console.log(`🗑️ [${requestId}] Processing event.deleted`);
-        processingResult = await handleEventDeleted(webhookData.data.object, grantId);
-        break;
-      case 'grant.created':
-        console.log(`🔑 [${requestId}] Processing grant.created`);
-        processingResult = await handleGrantCreated(webhookData.data);
-        break;
-      case 'grant.updated':
-        console.log(`📝 [${requestId}] Processing grant.updated`);
-        processingResult = await handleGrantUpdated(webhookData.data);
-        break;
-      case 'grant.deleted':
-        console.log(`🗑️ [${requestId}] Processing grant.deleted`);
-        processingResult = await handleGrantDeleted(webhookData.data);
-        break;
-      case 'grant.expired':
-        console.log(`⚠️ [${requestId}] Processing grant.expired`);
-        processingResult = await handleGrantExpired(webhookData.data);
-        break;
-      default:
-        console.warn(`⚠️ [${requestId}] Unhandled webhook type:`, webhookData.type);
+      // Validate webhook signature
+      const signature = req.headers.get('x-nylas-signature');
+      console.log(`🔐 [${requestId}] Validating signature: ${signature}`);
+      
+      const { isValid } = await validateWebhook(rawBody, signature);
+      if (!isValid) {
+        console.error(`❌ [${requestId}] Invalid webhook signature`);
         return new Response(
-          JSON.stringify({
-            success: false,
-            message: `Unhandled webhook type: ${webhookData.type}`,
-            status: 'acknowledged'
-          }),
-          { 
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
+          JSON.stringify({ error: 'Invalid signature' }), 
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
-    }
-
-    const endTime = performance.now();
-    console.log(`✅ [${requestId}] Webhook processed in ${endTime - startTime}ms:`, {
-      type: webhookData.type,
-      result: processingResult
-    });
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: `Successfully processed ${webhookData.type} webhook`,
-        result: processingResult,
-        status: 'acknowledged'
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
-    );
+
+      // Process webhook based on type
+      let processingResult;
+      console.log(`🔄 [${requestId}] Processing webhook type: ${webhookData.type}`);
+      
+      switch (webhookData.type) {
+        case 'event.created':
+          processingResult = await handleEventCreated(webhookData.data.object, webhookData.data.grant_id);
+          break;
+        case 'event.updated':
+          processingResult = await handleEventUpdated(webhookData.data.object, webhookData.data.grant_id);
+          break;
+        case 'event.deleted':
+          processingResult = await handleEventDeleted(webhookData.data.object, webhookData.data.grant_id);
+          break;
+        case 'grant.created':
+          processingResult = await handleGrantCreated(webhookData.data);
+          break;
+        case 'grant.updated':
+          processingResult = await handleGrantUpdated(webhookData.data);
+          break;
+        case 'grant.deleted':
+          processingResult = await handleGrantDeleted(webhookData.data);
+          break;
+        case 'grant.expired':
+          processingResult = await handleGrantExpired(webhookData.data);
+          break;
+        default:
+          console.warn(`⚠️ [${requestId}] Unhandled webhook type: ${webhookData.type}`);
+          return new Response(
+            JSON.stringify({
+              success: false,
+              message: `Unhandled webhook type: ${webhookData.type}`,
+              status: 'acknowledged'
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
+      }
+
+      const endTime = performance.now();
+      console.log(`✅ [${requestId}] Webhook processed successfully in ${(endTime - startTime).toFixed(2)}ms`);
+      console.log(`✅ [${requestId}] Processing result:`, JSON.stringify(processingResult, null, 2));
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Successfully processed ${webhookData.type} webhook`,
+          result: processingResult,
+          status: 'acknowledged'
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+
+    } catch (parseError) {
+      console.error(`❌ [${requestId}] Error parsing webhook JSON:`, parseError);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid JSON payload',
+          details: parseError.message
+        }), 
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
   } catch (error) {
-    console.error(`❌ [${requestId}] Webhook error:`, {
+    const endTime = performance.now();
+    console.error(`❌ [${requestId}] Webhook error after ${(endTime - startTime).toFixed(2)}ms:`, {
       error: error.message,
       stack: error.stack
     });
