@@ -52,6 +52,18 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
       return; // Skip this event but continue processing others
     }
 
+    // Extract master_event_id from recurring event instance ID if present
+    // Format example: "event_id_20250122T220000Z"
+    let masterEventId = event.master_event_id;
+    if (!masterEventId && event.id.includes('_')) {
+      const parts = event.id.split('_');
+      if (parts.length > 1) {
+        // Remove the timestamp part to get the master event ID
+        masterEventId = parts.slice(0, -1).join('_');
+        console.log('Extracted master event ID:', masterEventId, 'from event ID:', event.id);
+      }
+    }
+
     const eventData = {
       user_id: userId,
       nylas_event_id: event.id,
@@ -65,7 +77,7 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
       ical_uid: event.ical_uid,
       busy: event.busy !== false, // Default to true if not specified
       html_link: event.html_link,
-      master_event_id: event.master_event_id,
+      master_event_id: masterEventId,
       organizer: event.organizer || {},
       resources: event.resources || [],
       read_only: event.read_only || false,
@@ -83,6 +95,7 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
       title: event.title,
       start: eventData.start_time,
       end: eventData.end_time,
+      masterEventId: eventData.master_event_id,
       conferenceUrl: eventData.conference_url,
       participants: eventData.participants.length
     });
