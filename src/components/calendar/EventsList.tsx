@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { EventCard } from "./EventCard";
-import { format, isPast } from "date-fns";
+import { format, isPast, startOfWeek, endOfWeek, addWeeks, subWeeks, isWithinInterval } from "date-fns";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { QueryObserverResult, RefetchOptions } from "@tanstack/react-query";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -21,11 +23,31 @@ interface GroupedEvents {
 }
 
 export const EventsList = ({ events, isLoadingEvents, userId, filter }: EventsListProps) => {
+  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  
+  const navigateWeek = (direction: 'next' | 'prev') => {
+    setCurrentWeekStart(prev => 
+      direction === 'next' ? addWeeks(prev, 1) : subWeeks(prev, 1)
+    );
+  };
+
   const groupEventsByDate = (events: Event[]): GroupedEvents => {
-    const now = new Date();
+    const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
+    
     const filteredEvents = events.filter(event => {
+      const eventDate = new Date(event.start_time);
       const endTime = new Date(event.end_time);
-      return filter === "upcoming" ? !isPast(endTime) : isPast(endTime);
+      
+      // Filter based on whether it's past or upcoming
+      const isPastEvent = isPast(endTime);
+      if (filter === "upcoming" && isPastEvent) return false;
+      if (filter === "past" && !isPastEvent) return false;
+
+      // Check if event is within the current week
+      return isWithinInterval(eventDate, {
+        start: currentWeekStart,
+        end: weekEnd
+      });
     });
 
     return filteredEvents.reduce((groups: GroupedEvents, event) => {
@@ -57,8 +79,30 @@ export const EventsList = ({ events, isLoadingEvents, userId, filter }: EventsLi
     }));
   })();
 
+  const weekRange = `${format(currentWeekStart, "MMM d")} - ${format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "MMM d, yyyy")}`;
+
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between mb-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => navigateWeek('prev')}
+        >
+          <ChevronLeft className="h-4 w-4 mr-1" />
+          Previous Week
+        </Button>
+        <h2 className="text-lg font-semibold">{weekRange}</h2>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => navigateWeek('next')}
+        >
+          Next Week
+          <ChevronRight className="h-4 w-4 ml-1" />
+        </Button>
+      </div>
+
       <Card>
         <CardContent className="p-4 sm:p-6">
           {isLoadingEvents ? (
@@ -89,7 +133,7 @@ export const EventsList = ({ events, isLoadingEvents, userId, filter }: EventsLi
             </div>
           ) : (
             <div className="text-center py-6 sm:py-8 text-[#555555]">
-              No {filter} events found. Go to Settings &gt; Manual Sync to fetch your calendar events.
+              No {filter} events found for this week. Go to Settings &gt; Manual Sync to fetch your calendar events.
             </div>
           )}
         </CardContent>
