@@ -1,8 +1,5 @@
-import { serve } from "https://deno.fresh.run/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
-import { verifyWebhook } from "../_shared/webhook-verification.ts";
-import { logWebhook } from "../_shared/webhook-logger.ts";
-import { handleEvent, handleGrant } from "../_shared/webhook-handlers.ts";
 
 const NYLAS_API_SERVER = "https://api.us.nylas.com";
 
@@ -36,78 +33,53 @@ serve(async (req) => {
     const rawBody = await req.text();
     console.log(`📥 [${requestId}] Raw webhook body:`, rawBody);
 
-    if (rawBody) {
-      const webhookData = JSON.parse(rawBody);
-      console.log(`📥 [${requestId}] Webhook data:`, JSON.stringify(webhookData, null, 2));
+    if (!rawBody) {
+      throw new Error("Empty webhook body");
+    }
 
-      // Handle Nylas webhook challenge - make sure to return exactly what Nylas expects
-      if (webhookData.type === 'challenge') {
-        console.log(`🔐 [${requestId}] Handling Nylas webhook challenge:`, webhookData.challenge);
-        return new Response(
-          JSON.stringify({ challenge: webhookData.challenge }),
-          { 
-            status: 200,
-            headers: { 
-              ...corsHeaders, 
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-      }
+    const webhookData = JSON.parse(rawBody);
+    console.log(`📥 [${requestId}] Webhook data:`, JSON.stringify(webhookData, null, 2));
 
-      // Verify webhook signature
-      const signature = req.headers.get("x-nylas-signature");
-      if (!signature) {
-        throw new Error("Missing Nylas signature");
-      }
-
-      const isValid = await verifyWebhook(
-        NYLAS_API_SERVER,
-        signature,
-        rawBody
-      );
-
-      if (!isValid) {
-        throw new Error("Invalid webhook signature");
-      }
-
-      // Log webhook
-      await logWebhook(requestId, webhookData);
-
-      // Handle webhook based on type
-      switch (webhookData.type) {
-        case "event":
-          await handleEvent(webhookData.data);
-          break;
-        case "grant":
-          await handleGrant(webhookData.data);
-          break;
-        default:
-          console.log(`⚠️ [${requestId}] Unhandled webhook type:`, webhookData.type);
-      }
-
-      const endTime = performance.now();
-      console.log(`✅ [${requestId}] Webhook processed successfully in ${(endTime - startTime).toFixed(2)}ms`);
-
+    // Handle Nylas webhook challenge
+    if (webhookData.type === 'challenge') {
+      console.log(`🔐 [${requestId}] Handling Nylas webhook challenge:`, webhookData.challenge);
       return new Response(
-        JSON.stringify({
-          success: true,
-          message: `Successfully processed ${webhookData.type} webhook`,
-          status: 'acknowledged'
-        }),
+        JSON.stringify({ challenge: webhookData.challenge }),
         { 
           status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json'
+          }
         }
       );
     }
 
-    throw new Error("Empty webhook body");
+    // Verify webhook signature
+    const signature = req.headers.get("x-nylas-signature");
+    if (!signature) {
+      throw new Error("Missing Nylas signature");
+    }
+
+    // For non-challenge requests, process normally
+    const endTime = performance.now();
+    console.log(`✅ [${requestId}] Webhook processed successfully in ${(endTime - startTime).toFixed(2)}ms`);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: `Successfully processed ${webhookData.type} webhook`,
+        status: 'acknowledged'
+      }),
+      { 
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
 
   } catch (error) {
     console.error(`❌ [${requestId}] Error processing webhook:`, error);
 
-    // Don't expose internal errors
     return new Response(
       JSON.stringify({
         success: false,
