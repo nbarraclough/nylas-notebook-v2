@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button";
 import { EventParticipants } from "../calendar/EventParticipants";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
-import type { EventParticipant, EventOrganizer } from "@/types/calendar";
 import { RecordingStatus } from "./RecordingStatus";
 import { RecordingActions } from "./RecordingActions";
 import { Loader } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { ShareViaEmailButton } from "./email/ShareViaEmailButton";
+import type { Database } from "@/integrations/supabase/types";
+import type { EventParticipant, EventOrganizer } from "@/types/calendar";
 
 type Recording = Database['public']['Tables']['recordings']['Row'] & {
   event: {
@@ -49,6 +50,21 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
       }
 
       return data ? `${window.location.origin}/shared/${data.external_token}` : null;
+    },
+  });
+
+  // Fetch user's profile to get Nylas grant ID
+  const { data: profile } = useQuery({
+    queryKey: ['profile', recording.user_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('nylas_grant_id')
+        .eq('id', recording.user_id)
+        .single();
+
+      if (error) throw error;
+      return data;
     },
   });
 
@@ -199,6 +215,15 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
               )}
             </Button>
           )}
+          
+          {publicShare && (
+            <ShareViaEmailButton
+              shareUrl={publicShare}
+              eventTitle={recording.event.title}
+              participants={participants}
+              grantId={profile?.nylas_grant_id}
+            />
+          )}
         </div>
 
         <RecordingActions
@@ -219,4 +244,4 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
       </CardContent>
     </Card>
   );
-};
+}
