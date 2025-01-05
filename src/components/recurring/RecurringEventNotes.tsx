@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
 
 interface RecurringEventNotesProps {
   masterId: string;
@@ -9,13 +10,25 @@ interface RecurringEventNotesProps {
 }
 
 export function RecurringEventNotes({ masterId, initialContent, onSave }: RecurringEventNotesProps) {
-  const [content, setContent] = useState(initialContent);
   const [isSaving, setIsSaving] = useState(false);
 
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+    ],
+    content: initialContent,
+    editorProps: {
+      attributes: {
+        class: 'min-h-[200px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
+      },
+    },
+  });
+
   const handleSave = async () => {
+    if (!editor) return;
     setIsSaving(true);
     try {
-      await onSave(masterId, content);
+      await onSave(masterId, editor.getHTML());
     } finally {
       setIsSaving(false);
     }
@@ -24,15 +37,11 @@ export function RecurringEventNotes({ masterId, initialContent, onSave }: Recurr
   return (
     <div className="space-y-2">
       <h4 className="font-medium">Notes</h4>
-      <Textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        placeholder="Add notes about this recurring event..."
-        className="min-h-[200px]"
-      />
+      <EditorContent editor={editor} />
       <Button 
         onClick={handleSave}
         disabled={isSaving}
+        className="text-white"
       >
         {isSaving ? 'Saving...' : 'Save Notes'}
       </Button>
