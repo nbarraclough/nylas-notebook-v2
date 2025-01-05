@@ -6,6 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { RecentRecordings } from "@/components/dashboard/RecentRecordings";
 import { OrganizationShares } from "@/components/dashboard/OrganizationShares";
 import { WelcomeCard } from "@/components/dashboard/WelcomeCard";
+import { format } from "date-fns";
+import { Calendar, Eye } from "lucide-react";
 
 export default function Index() {
   const [userEmail, setUserEmail] = useState<string>("");
@@ -29,6 +31,34 @@ export default function Index() {
     }
   });
 
+  // Fetch recent public shares with view counts
+  const { data: publicShares } = useQuery({
+    queryKey: ['public-shares'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('video_shares')
+        .select(`
+          id,
+          recording:recordings (
+            id,
+            event:events (
+              title,
+              start_time
+            ),
+            views:video_views (
+              id
+            )
+          )
+        `)
+        .eq('share_type', 'external')
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      if (error) throw error;
+      return data;
+    }
+  });
+
   return (
     <PageLayout>
       <div className="space-y-8">
@@ -48,10 +78,35 @@ export default function Index() {
               <CardTitle>Quick Stats</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  Track your recording and sharing activity
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground mb-4">
+                  Recent Public Shares
                 </p>
+                {publicShares?.map((share) => (
+                  <div key={share.id} className="space-y-2 border-b pb-2 last:border-0">
+                    <p className="font-medium">
+                      {share.recording?.event?.title || 'Untitled Event'}
+                    </p>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4" />
+                        {share.recording?.event?.start_time ? 
+                          format(new Date(share.recording.event.start_time), 'PPP') : 
+                          'No date'
+                        }
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Eye className="h-4 w-4" />
+                        {share.recording?.views?.length || 0} views
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {(!publicShares || publicShares.length === 0) && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No public shares yet
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
