@@ -21,6 +21,24 @@ export function ShareDialogForm({ recordingId, onSuccess }: ShareDialogFormProps
   const [password, setPassword] = useState("");
   const [isPasswordEnabled, setIsPasswordEnabled] = useState(false);
 
+  // Fetch user's profile to get sharing preferences
+  const { data: profile } = useQuery({
+    queryKey: ['profile'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('share_internal_recordings')
+        .eq('id', user.id)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Fetch existing shares when the dialog opens
   const { data: existingShares } = useQuery({
     queryKey: ['shares', recordingId],
@@ -40,13 +58,14 @@ export function ShareDialogForm({ recordingId, onSuccess }: ShareDialogFormProps
     },
   });
 
-  // Set initial states based on existing shares
+  // Set initial states based on existing shares and user preferences
   useEffect(() => {
     if (existingShares) {
       const internalShare = existingShares.find(share => share.share_type === 'internal');
       const externalShare = existingShares.find(share => share.share_type === 'external');
 
-      setIsInternalEnabled(!!internalShare);
+      // If no existing internal share, use the user's preference
+      setIsInternalEnabled(internalShare ? true : (profile?.share_internal_recordings || false));
       setIsExternalEnabled(!!externalShare);
       
       if (externalShare) {
@@ -55,8 +74,11 @@ export function ShareDialogForm({ recordingId, onSuccess }: ShareDialogFormProps
         setIsPasswordEnabled(!!externalShare.password);
         setPassword(externalShare.password || '');
       }
+    } else if (profile) {
+      // If no existing shares, use the user's preference
+      setIsInternalEnabled(profile.share_internal_recordings || false);
     }
-  }, [existingShares]);
+  }, [existingShares, profile]);
 
   const handleShare = async () => {
     try {
