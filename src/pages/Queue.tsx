@@ -68,7 +68,6 @@ export default function Queue() {
         description: "The notetaker queue is being processed. Check back in a few moments.",
       });
       
-      // Refetch the queue items after a short delay to show updated status
       setTimeout(() => {
         refetch();
       }, 2000);
@@ -88,10 +87,10 @@ export default function Queue() {
   if (isLoading) {
     return (
       <PageLayout>
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
+        <div className="space-y-4 px-4 sm:px-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <h1 className="text-2xl font-bold">Recording Queue</h1>
-            <Button disabled variant="outline">
+            <Button disabled variant="outline" className="w-full sm:w-auto">
               <Play className="mr-2 h-4 w-4" />
               Process Queue
             </Button>
@@ -109,10 +108,10 @@ export default function Queue() {
   if (error) {
     return (
       <PageLayout>
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
+        <div className="space-y-4 px-4 sm:px-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <h1 className="text-2xl font-bold">Recording Queue</h1>
-            <Button disabled variant="outline">
+            <Button disabled variant="outline" className="w-full sm:w-auto">
               <Play className="mr-2 h-4 w-4" />
               Process Queue
             </Button>
@@ -127,13 +126,14 @@ export default function Queue() {
 
   return (
     <PageLayout>
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
+      <div className="space-y-4 px-4 sm:px-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h1 className="text-2xl font-bold">Recording Queue</h1>
           <Button 
             variant="outline"
             onClick={handleProcessQueue}
             disabled={isProcessing}
+            className="w-full sm:w-auto"
           >
             <Play className="mr-2 h-4 w-4" />
             {isProcessing ? "Processing..." : "Process Queue"}
@@ -146,7 +146,7 @@ export default function Queue() {
             ))}
           </div>
         ) : (
-          <div className="text-gray-500">
+          <div className="text-gray-500 text-center py-8">
             No recordings currently queued.
           </div>
         )}

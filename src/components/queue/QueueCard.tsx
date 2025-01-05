@@ -70,36 +70,44 @@ export const QueueCard = ({ queueItem }: QueueCardProps) => {
   return (
     <Card>
       <CardContent className="p-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="font-medium">{queueItem.event.title}</h3>
-            <p className="text-sm text-muted-foreground">
-              {formatTimeRange(queueItem.event.start_time, queueItem.event.end_time)}
-            </p>
-            <p className="text-sm font-medium mt-1 text-blue-600">
-              Notetaker will join {timeUntilStart}
-            </p>
-            {queueItem.event.description && (
-              <p className="text-sm text-muted-foreground mt-2">
-                {queueItem.event.description}
+        <div className="flex flex-col space-y-4">
+          <div className="flex items-start justify-between">
+            <div className="space-y-1">
+              <h3 className="font-medium line-clamp-2">{queueItem.event.title}</h3>
+              <p className="text-sm text-muted-foreground">
+                {formatTimeRange(queueItem.event.start_time, queueItem.event.end_time)}
               </p>
-            )}
-            <div className="mt-2">
-              <p className="text-sm">
-                <span className="font-medium">Organizer:</span>{' '}
+              <p className="text-sm font-medium text-blue-600">
+                Notetaker will join {timeUntilStart}
+              </p>
+            </div>
+            <div className="flex items-center space-x-2 ml-4">
+              {getStatusIcon()}
+              <span className="text-sm capitalize hidden sm:inline">{queueItem.status}</span>
+            </div>
+          </div>
+
+          {queueItem.event.description && (
+            <p className="text-sm text-muted-foreground line-clamp-2">
+              {queueItem.event.description}
+            </p>
+          )}
+
+          <div className="space-y-2">
+            <div className="text-sm">
+              <span className="font-medium">Organizer:</span>{' '}
+              <span className="text-muted-foreground">
                 {organizer?.name || organizer?.email || 'Unknown'}
-              </p>
-              <p className="text-sm">
-                <span className="font-medium">Participants:</span>{' '}
+              </span>
+            </div>
+            <div className="text-sm">
+              <span className="font-medium">Participants:</span>{' '}
+              <span className="text-muted-foreground line-clamp-2">
                 {participants.length > 0
                   ? participants.map(p => p.name || p.email).join(', ')
                   : 'No participants'}
-              </p>
+              </span>
             </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            {getStatusIcon()}
-            <span className="text-sm capitalize">{queueItem.status}</span>
           </div>
         </div>
       </CardContent>
