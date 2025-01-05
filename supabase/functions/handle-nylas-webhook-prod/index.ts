@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
+// Use production API server
+const NYLAS_API_SERVER = "https://api.us.nylas.com";
+const WEBHOOK_SECRET = Deno.env.get('NYLAS_PROD_WEBHOOK_SECRET');
+
 serve(async (req) => {
   const requestId = crypto.randomUUID();
   const startTime = performance.now();

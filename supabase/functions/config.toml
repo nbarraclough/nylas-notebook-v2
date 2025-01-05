@@ -5,6 +5,8 @@ NYLAS_CLIENT_ID = "env"
 NYLAS_CLIENT_SECRET = "env"
 NYLAS_WEBHOOK_SECRET = "env"
 NYLAS_PROD_WEBHOOK_SECRET = "env"
+NYLAS_PROD_CLIENT_ID = "env"
+NYLAS_PROD_CLIENT_SECRET = "env"
 
 [functions.handle-nylas-webhook]
 verify_jwt = false
