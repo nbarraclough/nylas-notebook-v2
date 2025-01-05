@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Send } from "lucide-react";
 
 export function SendNotetaker() {
   const [meetingInfo, setMeetingInfo] = useState("");
@@ -130,7 +131,8 @@ export function SendNotetaker() {
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm">
+        <Button variant="default" size="sm" className="gap-2">
+          <Send className="h-4 w-4" />
           Send Notetaker
         </Button>
       </PopoverTrigger>

@@ -3,7 +3,15 @@ import { SendNotetaker } from "../notetaker/SendNotetaker";
 import { Button } from "../ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
-import { LogOut } from "lucide-react";
+import { 
+  LogOut, 
+  Calendar, 
+  Settings, 
+  Share2, 
+  ListTodo, 
+  Video,
+  Home 
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export function Navbar() {
@@ -47,6 +55,7 @@ export function Navbar() {
       <div className="flex h-16 items-center px-4 justify-between">
         <div className="flex items-center">
           <Link to="/" className="mr-6 flex items-center space-x-2">
+            <Home className="h-5 w-5" />
             <span className="hidden font-bold sm:inline-block">
               Notebook
             </span>
@@ -55,26 +64,37 @@ export function Navbar() {
             <div className="flex items-center space-x-4 lg:space-x-6">
               <Link
                 to="/calendar"
-                className="text-sm font-medium transition-colors hover:text-primary"
+                className="text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2"
               >
+                <Calendar className="h-4 w-4" />
                 Calendar
               </Link>
               <Link
                 to="/queue"
-                className="text-sm font-medium transition-colors hover:text-primary"
+                className="text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2"
               >
+                <ListTodo className="h-4 w-4" />
                 Queue
               </Link>
               <Link
                 to="/recordings"
-                className="text-sm font-medium transition-colors hover:text-primary"
+                className="text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2"
               >
+                <Video className="h-4 w-4" />
                 Recordings
               </Link>
               <Link
-                to="/settings"
-                className="text-sm font-medium transition-colors hover:text-primary"
+                to="/shared"
+                className="text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2"
               >
+                <Share2 className="h-4 w-4" />
+                Shared
+              </Link>
+              <Link
+                to="/settings"
+                className="text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2"
+              >
+                <Settings className="h-4 w-4" />
                 Settings
               </Link>
               <SendNotetaker />
