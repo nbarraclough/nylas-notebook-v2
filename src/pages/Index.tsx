@@ -82,42 +82,45 @@ export default function Index() {
               <CardTitle>Quick Stats</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground mb-4">
+              <div className="space-y-6">
+                <p className="text-lg text-muted-foreground">
                   Recent Public Shares
                 </p>
                 {publicShares?.map((share) => (
-                  <div key={share.id} className="space-y-2 border-b pb-2 last:border-0">
-                    <p className="font-medium">
+                  <div key={share.id} className="space-y-4 border-b pb-6 last:border-0">
+                    <p className="text-2xl font-semibold">
                       {share.recording?.event?.title || 'Untitled Event'}
                     </p>
-                    <div className="flex items-center justify-between text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        {share.recording?.event?.start_time ? 
-                          format(new Date(share.recording.event.start_time), 'PPP') : 
-                          'No date'
-                        }
+                    <div className="grid grid-cols-2 gap-y-4">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Calendar className="h-5 w-5" />
+                        <span className="text-base">
+                          {share.recording?.event?.start_time ? 
+                            format(new Date(share.recording.event.start_time), 'MMMM do, yyyy') : 
+                            'No date'
+                          }
+                        </span>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1">
-                          <Eye className="h-4 w-4" />
-                          {share.recording?.views?.length || 0} views
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Mail className="h-4 w-4" />
-                          {share.recording?.email_metrics?.[0]?.opens || 0} opens
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <MousePointerClick className="h-4 w-4" />
-                          {share.recording?.email_metrics?.[0]?.link_clicks || 0} clicks
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <Eye className="h-5 w-5 text-blue-500" />
+                        <span className="text-xl font-medium">{share.recording?.views?.length || 0}</span>
+                        <span className="text-muted-foreground">views</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-5 w-5 text-purple-500" />
+                        <span className="text-xl font-medium">{share.recording?.email_metrics?.[0]?.opens || 0}</span>
+                        <span className="text-muted-foreground">opens</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MousePointerClick className="h-5 w-5 text-green-500" />
+                        <span className="text-xl font-medium">{share.recording?.email_metrics?.[0]?.link_clicks || 0}</span>
+                        <span className="text-muted-foreground">clicks</span>
                       </div>
                     </div>
                   </div>
                 ))}
                 {(!publicShares || publicShares.length === 0) && (
-                  <p className="text-sm text-muted-foreground text-center py-4">
+                  <p className="text-center py-8 text-muted-foreground">
                     No public shares yet
                   </p>
                 )}
