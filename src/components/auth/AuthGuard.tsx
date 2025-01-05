@@ -12,21 +12,45 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
+  const clearAuthState = async () => {
+    try {
+      // Clear Supabase session
+      await supabase.auth.signOut();
+      
+      // Clear any stored tokens from localStorage
+      localStorage.removeItem('supabase.auth.token');
+      localStorage.removeItem('sb-xqzlejcvvtjdrabofrxs-auth-token');
+      
+      // Clear any other auth-related items
+      for (const key of Object.keys(localStorage)) {
+        if (key.includes('supabase.auth.') || key.includes('-auth-token')) {
+          localStorage.removeItem(key);
+        }
+      }
+    } catch (error) {
+      console.error('Error clearing auth state:', error);
+    }
+  };
+
   const handleAuthError = async (error: any, message: string) => {
     console.error(message, error);
-    setIsLoading(false); // Ensure loading state is cleared on error
+    setIsLoading(false);
+    
+    // Check if error is related to invalid/expired token
+    const isTokenError = error?.message?.includes('JWT') || 
+                        error?.message?.includes('token') ||
+                        error?.message?.includes('session_not_found');
+    
+    if (isTokenError) {
+      console.log('Detected token error, clearing auth state');
+      await clearAuthState();
+    }
     
     toast({
       title: "Authentication Error",
-      description: "Please sign in again.",
+      description: isTokenError ? "Your session has expired. Please sign in again." : "Please sign in again.",
       variant: "destructive",
     });
-    
-    try {
-      await supabase.auth.signOut();
-    } catch (signOutError) {
-      console.error('Error during sign out:', signOutError);
-    }
     
     navigate('/auth', { state: { returnTo: location.pathname } });
   };
@@ -37,7 +61,6 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
 
     const checkAuth = async () => {
       try {
-        // Skip check for public routes
         if (PUBLIC_ROUTES.includes(location.pathname)) {
           setIsLoading(false);
           return;
@@ -78,7 +101,6 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
 
     checkAuth();
 
-    // Subscribe to auth changes
     const setupAuthListener = async () => {
       try {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
