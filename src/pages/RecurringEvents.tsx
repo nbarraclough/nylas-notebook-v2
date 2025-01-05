@@ -1,9 +1,8 @@
 import { PageLayout } from "@/components/layout/PageLayout";
 import { RecurringEventsList } from "@/components/recurring/RecurringEventsList";
-import { RecurringEventsFilters } from "@/components/recurring/RecurringEventsFilters";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
 
 export default function RecurringEvents() {
   const [filters, setFilters] = useState({
@@ -14,11 +13,11 @@ export default function RecurringEvents() {
   });
 
   const { data: recurringEvents, isLoading } = useQuery({
-    queryKey: ['recurring-events'],
+    queryKey: ['recurring-events', filters],
     queryFn: async () => {
       console.log('Fetching recurring events...');
       
-      // Fetch events that have either a master_event_id or an ical_uid
+      // First fetch events with master_event_id
       const { data: events, error: eventsError } = await supabase
         .from('events')
         .select(`
@@ -40,7 +39,7 @@ export default function RecurringEvents() {
         throw eventsError;
       }
 
-      // Also fetch events with ical_uid but no master_event_id (original recurring events)
+      // Then fetch events with ical_uid but no master_event_id
       const { data: icalEvents, error: icalError } = await supabase
         .from('events')
         .select(`
@@ -66,29 +65,12 @@ export default function RecurringEvents() {
       // Combine both sets of events
       const allEvents = [...(events || []), ...(icalEvents || [])];
 
-      // Then fetch notes for all potential master events
-      const masterEventIds = [...new Set(allEvents
-        .map(event => event.master_event_id || (event.ical_uid ? event.ical_uid.split('@')[0] : event.id))
-        .filter(Boolean)
-      )];
-
-      const { data: notes, error: notesError } = await supabase
-        .from('recurring_event_notes')
-        .select('*')
-        .in('master_event_id', masterEventIds);
-
-      if (notesError) {
-        console.error('Error fetching recurring event notes:', notesError);
-        throw notesError;
-      }
-
-      // Group events by master_event_id or by ical_uid for recurring events
+      // Group events by master_event_id or ical_uid
       const groupedEvents = allEvents.reduce((acc, event) => {
         // For events with master_event_id, use that as the key
-        // For events with only ical_uid, use the base ical_uid (before the @)
-        // Fallback to the event's own id if neither exists
+        // For events with ical_uid, use the base ical_uid (before the @)
         const masterId = event.master_event_id || 
-                        (event.ical_uid ? event.ical_uid.split('@')[0] : event.id);
+                        (event.ical_uid ? event.ical_uid.split('@')[0] : null);
         
         if (!masterId) return acc;
         
@@ -96,21 +78,31 @@ export default function RecurringEvents() {
           acc[masterId] = [];
         }
         
-        // Find notes for this master_event_id
-        const eventNotes = notes?.filter(note => 
-          note.master_event_id === masterId ||
-          note.master_event_id === event.id
-        ) || [];
-        
-        // Create a new object with both event data and notes
-        const eventWithNotes = {
-          ...event,
-          recurring_event_notes: eventNotes
-        };
-        
-        acc[masterId].push(eventWithNotes);
+        acc[masterId].push(event);
         return acc;
       }, {} as Record<string, any[]>);
+
+      // Fetch notes for all master events
+      const { data: notes, error: notesError } = await supabase
+        .from('recurring_event_notes')
+        .select('*');
+
+      if (notesError) {
+        console.error('Error fetching recurring event notes:', notesError);
+        throw notesError;
+      }
+
+      // Add notes to grouped events
+      Object.keys(groupedEvents).forEach(masterId => {
+        const eventNotes = notes?.filter(note => 
+          note.master_event_id === masterId
+        ) || [];
+        
+        groupedEvents[masterId] = groupedEvents[masterId].map(event => ({
+          ...event,
+          recurring_event_notes: eventNotes
+        }));
+      });
 
       console.log('Grouped recurring events:', groupedEvents);
       return groupedEvents;
@@ -124,13 +116,8 @@ export default function RecurringEvents() {
           <h1 className="text-2xl font-bold">Recurring Events</h1>
         </div>
 
-        <RecurringEventsFilters
-          filters={filters}
-          onFiltersChange={setFilters}
-        />
-
         <RecurringEventsList
-          recurringEvents={recurringEvents}
+          recurringEvents={recurringEvents || {}}
           isLoading={isLoading}
           filters={filters}
         />
