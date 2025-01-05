@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Play } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { VideoPlayerDialog } from "@/components/recordings/VideoPlayerDialog";
 
 export function RecentRecordings() {
   const navigate = useNavigate();
@@ -19,7 +20,8 @@ export function RecentRecordings() {
           event:events (
             title,
             start_time
-          )
+          ),
+          video_url
         `)
         .order('created_at', { ascending: false })
         .limit(5);
@@ -67,9 +69,16 @@ export function RecentRecordings() {
                     {format(new Date(recording.event.start_time), 'PPp')}
                   </p>
                 </div>
-                <Button size="sm" variant="ghost">
-                  <Play className="h-4 w-4" />
-                </Button>
+                {recording.video_url ? (
+                  <VideoPlayerDialog
+                    videoUrl={recording.video_url}
+                    title={recording.event.title}
+                  />
+                ) : (
+                  <Button size="sm" variant="ghost" disabled>
+                    <Play className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             ))}
           </div>
