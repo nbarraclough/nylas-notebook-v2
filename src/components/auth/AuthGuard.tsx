@@ -14,6 +14,8 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
 
   const handleAuthError = async (error: any, message: string) => {
     console.error(message, error);
+    setIsLoading(false); // Ensure loading state is cleared on error
+    
     toast({
       title: "Authentication Error",
       description: "Please sign in again.",
@@ -21,7 +23,6 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
     });
     
     try {
-      // Clear any existing session data
       await supabase.auth.signOut();
     } catch (signOutError) {
       console.error('Error during sign out:', signOutError);
@@ -42,7 +43,6 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
           return;
         }
 
-        // Get current session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
@@ -53,6 +53,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
         if (!session) {
           console.log('No session found, redirecting to auth page');
           if (mounted) {
+            setIsLoading(false);
             navigate('/auth', { state: { returnTo: location.pathname } });
           }
           return;
@@ -69,7 +70,9 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
           setIsLoading(false);
         }
       } catch (error) {
-        await handleAuthError(error, 'Error in auth check:');
+        if (mounted) {
+          await handleAuthError(error, 'Error in auth check:');
+        }
       }
     };
 
@@ -83,24 +86,21 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
           
           if (event === 'SIGNED_OUT' || (!session && !PUBLIC_ROUTES.includes(location.pathname))) {
             if (mounted) {
-              try {
-                // Clear any existing session data
-                await supabase.auth.signOut();
-                navigate('/auth');
-              } catch (error) {
-                console.error('Error during sign out:', error);
-                navigate('/auth');
-              }
+              setIsLoading(false);
+              navigate('/auth');
             }
           } else if (event === 'SIGNED_IN' && session) {
             try {
-              // Verify the new session
               const { error: verifyError } = await supabase.auth.getUser();
               if (verifyError) {
                 await handleAuthError(verifyError, 'New session verification failed:');
+              } else if (mounted) {
+                setIsLoading(false);
               }
             } catch (error) {
-              await handleAuthError(error, 'Error verifying new session:');
+              if (mounted) {
+                await handleAuthError(error, 'Error verifying new session:');
+              }
             }
           }
         });
@@ -108,6 +108,9 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
         authListener = subscription;
       } catch (error) {
         console.error('Error setting up auth listener:', error);
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     };
 
