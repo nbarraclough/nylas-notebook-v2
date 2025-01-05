@@ -19,7 +19,9 @@ export function OrganizationShare({ isEnabled, onToggle, recordingId }: Organiza
   const handleCopyLink = async () => {
     if (!recordingId) return;
     
-    const libraryDeepLink = `${window.location.origin}/library/${recordingId}`;
+    // Use the VITE_PUBLIC_URL environment variable, falling back to window.location.origin
+    const baseUrl = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
+    const libraryDeepLink = `${baseUrl}/library/${recordingId}`;
     
     try {
       await navigator.clipboard.writeText(libraryDeepLink);
@@ -38,6 +40,10 @@ export function OrganizationShare({ isEnabled, onToggle, recordingId }: Organiza
       });
     }
   };
+
+  // Get the base URL for displaying in the input
+  const baseUrl = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
+  const displayLink = recordingId ? `${baseUrl}/library/${recordingId}` : '';
 
   return (
     <div className="space-y-4">
@@ -58,7 +64,7 @@ export function OrganizationShare({ isEnabled, onToggle, recordingId }: Organiza
         <div className="flex gap-2">
           <Input 
             readOnly 
-            value={`${window.location.origin}/library/${recordingId}`}
+            value={displayLink}
             className="text-sm"
           />
           <Button
