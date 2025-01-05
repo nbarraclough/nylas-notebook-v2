@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -8,17 +8,34 @@ const PUBLIC_ROUTES = ['/auth'];
 export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const checkAuth = async () => {
-      // Skip check for public routes
-      if (PUBLIC_ROUTES.includes(location.pathname)) {
-        return;
-      }
+      try {
+        // Skip check for public routes
+        if (PUBLIC_ROUTES.includes(location.pathname)) {
+          setIsLoading(false);
+          return;
+        }
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        console.log('No session found, redirecting to auth page');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error checking auth session:', error);
+          navigate('/auth', { state: { returnTo: location.pathname } });
+          return;
+        }
+
+        if (!session) {
+          console.log('No session found, redirecting to auth page');
+          navigate('/auth', { state: { returnTo: location.pathname } });
+          return;
+        }
+
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error in auth check:', error);
         navigate('/auth', { state: { returnTo: location.pathname } });
       }
     };
@@ -27,7 +44,9 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
 
     // Subscribe to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!session && !PUBLIC_ROUTES.includes(location.pathname)) {
+      console.log('Auth state changed:', event);
+      
+      if (event === 'SIGNED_OUT' || (!session && !PUBLIC_ROUTES.includes(location.pathname))) {
         console.log('Auth state changed, no session, redirecting to auth');
         navigate('/auth');
       }
@@ -37,6 +56,14 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
       subscription.unsubscribe();
     };
   }, [navigate, location.pathname]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+      </div>
+    );
+  }
 
   return <>{children}</>;
 };
