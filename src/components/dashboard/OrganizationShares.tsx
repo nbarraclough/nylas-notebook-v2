@@ -12,11 +12,12 @@ export function OrganizationShares() {
   const { data: shares, isLoading } = useQuery({
     queryKey: ['org-shares'],
     queryFn: async () => {
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('organization_id')
-        .single();
+        .maybeSingle();
 
+      if (profileError) throw profileError;
       if (!profile?.organization_id) return [];
 
       const { data, error } = await supabase
