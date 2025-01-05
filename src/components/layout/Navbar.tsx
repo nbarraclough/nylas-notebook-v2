@@ -12,7 +12,6 @@ import {
   Video,
   Home,
   Menu,
-  X 
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -133,15 +132,10 @@ export function Navbar() {
                   </SheetTrigger>
                   <SheetContent side="left" className="w-[240px] sm:w-[300px]">
                     <div className="flex flex-col h-full">
-                      <div className="flex items-center justify-between mb-6">
-                        <Link to="/" className="flex items-center space-x-2" onClick={() => setIsOpen(false)}>
-                          <Home className="h-5 w-5" />
-                          <span className="font-bold">Notebook</span>
-                        </Link>
-                        <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
-                          <X className="h-5 w-5" />
-                        </Button>
-                      </div>
+                      <Link to="/" className="flex items-center space-x-2 mb-6" onClick={() => setIsOpen(false)}>
+                        <Home className="h-5 w-5" />
+                        <span className="font-bold">Notebook</span>
+                      </Link>
                       <NavLinks onClick={() => setIsOpen(false)} />
                     </div>
                   </SheetContent>
