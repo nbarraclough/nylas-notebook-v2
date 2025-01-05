@@ -23,6 +23,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    console.log('Fetching event details...')
     // Get user's profile for notetaker name
     const { data: event, error: eventError } = await supabaseClient
       .from('events')
@@ -33,14 +34,21 @@ Deno.serve(async (req) => {
         )
       `)
       .eq('id', meetingId)
-      .single()
+      .maybeSingle()
 
     if (eventError) {
       console.error('Error fetching event:', eventError)
       throw new Error('Failed to fetch event details')
     }
 
+    if (!event) {
+      console.error('Event not found:', meetingId)
+      throw new Error('Event not found')
+    }
+
+    console.log('Event data:', event)
     console.log('Sending notetaker to meeting...')
+
     // Send notetaker to the meeting
     const response = await fetch(
       `${NYLAS_API_URL}/v3/grants/${grantId}/notetakers`,
