@@ -101,8 +101,8 @@ export function RecurringEventsList({
     });
   };
 
-  // Sort events by pin status first, then by date
-  const sortedEvents = Object.entries(recurringEvents)
+  // Process and sort events
+  const processedEvents = Object.entries(recurringEvents)
     .map(([masterId, events]) => {
       const filteredEvents = filterEvents(events);
       if (filteredEvents.length === 0) return null;
@@ -121,61 +121,82 @@ export function RecurringEventsList({
         isPinned
       };
     })
-    .filter(Boolean)
-    .sort((a, b) => {
-      // Sort by pin status first
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
-      // Then sort by date
-      return new Date(b.latestEvent.start_time).getTime() - 
-             new Date(a.latestEvent.start_time).getTime();
-    });
+    .filter(Boolean);
+
+  // Separate pinned and unpinned events
+  const pinnedEvents = processedEvents.filter(event => event.isPinned)
+    .sort((a, b) => new Date(b.latestEvent.start_time).getTime() - 
+                    new Date(a.latestEvent.start_time).getTime());
+  
+  const unpinnedEvents = processedEvents.filter(event => !event.isPinned)
+    .sort((a, b) => new Date(b.latestEvent.start_time).getTime() - 
+                    new Date(a.latestEvent.start_time).getTime());
+
+  const EventCard = ({ event }) => (
+    <div key={event.masterId} className="relative group">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+        onClick={(e) => {
+          e.preventDefault();
+          togglePin(event.masterId, event.isPinned);
+        }}
+      >
+        {event.isPinned ? (
+          <Pin className="h-4 w-4 text-primary fill-primary" />
+        ) : (
+          <PinOff className="h-4 w-4 text-muted-foreground" />
+        )}
+      </Button>
+
+      <Link to={`/recurring-events/${event.masterId}`}>
+        <Card className="h-full transition-colors hover:bg-muted/50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  {event.isPinned && (
+                    <Pin className="h-4 w-4 text-primary fill-primary" />
+                  )}
+                  <h3 className="text-lg font-semibold">{event.latestEvent.title}</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {event.recordingsCount} recordings
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Last occurrence: {format(new Date(event.latestEvent.start_time), "PPp")}
+                </p>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+      </Link>
+    </div>
+  );
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {sortedEvents.map(({ masterId, latestEvent, recordingsCount, isPinned }) => (
-        <div key={masterId} className="relative group">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-            onClick={(e) => {
-              e.preventDefault();
-              togglePin(masterId, isPinned);
-            }}
-          >
-            {isPinned ? (
-              <Pin className="h-4 w-4 text-primary fill-primary" />
-            ) : (
-              <PinOff className="h-4 w-4 text-muted-foreground" />
-            )}
-          </Button>
-
-          <Link to={`/recurring-events/${masterId}`}>
-            <Card className="h-full transition-colors hover:bg-muted/50">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      {isPinned && (
-                        <Pin className="h-4 w-4 text-primary fill-primary" />
-                      )}
-                      <h3 className="text-lg font-semibold">{latestEvent.title}</h3>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {recordingsCount} recordings
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Last occurrence: {format(new Date(latestEvent.start_time), "PPp")}
-                    </p>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
+    <div className="space-y-8">
+      {pinnedEvents.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Pinned Meetings</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {pinnedEvents.map(event => (
+              <EventCard key={event.masterId} event={event} />
+            ))}
+          </div>
         </div>
-      ))}
+      )}
+      
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold">Recurring Meetings</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {unpinnedEvents.map(event => (
+            <EventCard key={event.masterId} event={event} />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
