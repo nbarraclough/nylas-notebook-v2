@@ -18,7 +18,7 @@ export default function RecurringEvents() {
     queryFn: async () => {
       console.log('Fetching recurring events...');
       
-      // Fetch events that are either part of a recurring series or have recurrence rules
+      // Fetch events that have either a master_event_id or an ical_uid
       const { data: events, error: eventsError } = await supabase
         .from('events')
         .select(`
@@ -32,7 +32,7 @@ export default function RecurringEvents() {
             created_at
           )
         `)
-        .or('master_event_id.neq.null,ical_uid.neq.null')
+        .not('master_event_id', 'is', null)
         .order('start_time', { ascending: false });
 
       if (eventsError) {
@@ -40,9 +40,35 @@ export default function RecurringEvents() {
         throw eventsError;
       }
 
-      // Then fetch notes separately
-      const masterEventIds = [...new Set(events
-        .map(event => event.master_event_id || event.id)
+      // Also fetch events with ical_uid but no master_event_id (original recurring events)
+      const { data: icalEvents, error: icalError } = await supabase
+        .from('events')
+        .select(`
+          *,
+          recordings (
+            id,
+            recording_url,
+            video_url,
+            duration,
+            transcript_content,
+            created_at
+          )
+        `)
+        .is('master_event_id', null)
+        .not('ical_uid', 'is', null)
+        .order('start_time', { ascending: false });
+
+      if (icalError) {
+        console.error('Error fetching ical events:', icalError);
+        throw icalError;
+      }
+
+      // Combine both sets of events
+      const allEvents = [...(events || []), ...(icalEvents || [])];
+
+      // Then fetch notes for all potential master events
+      const masterEventIds = [...new Set(allEvents
+        .map(event => event.master_event_id || (event.ical_uid ? event.ical_uid.split('@')[0] : event.id))
         .filter(Boolean)
       )];
 
@@ -57,20 +83,31 @@ export default function RecurringEvents() {
       }
 
       // Group events by master_event_id or by ical_uid for recurring events
-      const groupedEvents = events.reduce((acc, event) => {
-        const masterId = event.master_event_id || event.ical_uid?.split('@')[0] || event.id;
+      const groupedEvents = allEvents.reduce((acc, event) => {
+        // For events with master_event_id, use that as the key
+        // For events with only ical_uid, use the base ical_uid (before the @)
+        // Fallback to the event's own id if neither exists
+        const masterId = event.master_event_id || 
+                        (event.ical_uid ? event.ical_uid.split('@')[0] : event.id);
+        
         if (!masterId) return acc;
         
         if (!acc[masterId]) {
           acc[masterId] = [];
         }
+        
         // Find notes for this master_event_id
-        const eventNotes = notes?.filter(note => note.master_event_id === masterId) || [];
+        const eventNotes = notes?.filter(note => 
+          note.master_event_id === masterId ||
+          note.master_event_id === event.id
+        ) || [];
+        
         // Create a new object with both event data and notes
         const eventWithNotes = {
           ...event,
           recurring_event_notes: eventNotes
         };
+        
         acc[masterId].push(eventWithNotes);
         return acc;
       }, {} as Record<string, any[]>);
