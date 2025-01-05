@@ -57,7 +57,6 @@ serve(async (req) => {
   // Handle POST requests (webhook events)
   if (req.method === 'POST') {
     try {
-      // Get raw body and log it
       const rawBody = await req.text();
       logRawBody(rawBody);
 
