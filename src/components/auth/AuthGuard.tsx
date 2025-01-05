@@ -16,6 +16,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const { redirectToAuth } = useAuthRedirect();
   const mountedRef = useRef(false);
   const authCheckedRef = useRef(false);
+  const authTimeoutRef = useRef<NodeJS.Timeout>();
 
   const handleAuthError = async (error: any) => {
     console.error('Auth error:', error);
@@ -28,6 +29,22 @@ export function AuthGuard({ children }: AuthGuardProps) {
       setIsLoading(false);
       redirectToAuth("Authentication error. Please sign in again.");
     }
+  };
+
+  // Add a timeout to prevent infinite loading
+  const setupAuthTimeout = () => {
+    if (authTimeoutRef.current) {
+      clearTimeout(authTimeoutRef.current);
+    }
+    
+    authTimeoutRef.current = setTimeout(() => {
+      if (mountedRef.current && isLoading) {
+        console.log('Auth check timed out, redirecting to auth...');
+        setIsLoading(false);
+        setIsAuthenticated(false);
+        redirectToAuth("Authentication timed out. Please sign in again.");
+      }
+    }, 10000); // 10 second timeout
   };
 
   useEffect(() => {
@@ -43,6 +60,8 @@ export function AuthGuard({ children }: AuthGuardProps) {
       
       try {
         console.log('Checking initial auth state...');
+        setupAuthTimeout();
+        
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
@@ -57,7 +76,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
             setIsAuthenticated(false);
             setIsLoading(false);
           }
-          redirectToAuth();
+          if (!location.pathname.startsWith('/shared')) {
+            redirectToAuth();
+          }
           return;
         }
 
@@ -81,6 +102,10 @@ export function AuthGuard({ children }: AuthGuardProps) {
         if (mountedRef.current) {
           await handleAuthError(error);
         }
+      } finally {
+        if (authTimeoutRef.current) {
+          clearTimeout(authTimeoutRef.current);
+        }
       }
     };
 
@@ -100,6 +125,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
             }
           } else if (event === 'SIGNED_IN' && session) {
             console.log('User signed in, verifying session...');
+            setupAuthTimeout();
             try {
               const { error: verifyError } = await supabase.auth.getUser();
               if (verifyError) {
@@ -114,6 +140,10 @@ export function AuthGuard({ children }: AuthGuardProps) {
               console.error('Unexpected error during session verification:', error);
               if (mountedRef.current) {
                 await handleAuthError(error);
+              }
+            } finally {
+              if (authTimeoutRef.current) {
+                clearTimeout(authTimeoutRef.current);
               }
             }
           }
@@ -135,6 +165,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
       console.log('AuthGuard unmounting, cleaning up...');
       mountedRef.current = false;
       authCheckedRef.current = false;
+      if (authTimeoutRef.current) {
+        clearTimeout(authTimeoutRef.current);
+      }
       if (authListener) {
         authListener.unsubscribe();
       }
