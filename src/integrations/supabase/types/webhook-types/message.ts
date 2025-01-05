@@ -41,18 +41,8 @@ interface MessageLinkClickedObject {
 
 export interface MessageOpenedWebhook extends NylasWebhookBase<MessageOpenedObject> {
   type: 'message.opened';
-  data: {
-    application_id: string;
-    grant_id: string;
-    object: MessageOpenedObject;
-  };
 }
 
 export interface MessageLinkClickedWebhook extends NylasWebhookBase<MessageLinkClickedObject> {
   type: 'message.link_clicked';
-  data: {
-    application_id: string;
-    grant_id: string;
-    object: MessageLinkClickedObject;
-  };
 }
