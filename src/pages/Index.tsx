@@ -7,7 +7,7 @@ import { RecentRecordings } from "@/components/dashboard/RecentRecordings";
 import { OrganizationShares } from "@/components/dashboard/OrganizationShares";
 import { WelcomeCard } from "@/components/dashboard/WelcomeCard";
 import { format } from "date-fns";
-import { Calendar, Eye } from "lucide-react";
+import { Calendar, Eye, Mail, MousePointerClick } from "lucide-react";
 
 export default function Index() {
   const [userEmail, setUserEmail] = useState<string>("");
@@ -31,7 +31,7 @@ export default function Index() {
     }
   });
 
-  // Fetch recent public shares with view counts
+  // Fetch recent public shares with view counts and email metrics
   const { data: publicShares } = useQuery({
     queryKey: ['public-shares'],
     queryFn: async () => {
@@ -47,6 +47,10 @@ export default function Index() {
             ),
             views:video_views (
               id
+            ),
+            email_metrics:email_shares (
+              opens,
+              link_clicks
             )
           )
         `)
@@ -95,9 +99,19 @@ export default function Index() {
                           'No date'
                         }
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Eye className="h-4 w-4" />
-                        {share.recording?.views?.length || 0} views
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1">
+                          <Eye className="h-4 w-4" />
+                          {share.recording?.views?.length || 0} views
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Mail className="h-4 w-4" />
+                          {share.recording?.email_metrics?.[0]?.opens || 0} opens
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <MousePointerClick className="h-4 w-4" />
+                          {share.recording?.email_metrics?.[0]?.link_clicks || 0} clicks
+                        </div>
                       </div>
                     </div>
                   </div>
