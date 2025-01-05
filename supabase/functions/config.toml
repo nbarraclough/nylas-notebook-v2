@@ -1,19 +1,64 @@
 project_id = "xqzlejcvvtjdrabofrxs"
 
 [global.env]
-NYLAS_CLIENT_ID = "env"
-NYLAS_CLIENT_SECRET = "env"
-NYLAS_WEBHOOK_SECRET = "env"
+NYLAS_CLIENT_ID = "env(NYLAS_CLIENT_ID)"
+NYLAS_CLIENT_SECRET = "env(NYLAS_CLIENT_SECRET)"
+NYLAS_WEBHOOK_SECRET = "env(NYLAS_WEBHOOK_SECRET)"
+NYLAS_PROD_CLIENT_ID = "env(NYLAS_PROD_CLIENT_ID)"
+NYLAS_PROD_CLIENT_SECRET = "env(NYLAS_PROD_CLIENT_SECRET)"
 
-[functions.handle-nylas-webhook]
-verify_jwt = false
-verify_webhook = true
-max_instances = 30
-timeout_ms = 10000
-rate_limit = 100
-concurrency = 50
-allowed_http_methods = ["POST", "OPTIONS"]
+[[functions]]
+name = "exchange-nylas-token"
+verify_jwt = true
 
-[functions.handle-message-webhook]
+[[functions]]
+name = "get-nylas-auth-url"
+verify_jwt = true
+
+[[functions]]
+name = "get-organization-data"
+verify_jwt = true
+
+[[functions]]
+name = "get-recording-media"
+verify_jwt = true
+
+[[functions]]
+name = "handle-nylas-webhook"
 verify_jwt = false
-verify_webhook = false
+
+[[functions]]
+name = "handle-nylas-webhook-prod"
+verify_jwt = false
+
+[[functions]]
+name = "kick-notetaker"
+verify_jwt = true
+
+[[functions]]
+name = "process-notetaker-queue"
+verify_jwt = true
+
+[[functions]]
+name = "queue-event-recording"
+verify_jwt = true
+
+[[functions]]
+name = "send-notetaker"
+verify_jwt = true
+
+[[functions]]
+name = "send-organization-invite"
+verify_jwt = true
+
+[[functions]]
+name = "send-recording-email"
+verify_jwt = true
+
+[[functions]]
+name = "sync-nylas-events"
+verify_jwt = true
+
+[[functions]]
+name = "incremental-cant-trust-webhooks"
+verify_jwt = true
