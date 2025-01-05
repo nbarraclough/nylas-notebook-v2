@@ -22,7 +22,7 @@ interface GroupedEvents {
   [key: string]: Event[];
 }
 
-export const EventsList = ({ events, isLoadingEvents, userId, filter }: EventsListProps) => {
+export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, filter }: EventsListProps) => {
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   
   const navigateWeek = (direction: 'next' | 'prev' | 'current') => {
@@ -149,7 +149,7 @@ export const EventsList = ({ events, isLoadingEvents, userId, filter }: EventsLi
             </div>
           ) : (
             <div className="text-center py-6 sm:py-8 text-[#555555]">
-              No {filter} events found{filter === "upcoming" ? " for this week" : ""}. Go to Settings &gt; Manual Sync to fetch your calendar events.
+              No upcoming events found for this week. Go relax & have fun!.
             </div>
           )}
         </CardContent>

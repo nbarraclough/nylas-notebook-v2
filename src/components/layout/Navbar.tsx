@@ -9,7 +9,7 @@ import {
   Library,
   LogOut,
   Menu,
-  Home,
+  LayoutDashboard,
   Repeat,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -58,10 +58,21 @@ export function Navbar() {
   const NavLinks = ({ className, onClick }: { className?: string; onClick?: () => void }) => (
     <div className={cn("flex flex-col lg:flex-row lg:items-center space-y-4 lg:space-y-0 lg:space-x-6", className)}>
       <Link
+        to="/"
+        className={cn(
+          "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2 border-b-2 border-transparent hover:border-primary pb-1",
+          location.pathname === "/" && "text-primary border-primary"
+        )}
+        onClick={onClick}
+      >
+        <LayoutDashboard className="h-4 w-4" />
+        Dashboard
+      </Link>
+      <Link
         to="/calendar"
         className={cn(
-          "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2",
-          location.pathname === "/calendar" && "text-primary font-semibold"
+          "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2 border-b-2 border-transparent hover:border-primary pb-1",
+          location.pathname === "/calendar" && "text-primary border-primary"
         )}
         onClick={onClick}
       >
@@ -71,8 +82,8 @@ export function Navbar() {
       <Link
         to="/recurring-events"
         className={cn(
-          "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2",
-          location.pathname === "/recurring-events" && "text-primary font-semibold"
+          "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2 border-b-2 border-transparent hover:border-primary pb-1",
+          location.pathname === "/recurring-events" && "text-primary border-primary"
         )}
         onClick={onClick}
       >
@@ -82,8 +93,8 @@ export function Navbar() {
       <Link
         to="/library"
         className={cn(
-          "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2",
-          location.pathname === "/library" && "text-primary font-semibold"
+          "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2 border-b-2 border-transparent hover:border-primary pb-1",
+          location.pathname === "/library" && "text-primary border-primary"
         )}
         onClick={onClick}
       >
@@ -100,18 +111,12 @@ export function Navbar() {
     <nav className="border-b">
       <div className="flex h-16 items-center px-4 justify-between">
         <div className="flex items-center">
-          <Link 
-            to="/" 
-            className={cn(
-              "mr-6 flex items-center space-x-2",
-              location.pathname === "/" && "text-primary"
-            )}
-          >
+          <div className="mr-6 flex items-center space-x-2">
             <Home className="h-5 w-5" />
             <span className="font-bold">
               Notebook
             </span>
-          </Link>
+          </div>
           
           {isLoggedIn && (
             <>
@@ -131,17 +136,10 @@ export function Navbar() {
                   </SheetTrigger>
                   <SheetContent side="left" className="w-[240px] sm:w-[300px]">
                     <div className="flex flex-col h-full">
-                      <Link 
-                        to="/" 
-                        className={cn(
-                          "flex items-center space-x-2 mb-6",
-                          location.pathname === "/" && "text-primary"
-                        )} 
-                        onClick={() => setIsOpen(false)}
-                      >
+                      <div className="flex items-center space-x-2 mb-6">
                         <Home className="h-5 w-5" />
                         <span className="font-bold">Notebook</span>
-                      </Link>
+                      </div>
                       <NavLinks onClick={() => setIsOpen(false)} />
                     </div>
                   </SheetContent>
@@ -162,7 +160,7 @@ export function Navbar() {
                 size="icon"
                 asChild
                 className={cn(
-                  location.pathname.startsWith("/settings") && "text-primary"
+                  location.pathname.startsWith("/settings") && "text-primary border-primary"
                 )}
               >
                 <Link to="/settings">
