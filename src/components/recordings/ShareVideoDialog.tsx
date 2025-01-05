@@ -6,10 +6,16 @@ import { ShareDialogForm } from "./share/ShareDialogForm";
 
 interface ShareVideoDialogProps {
   recordingId: string;
+  onShareUpdate?: () => void;
 }
 
-export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
+export function ShareVideoDialog({ recordingId, onShareUpdate }: ShareVideoDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
+
+  const handleSuccess = () => {
+    setIsOpen(false);
+    onShareUpdate?.();
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -28,7 +34,7 @@ export function ShareVideoDialog({ recordingId }: ShareVideoDialogProps) {
         </DialogHeader>
         <ShareDialogForm 
           recordingId={recordingId} 
-          onSuccess={() => setIsOpen(false)} 
+          onSuccess={handleSuccess}
         />
       </DialogContent>
     </Dialog>
