@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 import { processEvent } from './event-processor.ts'
+import { startOfToday, addMonths, getUnixTime } from './timestamp-utils.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,14 +17,12 @@ serve(async (req) => {
     const { user_id, user_ids, force_recording_rules = false } = await req.json()
     console.log('Request payload:', { user_id, user_ids, force_recording_rules })
 
-    // Handle both single user and batch processing
     const userIdsToProcess = user_ids || (user_id ? [user_id] : null)
 
     if (!userIdsToProcess || userIdsToProcess.length === 0) {
       throw new Error('Either user_id or user_ids is required')
     }
 
-    // Initialize Supabase Admin client
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -38,12 +37,15 @@ serve(async (req) => {
     const results = []
     const errors = []
 
-    // Process each user
+    // Get date range
+    const startDate = startOfToday()
+    const endDate = addMonths(startDate, 3)
+    console.log('Date range:', { startDate, endDate })
+
     for (const userId of userIdsToProcess) {
       try {
         console.log('Processing user:', userId)
         
-        // Get user's profile and Nylas grant ID
         const { data: profile, error: profileError } = await supabaseAdmin
           .from('profiles')
           .select('nylas_grant_id')
@@ -62,7 +64,6 @@ serve(async (req) => {
           continue
         }
 
-        // Get existing events to track updates
         const { data: existingEvents, error: existingEventsError } = await supabaseAdmin
           .from('events')
           .select('ical_uid, last_updated_at')
@@ -74,7 +75,6 @@ serve(async (req) => {
           continue
         }
 
-        // Create a Map for faster lookup of existing events
         const existingEventsMap = new Map(
           existingEvents?.map(event => [event.ical_uid, new Date(event.last_updated_at)]) || []
         )
@@ -87,30 +87,46 @@ serve(async (req) => {
           throw new Error('Nylas client secret not configured')
         }
 
-        // Fetch events from Nylas
-        const eventsResponse = await fetch(
-          `https://api-staging.us.nylas.com/v3/grants/${profile.nylas_grant_id}/events?calendar_id=primary`, 
-          {
-            headers: {
-              'Authorization': `Bearer ${NYLAS_CLIENT_SECRET}`,
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
+        let pageToken = null
+        let allEvents = []
+        
+        do {
+          const queryParams = new URLSearchParams({
+            calendar_id: 'primary',
+            start: getUnixTime(startDate).toString(),
+            end: getUnixTime(endDate).toString(),
+            limit: '50',
+            ...(pageToken && { page_token: pageToken })
+          })
+
+          const eventsResponse = await fetch(
+            `https://api-staging.us.nylas.com/v3/grants/${profile.nylas_grant_id}/events?${queryParams}`, 
+            {
+              headers: {
+                'Authorization': `Bearer ${NYLAS_CLIENT_SECRET}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+              },
+            }
+          )
+
+          if (!eventsResponse.ok) {
+            const errorData = await eventsResponse.text()
+            console.error('Failed to fetch Nylas events:', errorData)
+            errors.push({ userId, error: 'Failed to fetch events from Nylas' })
+            break
           }
-        )
 
-        if (!eventsResponse.ok) {
-          const errorData = await eventsResponse.text()
-          console.error('Failed to fetch Nylas events:', errorData)
-          errors.push({ userId, error: 'Failed to fetch events from Nylas' })
-          continue
-        }
+          const response = await eventsResponse.json()
+          allEvents = allEvents.concat(response.data || [])
+          pageToken = response.next_page_token
+          
+          console.log(`Fetched ${response.data?.length || 0} events, next page token:`, pageToken)
+        } while (pageToken)
 
-        const events = await eventsResponse.json()
-        console.log(`Fetched ${events.data?.length || 0} events from Nylas for user:`, userId)
+        console.log(`Total events fetched for user ${userId}:`, allEvents.length)
 
-        // Process each event
-        for (const event of events.data || []) {
+        for (const event of allEvents) {
           try {
             await processEvent(event, existingEventsMap, userId, supabaseAdmin, force_recording_rules)
           } catch (error) {
@@ -119,7 +135,7 @@ serve(async (req) => {
           }
         }
 
-        results.push({ userId, eventsProcessed: events.data?.length || 0 })
+        results.push({ userId, eventsProcessed: allEvents.length })
 
       } catch (error) {
         console.error('Error processing user:', userId, error)
