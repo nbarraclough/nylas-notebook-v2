@@ -6,7 +6,7 @@ export interface NylasWebhookBase {
   time: number;
   data: {
     application_id: string;
-    grant_id: string;
+    grant_id?: string;
     object: Record<string, any>;
   };
 }

@@ -15,12 +15,8 @@ interface MessageLinkClickedRecent extends MessageTrackingRecent {
   link_index: string;
 }
 
-export interface MessageOpenedWebhook {
-  specversion: string;
+export interface MessageOpenedWebhook extends NylasWebhookBase {
   type: 'message.opened';
-  source: string;
-  id: string;
-  time: number;
   data: {
     application_id: string;
     grant_id: string;
@@ -38,12 +34,8 @@ export interface MessageOpenedWebhook {
   };
 }
 
-export interface MessageLinkClickedWebhook {
-  specversion: string;
+export interface MessageLinkClickedWebhook extends NylasWebhookBase {
   type: 'message.link_clicked';
-  source: string;
-  id: string;
-  time: number;
   data: {
     application_id: string;
     grant_id: string;
