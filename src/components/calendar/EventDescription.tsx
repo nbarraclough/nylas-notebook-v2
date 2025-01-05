@@ -13,13 +13,24 @@ export const EventDescription = ({ description }: EventDescriptionProps) => {
   const formatDescription = (text: string | null) => {
     if (!text) return '';
     
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const textWithLinks = text.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+    // First, clean up any malformed URLs or duplicate content
+    let cleanText = text.replace(/"\s*target="_blank".*?>/g, '">')
+                       .replace(/(?:https?:\/\/[^\s]+)">(?:https?:\/\/[^\s]+)/g, (match) => {
+                         // Extract just the first URL
+                         const url = match.split('">')[0];
+                         return `${url}">`;
+                       });
+
+    // Convert plain URLs to anchor tags
+    const urlRegex = /(?<!["'])(https?:\/\/[^\s<]+)(?![^<]*>|[^<>]*<\/)/g;
+    cleanText = cleanText.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
     
-    const textWithBreaks = textWithLinks
+    // Handle line breaks and preserve spacing
+    const textWithBreaks = cleanText
       .replace(/\n/g, '<br>')
       .replace(/\s{2,}/g, match => '&nbsp;'.repeat(match.length));
 
+    // Sanitize the HTML while allowing specific tags and attributes
     return DOMPurify.sanitize(textWithBreaks, {
       ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'em', 'strong', 'a', 'ul', 'ol', 'li'],
       ALLOWED_ATTR: ['href', 'target', 'rel'],
@@ -34,7 +45,11 @@ export const EventDescription = ({ description }: EventDescriptionProps) => {
   return (
     <div className="relative">
       <div 
-        className={`text-sm text-[#222222] prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_a]:text-primary [&_a]:underline [&_a]:hover:text-primary/80 whitespace-pre-line ${!isExpanded ? 'line-clamp-3 sm:line-clamp-5' : ''}`}
+        className={`text-sm text-[#222222] prose prose-sm max-w-none 
+          [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 
+          [&_a]:text-blue-600 [&_a]:underline [&_a]:hover:text-blue-800 
+          [&_a]:transition-colors [&_br]:mb-2
+          whitespace-pre-line ${!isExpanded ? 'line-clamp-3 sm:line-clamp-5' : ''}`}
         dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
       />
       {sanitizedDescription.split('<br>').length > 3 && (
