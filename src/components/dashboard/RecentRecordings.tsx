@@ -32,19 +32,17 @@ export function RecentRecordings() {
   });
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-lg font-medium">Recent Recordings</CardTitle>
-        <Button 
-          variant="ghost" 
-          size="sm"
-          className="text-sm"
-          onClick={() => navigate('/recordings')}
-        >
-          View more
-          <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
-      </CardHeader>
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardTitle className="text-lg font-medium">Recent Recordings</CardTitle>
+      <Button 
+        variant="ghost" 
+        size="sm"
+        className="text-sm"
+        onClick={() => navigate('/recordings')}
+      >
+        View more
+        <ArrowRight className="ml-2 h-4 w-4" />
+      </Button>
       <CardContent>
         {isLoading ? (
           <div className="space-y-4">
@@ -61,31 +59,33 @@ export function RecentRecordings() {
             {recordings?.map((recording) => (
               <div
                 key={recording.id}
-                className="flex items-center justify-between"
+                className="space-y-2 border-b pb-4 last:border-0"
               >
-                <div className="space-y-1">
-                  <p className="text-sm font-medium leading-none">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm line-clamp-1">
                     {recording.event.title}
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    {format(new Date(recording.event.start_time), 'PPp')}
-                  </p>
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    {format(new Date(recording.event.start_time), 'MMM d')}
+                  </div>
                 </div>
-                {recording.video_url ? (
-                  <VideoPlayerDialog
-                    videoUrl={recording.video_url}
-                    title={recording.event.title}
-                  />
-                ) : (
-                  <Button size="sm" variant="ghost" disabled>
-                    <Play className="h-4 w-4" />
-                  </Button>
-                )}
+                <div className="flex justify-end">
+                  {recording.video_url ? (
+                    <VideoPlayerDialog
+                      videoUrl={recording.video_url}
+                      title={recording.event.title}
+                    />
+                  ) : (
+                    <Button size="sm" variant="ghost" disabled>
+                      <Play className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
         )}
       </CardContent>
-    </Card>
+    </CardHeader>
   );
 }
