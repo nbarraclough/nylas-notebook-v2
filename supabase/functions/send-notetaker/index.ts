@@ -17,10 +17,28 @@ Deno.serve(async (req) => {
       throw new Error('Missing required parameters')
     }
 
+    // Get user's notetaker name preference
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('notetaker_name')
+      .eq('nylas_grant_id', grantId)
+      .single()
+
+    if (profileError) {
+      console.error('Error fetching profile:', profileError)
+      throw new Error('Failed to fetch user profile')
+    }
+
     // Send notetaker to the meeting using Nylas API
     console.log('Sending request to Nylas API:', {
       url: `${NYLAS_API_URL}/v3/grants/${grantId}/notetakers`,
-      meetingUrl
+      meetingUrl,
+      notetakerName: profile?.notetaker_name || 'Nylas Notetaker'
     })
 
     const response = await fetch(
@@ -30,11 +48,11 @@ Deno.serve(async (req) => {
         headers: {
           'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json, application/gzip'
         },
         body: JSON.stringify({
           meeting_link: meetingUrl,
-          notetaker_name: 'Nylas Notetaker'
+          notetaker_name: profile?.notetaker_name || 'Nylas Notetaker'
         })
       }
     )
