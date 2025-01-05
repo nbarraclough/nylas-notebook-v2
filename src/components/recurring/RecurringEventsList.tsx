@@ -114,10 +114,6 @@ export function RecurringEventsList({
       );
 
       const now = new Date();
-      const latestEvent = [...sortedEvents]
-        .reverse()
-        .find(event => new Date(event.start_time) <= now);
-      
       const nextEvent = sortedEvents
         .find(event => new Date(event.start_time) > now);
 
@@ -130,7 +126,6 @@ export function RecurringEventsList({
       return {
         masterId,
         events: filteredEvents,
-        latestEvent: latestEvent || sortedEvents[0],
         nextEvent,
         recordingsCount,
         isPinned
@@ -143,19 +138,11 @@ export function RecurringEventsList({
       if (!a.isPinned && b.isPinned) return 1;
 
       // Then sort by next meeting date (if available)
-      const aNextTime = a.nextEvent ? new Date(a.nextEvent.start_time).getTime() : 0;
-      const bNextTime = b.nextEvent ? new Date(b.nextEvent.start_time).getTime() : 0;
+      const aNextTime = a.nextEvent ? new Date(a.nextEvent.start_time).getTime() : Infinity;
+      const bNextTime = b.nextEvent ? new Date(b.nextEvent.start_time).getTime() : Infinity;
 
-      // If both have next events, sort by next event time descending
-      if (aNextTime && bNextTime) return bNextTime - aNextTime;
-
-      // If only one has a next event, prioritize it
-      if (aNextTime) return -1;
-      if (bNextTime) return 1;
-
-      // If neither has a next event, sort by latest event time
-      return new Date(b.latestEvent.start_time).getTime() - 
-             new Date(a.latestEvent.start_time).getTime();
+      // Sort by next event time ascending (earlier dates first)
+      return aNextTime - bNextTime;
     });
 
   if (!processedEvents || processedEvents.length === 0) {
