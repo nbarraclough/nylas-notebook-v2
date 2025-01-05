@@ -55,36 +55,22 @@ interface EventWebhookData {
   };
 }
 
-export interface EventCreatedWebhook extends NylasWebhookBase {
+export interface EventCreatedWebhook extends NylasWebhookBase<EventWebhookData> {
   type: 'event.created';
   webhook_delivery_attempt?: number;
-  data: {
-    application_id: string;
-    object: EventWebhookData;
-  };
 }
 
-export interface EventUpdatedWebhook extends NylasWebhookBase {
+export interface EventUpdatedWebhook extends NylasWebhookBase<EventWebhookData & { master_event_id?: string }> {
   type: 'event.updated';
   webhook_delivery_attempt?: number;
-  data: {
-    application_id: string;
-    object: EventWebhookData & {
-      master_event_id?: string;
-    };
-  };
 }
 
-export interface EventDeletedWebhook extends NylasWebhookBase {
+export interface EventDeletedWebhook extends NylasWebhookBase<{
+  grant_id: string;
+  calendar_id: string;
+  id: string;
+  master_event_id?: string;
+  object: 'event';
+}> {
   type: 'event.deleted';
-  data: {
-    application_id: string;
-    object: {
-      grant_id: string;
-      calendar_id: string;
-      id: string;
-      master_event_id?: string;
-      object: 'event';
-    };
-  };
 }
