@@ -12,8 +12,27 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
+  const handleAuthError = async (error: any, message: string) => {
+    console.error(message, error);
+    toast({
+      title: "Authentication Error",
+      description: "Please sign in again.",
+      variant: "destructive",
+    });
+    
+    try {
+      // Clear any existing session data
+      await supabase.auth.signOut();
+    } catch (signOutError) {
+      console.error('Error during sign out:', signOutError);
+    }
+    
+    navigate('/auth', { state: { returnTo: location.pathname } });
+  };
+
   useEffect(() => {
     let mounted = true;
+    let authListener: any = null;
 
     const checkAuth = async () => {
       try {
@@ -27,16 +46,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
-          console.error('Error checking auth session:', sessionError);
-          toast({
-            title: "Authentication Error",
-            description: "Please sign in again.",
-            variant: "destructive",
-          });
-          if (mounted) {
-            await supabase.auth.signOut();
-            navigate('/auth', { state: { returnTo: location.pathname } });
-          }
+          await handleAuthError(sessionError, 'Error checking auth session:');
           return;
         }
 
@@ -51,16 +61,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
         // Verify the session is still valid
         const { error: userError } = await supabase.auth.getUser();
         if (userError) {
-          console.error('Session invalid:', userError);
-          toast({
-            title: "Session Expired",
-            description: "Please sign in again.",
-            variant: "destructive",
-          });
-          if (mounted) {
-            await supabase.auth.signOut();
-            navigate('/auth', { state: { returnTo: location.pathname } });
-          }
+          await handleAuthError(userError, 'Session invalid:');
           return;
         }
 
@@ -68,53 +69,55 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
           setIsLoading(false);
         }
       } catch (error) {
-        console.error('Error in auth check:', error);
-        toast({
-          title: "Authentication Error",
-          description: "An unexpected error occurred. Please try again.",
-          variant: "destructive",
-        });
-        if (mounted) {
-          await supabase.auth.signOut();
-          navigate('/auth', { state: { returnTo: location.pathname } });
-        }
+        await handleAuthError(error, 'Error in auth check:');
       }
     };
 
     checkAuth();
 
     // Subscribe to auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event);
-      
-      if (event === 'SIGNED_OUT' || (!session && !PUBLIC_ROUTES.includes(location.pathname))) {
-        console.log('Auth state changed, no session, redirecting to auth');
-        if (mounted) {
-          // Clear any existing session data
-          await supabase.auth.signOut();
-          navigate('/auth');
-        }
-      } else if (event === 'SIGNED_IN' && session) {
-        // Verify the new session
-        const { error: verifyError } = await supabase.auth.getUser();
-        if (verifyError) {
-          console.error('New session verification failed:', verifyError);
-          toast({
-            title: "Authentication Failed",
-            description: "Please try signing in again.",
-            variant: "destructive",
-          });
-          if (mounted) {
-            await supabase.auth.signOut();
-            navigate('/auth');
+    const setupAuthListener = async () => {
+      try {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          console.log('Auth state changed:', event);
+          
+          if (event === 'SIGNED_OUT' || (!session && !PUBLIC_ROUTES.includes(location.pathname))) {
+            if (mounted) {
+              try {
+                // Clear any existing session data
+                await supabase.auth.signOut();
+                navigate('/auth');
+              } catch (error) {
+                console.error('Error during sign out:', error);
+                navigate('/auth');
+              }
+            }
+          } else if (event === 'SIGNED_IN' && session) {
+            try {
+              // Verify the new session
+              const { error: verifyError } = await supabase.auth.getUser();
+              if (verifyError) {
+                await handleAuthError(verifyError, 'New session verification failed:');
+              }
+            } catch (error) {
+              await handleAuthError(error, 'Error verifying new session:');
+            }
           }
-        }
+        });
+        
+        authListener = subscription;
+      } catch (error) {
+        console.error('Error setting up auth listener:', error);
       }
-    });
+    };
+
+    setupAuthListener();
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
+      if (authListener) {
+        authListener.unsubscribe();
+      }
     };
   }, [navigate, location.pathname, toast]);
 
