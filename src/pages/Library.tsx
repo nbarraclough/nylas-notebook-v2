@@ -6,6 +6,29 @@ import { RecordingGrid } from "@/components/library/RecordingGrid";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+interface Participant {
+  email: string;
+  [key: string]: any;
+}
+
+interface Event {
+  title: string;
+  description: string | null;
+  start_time: string;
+  end_time: string;
+  participants: Participant[];
+  organizer: any;
+}
+
+interface Recording {
+  id: string;
+  event: Event;
+  video_shares: {
+    share_type: string;
+    organization_id: string;
+  }[];
+}
+
 export default function Library() {
   const [filters, setFilters] = useState({
     types: [],
@@ -78,7 +101,7 @@ export default function Library() {
       if (sharedError) throw sharedError;
 
       // Combine and deduplicate recordings
-      const allRecordings = [...(userRecordings || []), ...(sharedRecordings || [])];
+      const allRecordings = [...(userRecordings || []), ...(sharedRecordings || [])] as Recording[];
       const uniqueRecordings = Array.from(new Map(allRecordings.map(r => [r.id, r])).values());
 
       // Apply filters
@@ -98,7 +121,7 @@ export default function Library() {
 
       if (filters.participants.length > 0) {
         filteredRecordings = filteredRecordings.filter(r =>
-          r.event.participants.some(p =>
+          r.event.participants.some((p: Participant) =>
             filters.participants.includes(p.email)
           )
         );
