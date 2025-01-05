@@ -41,7 +41,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
         console.log('Auth check timed out, redirecting to auth...');
         setIsLoading(false);
         setIsAuthenticated(false);
-        redirectToAuth("Authentication timed out. Please sign in again.");
+        if (!location.pathname.startsWith('/shared')) {
+          redirectToAuth("Authentication timed out. Please sign in again.");
+        }
       }
     }, 10000); // 10 second timeout
   };
@@ -52,9 +54,10 @@ export function AuthGuard({ children }: AuthGuardProps) {
       setIsAuthenticated(authenticated);
       setIsLoading(false);
       authCheckedRef.current = true;
-    }
-    if (authTimeoutRef.current) {
-      clearTimeout(authTimeoutRef.current);
+      
+      if (authTimeoutRef.current) {
+        clearTimeout(authTimeoutRef.current);
+      }
     }
   };
 
@@ -82,7 +85,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
         }
 
         if (!session) {
-          console.log('No session found, redirecting to auth page');
+          console.log('No session found');
           completeAuthCheck(false);
           if (!location.pathname.startsWith('/shared')) {
             redirectToAuth();
@@ -111,45 +114,42 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
     const setupAuthListener = () => {
       console.log('Setting up auth listener...');
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
-        async (event, session) => {
-          console.log('Auth state changed:', event, 'Session exists:', !!session);
-          
-          if (event === 'SIGNED_OUT' || (!session && !location.pathname.startsWith('/shared'))) {
-            console.log('User signed out or session expired');
-            if (mountedRef.current) {
-              await clearAuthStorage();
-              completeAuthCheck(false);
-              redirectToAuth();
+      return supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log('Auth state changed:', event, 'Session exists:', !!session);
+        
+        if (event === 'SIGNED_OUT' || (!session && !location.pathname.startsWith('/shared'))) {
+          console.log('User signed out or session expired');
+          if (mountedRef.current) {
+            await clearAuthStorage();
+            completeAuthCheck(false);
+            redirectToAuth();
+          }
+        } else if (event === 'SIGNED_IN' && session) {
+          console.log('User signed in, verifying session...');
+          setupAuthTimeout();
+          try {
+            const { error: verifyError } = await supabase.auth.getUser();
+            if (verifyError) {
+              console.error('Session verification error:', verifyError);
+              await handleAuthError(verifyError);
+            } else {
+              console.log('Session verified, updating state');
+              completeAuthCheck(true);
             }
-          } else if (event === 'SIGNED_IN' && session) {
-            console.log('User signed in, verifying session...');
-            setupAuthTimeout();
-            try {
-              const { error: verifyError } = await supabase.auth.getUser();
-              if (verifyError) {
-                console.error('Session verification error:', verifyError);
-                await handleAuthError(verifyError);
-              } else {
-                console.log('Session verified, updating state');
-                completeAuthCheck(true);
-              }
-            } catch (error) {
-              console.error('Unexpected error during session verification:', error);
-              if (mountedRef.current) {
-                await handleAuthError(error);
-              }
+          } catch (error) {
+            console.error('Unexpected error during session verification:', error);
+            if (mountedRef.current) {
+              await handleAuthError(error);
             }
           }
         }
-      );
-
-      return subscription;
+      });
     };
 
     const initialize = async () => {
       console.log('Initializing AuthGuard...');
-      authListener = setupAuthListener();
+      const { data: { subscription } } = setupAuthListener();
+      authListener = { unsubscribe: () => subscription.unsubscribe() };
       await checkAuth();
     };
 
