@@ -60,7 +60,7 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseAd
       participants: event.participants || [],
       conference_url: event.conferencing?.details?.url || null,
       ical_uid: event.ical_uid,
-      busy: event.busy !== false,
+      busy: event.busy !== false, // Default to true if not specified
       html_link: event.html_link,
       master_event_id: event.master_event_id,
       organizer: event.organizer || {},
@@ -80,7 +80,8 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseAd
       title: event.title,
       start: eventData.start_time,
       end: eventData.end_time,
-      conferenceUrl: eventData.conference_url
+      conferenceUrl: eventData.conference_url,
+      participants: eventData.participants.length
     });
 
     // Use upsert with nylas_event_id as the conflict key
