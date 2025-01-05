@@ -29,8 +29,8 @@ export default function Library() {
         .eq('id', user.id)
         .single();
 
-      // Build the main recordings query
-      let query = supabase
+      // Get user's own recordings and recordings shared with their organization
+      const { data: userRecordings, error: userError } = await supabase
         .from('recordings')
         .select(`
           *,
@@ -47,49 +47,70 @@ export default function Library() {
             organization_id
           )
         `)
-        .or(`user_id.eq.${user.id},and(video_shares.share_type.eq.internal,video_shares.organization_id.eq.${profile?.organization_id})`)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      // Apply filters
-      if (filters.types.length > 0) {
-        if (filters.types.includes("my-recordings")) {
-          query = query.eq('user_id', user.id);
-        }
-        if (filters.types.includes("organization")) {
-          if (profile?.organization_id) {
-            query = query.eq('profiles.organization_id', profile.organization_id);
-          }
-        }
-      }
+      if (userError) throw userError;
 
-      if (filters.meetingTypes.length > 0) {
-        if (filters.meetingTypes.includes("internal")) {
-          query = query.eq('event.is_internal', true);
-        }
-        if (filters.meetingTypes.includes("external")) {
-          query = query.eq('event.is_internal', false);
-        }
-      }
+      // Get recordings shared within the organization
+      const { data: sharedRecordings, error: sharedError } = await supabase
+        .from('recordings')
+        .select(`
+          *,
+          event:events (
+            title,
+            description,
+            start_time,
+            end_time,
+            participants,
+            organizer
+          ),
+          video_shares (
+            share_type,
+            organization_id
+          )
+        `)
+        .neq('user_id', user.id) // Exclude user's own recordings
+        .eq('video_shares.share_type', 'internal')
+        .eq('video_shares.organization_id', profile?.organization_id)
+        .order('created_at', { ascending: false });
+
+      if (sharedError) throw sharedError;
+
+      // Combine and deduplicate recordings
+      const allRecordings = [...(userRecordings || []), ...(sharedRecordings || [])];
+      const uniqueRecordings = Array.from(new Map(allRecordings.map(r => [r.id, r])).values());
+
+      // Apply filters
+      let filteredRecordings = uniqueRecordings;
 
       if (filters.startDate) {
-        query = query.gte('event.start_time', filters.startDate.toISOString());
+        filteredRecordings = filteredRecordings.filter(
+          r => new Date(r.event.start_time) >= filters.startDate
+        );
       }
 
       if (filters.endDate) {
-        query = query.lte('event.start_time', filters.endDate.toISOString());
+        filteredRecordings = filteredRecordings.filter(
+          r => new Date(r.event.start_time) <= filters.endDate
+        );
       }
 
       if (filters.participants.length > 0) {
-        query = query.contains('event.participants', filters.participants.map(email => ({ email })));
+        filteredRecordings = filteredRecordings.filter(r =>
+          r.event.participants.some(p =>
+            filters.participants.includes(p.email)
+          )
+        );
       }
 
       if (filters.titleSearch) {
-        query = query.ilike('event.title', `%${filters.titleSearch}%`);
+        filteredRecordings = filteredRecordings.filter(r =>
+          r.event.title.toLowerCase().includes(filters.titleSearch.toLowerCase())
+        );
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
+      return filteredRecordings;
     }
   });
 
