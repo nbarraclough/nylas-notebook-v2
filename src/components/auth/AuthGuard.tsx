@@ -29,12 +29,13 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
       }
     } catch (error) {
       console.error('Error clearing auth state:', error);
+    } finally {
+      setIsLoading(false); // Ensure loading state is cleared even if there's an error
     }
   };
 
   const handleAuthError = async (error: any, message: string) => {
     console.error(message, error);
-    setIsLoading(false);
     
     // Check if error is related to invalid/expired token
     const isTokenError = error?.message?.includes('JWT') || 
@@ -44,6 +45,8 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
     if (isTokenError) {
       console.log('Detected token error, clearing auth state');
       await clearAuthState();
+    } else {
+      setIsLoading(false);
     }
     
     toast({
@@ -99,8 +102,6 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
       }
     };
 
-    checkAuth();
-
     const setupAuthListener = async () => {
       try {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -136,13 +137,17 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
       }
     };
 
+    // Initialize auth check and listener
+    checkAuth();
     setupAuthListener();
 
+    // Cleanup function
     return () => {
       mounted = false;
       if (authListener) {
         authListener.unsubscribe();
       }
+      setIsLoading(false); // Ensure loading state is cleared when component unmounts
     };
   }, [navigate, location.pathname, toast]);
 
