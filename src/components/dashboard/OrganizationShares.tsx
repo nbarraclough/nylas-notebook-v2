@@ -43,7 +43,7 @@ export function OrganizationShares() {
   });
 
   return (
-    <Card>
+    <>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-lg font-medium">Organization Shares</CardTitle>
         <Button 
@@ -72,28 +72,30 @@ export function OrganizationShares() {
             {shares?.map((share) => (
               <div
                 key={share.id}
-                className="flex items-center justify-between"
+                className="space-y-2 border-b pb-4 last:border-0"
               >
                 <div className="space-y-1">
-                  <p className="text-sm font-medium leading-none">
+                  <p className="text-sm line-clamp-1">
                     {share.recording.event.title}
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    {format(new Date(share.recording.event.start_time), 'PPp')}
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">
+                      {format(new Date(share.recording.event.start_time), 'PPp')}
+                    </p>
+                    <Button 
+                      size="sm" 
+                      variant="ghost"
+                      onClick={() => navigate(`/shared/${share.external_token}`)}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <Button 
-                  size="sm" 
-                  variant="ghost"
-                  onClick={() => navigate(`/shared/${share.external_token}`)}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </Button>
               </div>
             ))}
           </div>
         )}
       </CardContent>
-    </Card>
+    </>
   );
 }

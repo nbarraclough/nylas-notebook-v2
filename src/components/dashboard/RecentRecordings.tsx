@@ -63,26 +63,30 @@ export function RecentRecordings() {
                 key={recording.id}
                 className="space-y-2 border-b pb-4 last:border-0"
               >
-                <div className="flex items-center justify-between">
+                <div className="space-y-1">
                   <p className="text-sm line-clamp-1">
                     {recording.event?.title}
                   </p>
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    {recording.event?.start_time && 
-                      format(new Date(recording.event.start_time), 'MMM d')}
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">
+                      {recording.event?.start_time && 
+                        format(new Date(recording.event.start_time), 'PPp')}
+                    </p>
+                    {recording.video_url ? (
+                      <VideoPlayerDialog
+                        videoUrl={recording.video_url}
+                        title={recording.event?.title || ''}
+                      >
+                        <Button size="sm" variant="ghost">
+                          <Play className="h-4 w-4" />
+                        </Button>
+                      </VideoPlayerDialog>
+                    ) : (
+                      <Button size="sm" variant="ghost" disabled>
+                        <Play className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
-                </div>
-                <div className="flex justify-end">
-                  {recording.video_url ? (
-                    <VideoPlayerDialog
-                      videoUrl={recording.video_url}
-                      title={recording.event?.title || ''}
-                    />
-                  ) : (
-                    <Button size="sm" variant="ghost" disabled>
-                      <Play className="h-4 w-4" />
-                    </Button>
-                  )}
                 </div>
               </div>
             ))}
