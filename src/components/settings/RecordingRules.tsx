@@ -36,12 +36,20 @@ export const RecordingRules = ({
     }) => {
       if (!userId) throw new Error('No user ID');
       
-      const { error: profileError } = await supabase
+      console.log('Updating profile with:', updates);
+      
+      const { data, error: profileError } = await supabase
         .from('profiles')
         .update(updates)
-        .eq('id', userId);
+        .eq('id', userId)
+        .select();
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Error updating profile:', profileError);
+        throw profileError;
+      }
+
+      console.log('Profile updated successfully:', data);
 
       console.log('Recording rules changed, triggering event re-evaluation');
       const { error: evalError } = await supabase.functions.invoke('sync-nylas-events', {
@@ -72,21 +80,25 @@ export const RecordingRules = ({
 
   const handleRecordExternalChange = () => {
     const newValue = !recordExternal;
+    console.log('Updating record_external_meetings to:', newValue);
     updateProfile.mutate({ record_external_meetings: newValue });
   };
 
   const handleRecordInternalChange = () => {
     const newValue = !recordInternal;
+    console.log('Updating record_internal_meetings to:', newValue);
     updateProfile.mutate({ record_internal_meetings: newValue });
   };
 
   const handleShareExternalChange = () => {
     const newValue = !shareExternal;
+    console.log('Updating share_external_recordings to:', newValue);
     updateProfile.mutate({ share_external_recordings: newValue });
   };
 
   const handleShareInternalChange = () => {
     const newValue = !shareInternal;
+    console.log('Updating share_internal_recordings to:', newValue);
     updateProfile.mutate({ share_internal_recordings: newValue });
   };
 
