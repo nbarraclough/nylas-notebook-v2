@@ -8,12 +8,14 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader } from "lucide-react";
+import { useAuth } from "@supabase/auth-helpers-react";
 
 export default function Manual() {
   const { toast } = useToast();
   const [title, setTitle] = useState("");
   const [meetingInfo, setMeetingInfo] = useState("");
   const queryClient = useQueryClient();
+  const auth = useAuth();
 
   // Extract meeting URL from meeting info
   const extractMeetingUrl = (info: string) => {
@@ -41,12 +43,17 @@ export default function Manual() {
 
   const startRecordingMutation = useMutation({
     mutationFn: async ({ meetingUrl, title }: { meetingUrl: string, title: string }) => {
+      if (!auth?.user?.id) {
+        throw new Error('User not authenticated');
+      }
+
       // First, create the manual meeting record
       const { data: meeting, error: meetingError } = await supabase
         .from('manual_meetings')
         .insert({
           title,
           meeting_url: meetingUrl,
+          user_id: auth.user.id
         })
         .select()
         .single();
