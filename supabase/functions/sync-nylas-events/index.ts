@@ -49,31 +49,48 @@ serve(async (req) => {
       try {
         console.log('Processing user:', userId)
         
-        // Fetch profile with nylas_grant_id
+        // Fetch profile with nylas_grant_id using single-row query
         const profileResponse = await fetch(
           `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=nylas_grant_id`,
           {
             headers: {
               'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
               'apikey': SUPABASE_SERVICE_ROLE_KEY,
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal'
             },
           }
         )
 
         if (!profileResponse.ok) {
+          const errorText = await profileResponse.text()
+          console.error('Profile fetch failed:', {
+            status: profileResponse.status,
+            statusText: profileResponse.statusText,
+            error: errorText
+          })
           throw new Error(`Failed to fetch profile: ${profileResponse.statusText}`)
         }
 
         const profiles = await profileResponse.json()
-        const profile = profiles[0]
+        console.log('Profile response:', profiles)
 
+        if (!Array.isArray(profiles) || profiles.length === 0) {
+          console.error('No profile found for user:', userId)
+          errors.push({ userId, error: 'Profile not found' })
+          continue
+        }
+
+        const profile = profiles[0]
         if (!profile?.nylas_grant_id) {
-          console.error('Error fetching profile for user:', userId, 'No Nylas grant ID found')
+          console.error('Profile found but no Nylas grant ID:', profile)
           errors.push({ userId, error: 'No Nylas grant ID found' })
           continue
         }
 
         const grantId = profile.nylas_grant_id
+        console.log('Found Nylas grant ID:', grantId)
 
         console.log('Fetching Nylas events for grant ID:', grantId)
         
