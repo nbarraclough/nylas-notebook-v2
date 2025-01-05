@@ -45,9 +45,9 @@ export function RecordingGrid({ recordings, isLoading }: RecordingGridProps) {
             onClick={() => setSelectedRecording(recording.id)}
           >
             <div className="aspect-video bg-muted relative">
-              {recording.video_url && (
+              {(recording.video_url || recording.recording_url) && (
                 <video
-                  src={recording.video_url}
+                  src={recording.video_url || recording.recording_url}
                   className="w-full h-full object-cover"
                   preload="metadata"
                 />
@@ -59,9 +59,12 @@ export function RecordingGrid({ recordings, isLoading }: RecordingGridProps) {
               )}
             </div>
             <CardContent className="p-4">
-              <h3 className="font-medium line-clamp-1">{recording.event.title}</h3>
+              <h3 className="font-medium line-clamp-1">
+                {recording.event?.title || 'Untitled Recording'}
+              </h3>
               <p className="text-sm text-muted-foreground">
-                {format(new Date(recording.event.start_time), "PPp")}
+                {recording.event?.start_time && 
+                  format(new Date(recording.event.start_time), "PPp")}
               </p>
             </CardContent>
           </Card>

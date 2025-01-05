@@ -47,7 +47,6 @@ export default function Library() {
     queryFn: async () => {
       console.log('Fetching recordings...');
       
-      // First, get the current user's profile to know their organization
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
@@ -72,7 +71,10 @@ export default function Library() {
         .select(`
           *,
           event:events (
-            *
+            *,
+            manual_meeting:manual_meetings (
+              title
+            )
           ),
           video_shares (
             share_type,
@@ -94,7 +96,10 @@ export default function Library() {
         .select(`
           *,
           event:events (
-            *
+            *,
+            manual_meeting:manual_meetings (
+              title
+            )
           ),
           video_shares (
             share_type,
@@ -112,15 +117,20 @@ export default function Library() {
         throw sharedError;
       }
 
+      // Process recordings to handle both regular and manual meetings
+      const processRecording = (recording: any) => ({
+        ...recording,
+        event: {
+          ...recording.event,
+          // Use manual meeting title if available
+          title: recording.event.manual_meeting?.title || recording.event.title,
+          participants: parseParticipants(recording.event?.participants)
+        }
+      });
+
       // Combine and deduplicate recordings
       const allRecordings = [...(userRecordings || []), ...(sharedRecordings || [])]
-        .map(recording => ({
-          ...recording,
-          event: {
-            ...recording.event,
-            participants: parseParticipants(recording.event?.participants)
-          }
-        })) as RecordingWithRelations[];
+        .map(processRecording) as RecordingWithRelations[];
 
       console.log('All recordings after processing:', allRecordings);
 
