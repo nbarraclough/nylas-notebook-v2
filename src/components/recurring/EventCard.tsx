@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, Pin, PinOff } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ChevronRight, Pin, PinOff, Shield, Globe } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 
@@ -16,6 +17,19 @@ interface EventCardProps {
 }
 
 export function EventCard({ event, onTogglePin }: EventCardProps) {
+  // Determine if meeting is internal based on email domains
+  const isInternalMeeting = (() => {
+    const participants = event.latestEvent.participants || [];
+    if (participants.length === 0) return true;
+    
+    const organizerDomain = event.latestEvent.organizer?.email?.split('@')[1];
+    if (!organizerDomain) return true;
+    
+    return participants.every(participant => 
+      participant.email?.split('@')[1] === organizerDomain
+    );
+  })();
+
   return (
     <div className="relative group">
       <Button
@@ -45,9 +59,27 @@ export function EventCard({ event, onTogglePin }: EventCardProps) {
                   )}
                   <h3 className="text-lg font-semibold">{event.latestEvent.title}</h3>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {event.recordingsCount} recordings
-                </p>
+                <div className="flex gap-2">
+                  <Badge variant="outline" className="text-xs">
+                    {event.recordingsCount} recording{event.recordingsCount !== 1 ? 's' : ''}
+                  </Badge>
+                  <Badge 
+                    variant={isInternalMeeting ? "secondary" : "outline"}
+                    className={`text-xs ${isInternalMeeting ? 'bg-purple-100 hover:bg-purple-100 text-purple-800' : 'border-blue-200 text-blue-700 hover:bg-blue-50'}`}
+                  >
+                    {isInternalMeeting ? (
+                      <>
+                        <Shield className="w-3 h-3 mr-1" />
+                        Internal
+                      </>
+                    ) : (
+                      <>
+                        <Globe className="w-3 h-3 mr-1" />
+                        External
+                      </>
+                    )}
+                  </Badge>
+                </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">
                     Last meeting: {format(new Date(event.latestEvent.start_time), "PPp")}
