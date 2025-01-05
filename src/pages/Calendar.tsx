@@ -81,8 +81,8 @@ export default function Calendar() {
     };
   }, [navigate]);
 
-  // Show ConnectNylas if grant status is not active
-  if (profile && profile.grant_status !== 'active') {
+  // Show ConnectNylas if no grant_id or grant status is not active
+  if (!profile?.nylas_grant_id || (profile?.grant_status && profile.grant_status !== 'active')) {
     return (
       <PageLayout>
         <ConnectNylas />
@@ -92,39 +92,35 @@ export default function Calendar() {
 
   return (
     <PageLayout>
-      {!profile?.nylas_grant_id ? (
-        <ConnectNylas />
-      ) : (
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "upcoming" | "past")}>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h1 className="text-2xl font-bold">Your Calendar</h1>
-              <TabsList>
-                <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-                <TabsTrigger value="past">Past</TabsTrigger>
-              </TabsList>
-            </div>
-            <TabsContent value="upcoming">
-              <EventsList 
-                events={events || []} 
-                isLoadingEvents={isLoadingEvents}
-                userId={userId || ''}
-                refetchEvents={refetchEvents}
-                filter="upcoming"
-              />
-            </TabsContent>
-            <TabsContent value="past">
-              <EventsList 
-                events={events || []} 
-                isLoadingEvents={isLoadingEvents}
-                userId={userId || ''}
-                refetchEvents={refetchEvents}
-                filter="past"
-              />
-            </TabsContent>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "upcoming" | "past")}>
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold">Your Calendar</h1>
+            <TabsList>
+              <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+              <TabsTrigger value="past">Past</TabsTrigger>
+            </TabsList>
           </div>
-        </Tabs>
-      )}
+          <TabsContent value="upcoming">
+            <EventsList 
+              events={events || []} 
+              isLoadingEvents={isLoadingEvents}
+              userId={userId || ''}
+              refetchEvents={refetchEvents}
+              filter="upcoming"
+            />
+          </TabsContent>
+          <TabsContent value="past">
+            <EventsList 
+              events={events || []} 
+              isLoadingEvents={isLoadingEvents}
+              userId={userId || ''}
+              refetchEvents={refetchEvents}
+              filter="past"
+            />
+          </TabsContent>
+        </div>
+      </Tabs>
     </PageLayout>
   );
 }
