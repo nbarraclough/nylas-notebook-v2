@@ -109,7 +109,7 @@ export function Navbar() {
   );
 
   return (
-    <nav className="border-b">
+    <nav className="border-b bg-gradient-to-r from-slate-50 to-blue-50">
       <div className="flex h-16 items-center px-4 justify-between">
         <div className="flex items-center">
           <div className="mr-6 flex items-center space-x-2">
