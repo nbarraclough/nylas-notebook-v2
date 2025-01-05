@@ -16,7 +16,8 @@ export default function RecurringEventSeries() {
     queryFn: async () => {
       console.log('Fetching recurring event series:', masterId);
       
-      const { data: events, error: eventsError } = await supabase
+      // First try to find events by master_event_id
+      let { data: events, error: eventsError } = await supabase
         .from('events')
         .select(`
           *,
@@ -29,10 +30,39 @@ export default function RecurringEventSeries() {
             created_at
           )
         `)
-        .eq('master_event_id', masterId)
-        .order('start_time', { ascending: false });
+        .or(`master_event_id.eq.${masterId},id.eq.${masterId}`);
 
       if (eventsError) throw eventsError;
+
+      // If no events found by master_event_id, try finding by ical_uid
+      if (!events?.length) {
+        const { data: sourceEvent } = await supabase
+          .from('events')
+          .select('ical_uid')
+          .eq('id', masterId)
+          .single();
+
+        if (sourceEvent?.ical_uid) {
+          const baseIcalUid = sourceEvent.ical_uid.split('@')[0];
+          const { data: relatedEvents, error } = await supabase
+            .from('events')
+            .select(`
+              *,
+              recordings (
+                id,
+                recording_url,
+                video_url,
+                duration,
+                transcript_content,
+                created_at
+              )
+            `)
+            .like('ical_uid', `${baseIcalUid}%`);
+
+          if (error) throw error;
+          events = relatedEvents;
+        }
+      }
 
       const { data: notes, error: notesError } = await supabase
         .from('recurring_event_notes')
@@ -43,7 +73,7 @@ export default function RecurringEventSeries() {
       if (notesError) throw notesError;
 
       return {
-        events,
+        events: events || [],
         notes
       };
     },

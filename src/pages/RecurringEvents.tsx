@@ -32,7 +32,7 @@ export default function RecurringEvents() {
             created_at
           )
         `)
-        .or('master_event_id.neq.null,recurrence.neq.null')
+        .or('master_event_id.neq.null,ical_uid.neq.null')
         .order('start_time', { ascending: false });
 
       if (eventsError) {
@@ -56,9 +56,9 @@ export default function RecurringEvents() {
         throw notesError;
       }
 
-      // Group events by master_event_id or by the event's own id if it's a recurring event without instances
+      // Group events by master_event_id or by ical_uid for recurring events
       const groupedEvents = events.reduce((acc, event) => {
-        const masterId = event.master_event_id || event.id;
+        const masterId = event.master_event_id || event.ical_uid?.split('@')[0] || event.id;
         if (!masterId) return acc;
         
         if (!acc[masterId]) {
