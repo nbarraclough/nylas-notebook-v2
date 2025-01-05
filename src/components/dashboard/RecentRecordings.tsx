@@ -32,17 +32,19 @@ export function RecentRecordings() {
   });
 
   return (
-    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-      <CardTitle className="text-lg font-medium">Recent Recordings</CardTitle>
-      <Button 
-        variant="ghost" 
-        size="sm"
-        className="text-sm"
-        onClick={() => navigate('/recordings')}
-      >
-        View more
-        <ArrowRight className="ml-2 h-4 w-4" />
-      </Button>
+    <>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-lg font-medium">Your Recent Recordings</CardTitle>
+        <Button 
+          variant="ghost" 
+          size="sm"
+          className="text-sm"
+          onClick={() => navigate('/recordings')}
+        >
+          View more
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
+      </CardHeader>
       <CardContent>
         {isLoading ? (
           <div className="space-y-4">
@@ -63,17 +65,18 @@ export function RecentRecordings() {
               >
                 <div className="flex items-center justify-between">
                   <p className="text-sm line-clamp-1">
-                    {recording.event.title}
+                    {recording.event?.title}
                   </p>
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    {format(new Date(recording.event.start_time), 'MMM d')}
+                    {recording.event?.start_time && 
+                      format(new Date(recording.event.start_time), 'MMM d')}
                   </div>
                 </div>
                 <div className="flex justify-end">
                   {recording.video_url ? (
                     <VideoPlayerDialog
                       videoUrl={recording.video_url}
-                      title={recording.event.title}
+                      title={recording.event?.title || ''}
                     />
                   ) : (
                     <Button size="sm" variant="ghost" disabled>
@@ -86,6 +89,6 @@ export function RecentRecordings() {
           </div>
         )}
       </CardContent>
-    </CardHeader>
+    </>
   );
 }

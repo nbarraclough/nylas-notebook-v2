@@ -7,6 +7,10 @@ interface WelcomeCardProps {
   email: string;
 }
 
+interface Participant {
+  email: string;
+}
+
 export function WelcomeCard({ email }: WelcomeCardProps) {
   const firstName = email.split('@')[0]
     .split(/[._-]/)
@@ -27,8 +31,9 @@ export function WelcomeCard({ email }: WelcomeCardProps) {
 
       const meetings = events || [];
       const internal = meetings.filter(event => {
-        const organizerDomain = event.organizer?.email?.split('@')[1];
-        const participants = event.participants as { email: string }[] || [];
+        const organizerEmail = event.organizer?.email as string;
+        const organizerDomain = organizerEmail?.split('@')[1];
+        const participants = (event.participants as Participant[]) || [];
         return participants.every(
           p => p.email?.split('@')[1] === organizerDomain
         );
