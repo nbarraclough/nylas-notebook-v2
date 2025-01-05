@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { OwnerFilter } from "./filters/OwnerFilter";
 import { MeetingTypeFilter } from "./filters/MeetingTypeFilter";
 import { DateFilter } from "./filters/DateFilter";
+import { ParticipantFilter } from "./filters/ParticipantFilter";
+import { TitleFilter } from "./filters/TitleFilter";
 
 interface LibraryFiltersProps {
   filters: {
@@ -12,13 +14,15 @@ interface LibraryFiltersProps {
     meetingTypes: string[];
     startDate: Date | null;
     endDate: Date | null;
+    participants: string[];
+    titleSearch: string | null;
   };
   onFiltersChange: (filters: any) => void;
 }
 
 export function LibraryFilters({ filters, onFiltersChange }: LibraryFiltersProps) {
   const clearFilter = (filterKey: string, value?: string) => {
-    if (filterKey === "types" || filterKey === "meetingTypes") {
+    if (filterKey === "types" || filterKey === "meetingTypes" || filterKey === "participants") {
       if (value) {
         onFiltersChange({
           ...filters,
@@ -33,7 +37,26 @@ export function LibraryFilters({ filters, onFiltersChange }: LibraryFiltersProps
         startDate: null,
         endDate: null,
       });
+    } else if (filterKey === "titleSearch") {
+      onFiltersChange({
+        ...filters,
+        titleSearch: null,
+      });
     }
+  };
+
+  const handleParticipantSearch = (email: string) => {
+    onFiltersChange({
+      ...filters,
+      participants: [...filters.participants, email],
+    });
+  };
+
+  const handleTitleSearch = (title: string) => {
+    onFiltersChange({
+      ...filters,
+      titleSearch: title,
+    });
   };
 
   const renderFilterBadges = () => {
@@ -63,6 +86,30 @@ export function LibraryFilters({ filters, onFiltersChange }: LibraryFiltersProps
       );
     });
 
+    filters.participants.forEach((email) => {
+      badges.push(
+        <Badge key={`participant-${email}`} variant="secondary" className="gap-1">
+          Participant: {email}
+          <X
+            className="h-3 w-3 cursor-pointer"
+            onClick={() => clearFilter("participants", email)}
+          />
+        </Badge>
+      );
+    });
+
+    if (filters.titleSearch) {
+      badges.push(
+        <Badge key="title" variant="secondary" className="gap-1">
+          Title: {filters.titleSearch}
+          <X
+            className="h-3 w-3 cursor-pointer"
+            onClick={() => clearFilter("titleSearch")}
+          />
+        </Badge>
+      );
+    }
+
     if (filters.startDate) {
       badges.push(
         <Badge key="date" variant="secondary" className="gap-1">
@@ -81,26 +128,32 @@ export function LibraryFilters({ filters, onFiltersChange }: LibraryFiltersProps
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        <OwnerFilter
-          selectedTypes={filters.types}
-          onTypeChange={(types) => onFiltersChange({ ...filters, types })}
-        />
-        <MeetingTypeFilter
-          selectedTypes={filters.meetingTypes}
-          onTypeChange={(types) => onFiltersChange({ ...filters, meetingTypes: types })}
-        />
-        <DateFilter
-          startDate={filters.startDate}
-          endDate={filters.endDate}
-          onDateChange={(start, end) =>
-            onFiltersChange({
-              ...filters,
-              startDate: start,
-              endDate: end,
-            })
-          }
-        />
+      <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap gap-2">
+          <OwnerFilter
+            selectedTypes={filters.types}
+            onTypeChange={(types) => onFiltersChange({ ...filters, types })}
+          />
+          <MeetingTypeFilter
+            selectedTypes={filters.meetingTypes}
+            onTypeChange={(types) => onFiltersChange({ ...filters, meetingTypes: types })}
+          />
+          <DateFilter
+            startDate={filters.startDate}
+            endDate={filters.endDate}
+            onDateChange={(start, end) =>
+              onFiltersChange({
+                ...filters,
+                startDate: start,
+                endDate: end,
+              })
+            }
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <ParticipantFilter onParticipantSearch={handleParticipantSearch} />
+          <TitleFilter onTitleSearch={handleTitleSearch} />
+        </div>
       </div>
 
       {renderFilterBadges().length > 0 && (
@@ -115,6 +168,8 @@ export function LibraryFilters({ filters, onFiltersChange }: LibraryFiltersProps
                 meetingTypes: [],
                 startDate: null,
                 endDate: null,
+                participants: [],
+                titleSearch: null,
               })
             }
           >

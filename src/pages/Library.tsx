@@ -12,6 +12,8 @@ export default function Library() {
     meetingTypes: [],
     startDate: null,
     endDate: null,
+    participants: [],
+    titleSearch: null,
   });
 
   const { data: recordings, isLoading } = useQuery({
@@ -67,6 +69,16 @@ export default function Library() {
 
       if (filters.endDate) {
         query = query.lte('event.start_time', filters.endDate.toISOString());
+      }
+
+      if (filters.participants.length > 0) {
+        // Filter by participants using containment operator
+        query = query.contains('event.participants', filters.participants.map(email => ({ email })));
+      }
+
+      if (filters.titleSearch) {
+        // Case-insensitive search in title
+        query = query.ilike('event.title', `%${filters.titleSearch}%`);
       }
 
       const { data, error } = await query;
