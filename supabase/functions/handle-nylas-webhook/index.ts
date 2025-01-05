@@ -61,22 +61,7 @@ serve(async (req) => {
       const rawBody = await req.text();
       logRawBody(rawBody);
 
-      // Validate webhook signature
-      const signature = req.headers.get('x-nylas-signature');
-      const { isValid } = await validateWebhook(rawBody, signature);
-      
-      if (!isValid) {
-        logWebhookError('signature validation', new Error('Invalid signature'));
-        return new Response(
-          JSON.stringify({ success: false, message: 'Invalid signature' }),
-          { 
-            status: 401,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
-      }
-
-      // Parse webhook data
+      // Only try to parse JSON for POST requests
       let webhookData;
       try {
         webhookData = JSON.parse(rawBody);
@@ -87,6 +72,21 @@ serve(async (req) => {
           JSON.stringify({ success: false, message: 'Invalid JSON payload' }),
           { 
             status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+      // Validate webhook signature for POST requests only
+      const signature = req.headers.get('x-nylas-signature');
+      const { isValid } = await validateWebhook(rawBody, signature);
+      
+      if (!isValid) {
+        logWebhookError('signature validation', new Error('Invalid signature'));
+        return new Response(
+          JSON.stringify({ success: false, message: 'Invalid signature' }),
+          { 
+            status: 401,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         );
