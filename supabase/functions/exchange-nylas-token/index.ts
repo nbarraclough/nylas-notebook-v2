@@ -30,6 +30,7 @@ serve(async (req) => {
     const origin = req.headers.get('origin') || 'http://localhost:5173'
     const redirectUri = `${origin}/calendar`
 
+    console.log('Exchanging code for grant_id...')
     // Exchange the code for a nylas_grant_id using staging URL
     const tokenResponse = await fetch('https://api-staging.us.nylas.com/v3/connect/token', {
       method: 'POST',
@@ -48,6 +49,7 @@ serve(async (req) => {
     const tokenData = await tokenResponse.json()
 
     if (!tokenResponse.ok) {
+      console.error('Failed to exchange token:', tokenData)
       throw new Error(`Failed to exchange token with Nylas: ${JSON.stringify(tokenData)}`)
     }
 
@@ -56,6 +58,7 @@ serve(async (req) => {
       throw new Error('No grant_id in Nylas response')
     }
 
+    console.log('Getting user info from Nylas...')
     // Get user info from Nylas
     const userInfoResponse = await fetch(`https://api-staging.us.nylas.com/v3/grants/${grant_id}/user`, {
       headers: {
@@ -63,7 +66,13 @@ serve(async (req) => {
       },
     });
 
+    if (!userInfoResponse.ok) {
+      console.error('Failed to get user info:', await userInfoResponse.text())
+      throw new Error('Failed to get user info from Nylas')
+    }
+
     const userInfo = await userInfoResponse.json();
+    console.log('User info received:', userInfo)
 
     // Get user ID from auth header
     const authHeader = req.headers.get('Authorization')?.split(' ')[1]
@@ -88,21 +97,13 @@ serve(async (req) => {
       }
     })
 
-    // First, delete existing events for this user
-    const { error: deleteEventsError } = await supabase
-      .from('events')
-      .delete()
-      .eq('user_id', userId)
-
-    if (deleteEventsError) {
-      console.error('Error deleting events:', deleteEventsError)
-    }
-
-    // Update the profile with new nylas_grant_id and user info
+    console.log('Updating profile with new grant info...')
+    // Update the profile with new nylas_grant_id, user info, and grant status
     const { data: updateData, error: updateError } = await supabase
       .from('profiles')
       .update({
         nylas_grant_id: grant_id,
+        grant_status: 'active', // Set status to active on successful authentication
         first_name: userInfo.name?.given_name || null,
         last_name: userInfo.name?.surname || null,
         updated_at: new Date().toISOString()
@@ -112,6 +113,7 @@ serve(async (req) => {
       .single();
 
     if (updateError) {
+      console.error('Failed to update profile:', updateError)
       throw new Error(`Failed to update profile: ${updateError.message}`)
     }
 
@@ -119,8 +121,17 @@ serve(async (req) => {
       throw new Error('Profile update returned no data')
     }
 
-    // Remove code from URL without triggering a page reload
-    window.history.replaceState({}, '', '/calendar');
+    console.log('Successfully updated profile with new grant info')
+
+    // First, delete existing events for this user
+    const { error: deleteEventsError } = await supabase
+      .from('events')
+      .delete()
+      .eq('user_id', userId)
+
+    if (deleteEventsError) {
+      console.error('Error deleting events:', deleteEventsError)
+    }
 
     return new Response(
       JSON.stringify({ 
