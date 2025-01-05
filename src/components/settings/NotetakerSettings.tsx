@@ -17,7 +17,7 @@ export const NotetakerSettings = ({
   onNotetakerNameChange: (name: string) => void;
 }) => {
   const { toast } = useToast();
-  const [name, setName] = useState(notetakerName);
+  const [name, setName] = useState(notetakerName); // Now initialized with the prop value
 
   const updateNotetakerName = useMutation({
     mutationFn: async (newName: string) => {
