@@ -31,17 +31,22 @@ export function AuthGuard({ children }: AuthGuardProps) {
   };
 
   useEffect(() => {
+    console.log('AuthGuard mounted, initializing...');
     mountedRef.current = true;
     let authListener: { unsubscribe: () => void } | undefined;
 
     const checkAuth = async () => {
-      if (authCheckedRef.current) return;
+      if (authCheckedRef.current) {
+        console.log('Auth already checked, skipping...');
+        return;
+      }
       
       try {
         console.log('Checking initial auth state...');
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
+          console.error('Session error:', sessionError);
           await handleAuthError(sessionError);
           return;
         }
@@ -56,12 +61,15 @@ export function AuthGuard({ children }: AuthGuardProps) {
           return;
         }
 
+        console.log('Session found, verifying user...');
         const { error: userError } = await supabase.auth.getUser();
         if (userError) {
+          console.error('User verification error:', userError);
           await handleAuthError(userError);
           return;
         }
 
+        console.log('User verified, setting authenticated state');
         if (mountedRef.current) {
           setIsAuthenticated(true);
           setIsLoading(false);
@@ -69,6 +77,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
         
         authCheckedRef.current = true;
       } catch (error) {
+        console.error('Unexpected error during auth check:', error);
         if (mountedRef.current) {
           await handleAuthError(error);
         }
@@ -79,9 +88,10 @@ export function AuthGuard({ children }: AuthGuardProps) {
       console.log('Setting up auth listener...');
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
         async (event, session) => {
-          console.log('Auth state changed:', event);
+          console.log('Auth state changed:', event, 'Session exists:', !!session);
           
           if (event === 'SIGNED_OUT' || (!session && !location.pathname.startsWith('/shared'))) {
+            console.log('User signed out or session expired');
             if (mountedRef.current) {
               await clearAuthStorage();
               setIsAuthenticated(false);
@@ -89,15 +99,19 @@ export function AuthGuard({ children }: AuthGuardProps) {
               redirectToAuth();
             }
           } else if (event === 'SIGNED_IN' && session) {
+            console.log('User signed in, verifying session...');
             try {
               const { error: verifyError } = await supabase.auth.getUser();
               if (verifyError) {
+                console.error('Session verification error:', verifyError);
                 await handleAuthError(verifyError);
               } else if (mountedRef.current) {
+                console.log('Session verified, updating state');
                 setIsAuthenticated(true);
                 setIsLoading(false);
               }
             } catch (error) {
+              console.error('Unexpected error during session verification:', error);
               if (mountedRef.current) {
                 await handleAuthError(error);
               }
@@ -110,6 +124,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
     };
 
     const initialize = async () => {
+      console.log('Initializing AuthGuard...');
       authListener = setupAuthListener();
       await checkAuth();
     };
@@ -117,6 +132,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
     initialize();
 
     return () => {
+      console.log('AuthGuard unmounting, cleaning up...');
       mountedRef.current = false;
       authCheckedRef.current = false;
       if (authListener) {
@@ -126,13 +142,16 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }, [location.pathname]);
 
   if (isLoading) {
+    console.log('AuthGuard is loading...');
     return <LoadingScreen />;
   }
 
   if (!isAuthenticated && !location.pathname.startsWith('/shared')) {
+    console.log('User not authenticated, redirecting to auth...');
     redirectToAuth();
     return <LoadingScreen />;
   }
 
+  console.log('Auth check complete, rendering protected content');
   return <>{children}</>;
 }
