@@ -27,6 +27,9 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
           localStorage.removeItem(key);
         }
       }
+
+      // Clear session storage as well
+      sessionStorage.clear();
     } catch (error) {
       console.error('Error clearing auth state:', error);
     } finally {
@@ -37,13 +40,15 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
   const handleAuthError = async (error: any, message: string) => {
     console.error(message, error);
     
-    // Check if error is related to invalid/expired token
+    // Check if error is related to invalid/expired token or storage issues
     const isTokenError = error?.message?.includes('JWT') || 
                         error?.message?.includes('token') ||
-                        error?.message?.includes('session_not_found');
+                        error?.message?.includes('session_not_found') ||
+                        error?.message?.includes('postMessage') ||
+                        error?.message?.includes('origin');
     
     if (isTokenError) {
-      console.log('Detected token error, clearing auth state');
+      console.log('Detected token/storage error, clearing auth state');
       await clearAuthState();
     } else {
       setIsLoading(false);
@@ -51,7 +56,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
     
     toast({
       title: "Authentication Error",
-      description: isTokenError ? "Your session has expired. Please sign in again." : "Please sign in again.",
+      description: "Please sign in again.",
       variant: "destructive",
     });
     
@@ -109,7 +114,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
           
           if (event === 'SIGNED_OUT' || (!session && !PUBLIC_ROUTES.includes(location.pathname))) {
             if (mounted) {
-              setIsLoading(false);
+              await clearAuthState(); // Clear state on sign out
               navigate('/auth');
             }
           } else if (event === 'SIGNED_IN' && session) {
