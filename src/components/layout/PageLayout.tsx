@@ -6,9 +6,13 @@ interface PageLayoutProps {
 
 export function PageLayout({ children }: PageLayoutProps) {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <Navbar />
-      <main className="container pt-20 pb-8">{children}</main>
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-7xl">
+        <div className="space-y-6">
+          {children}
+        </div>
+      </main>
     </div>
   );
 }
