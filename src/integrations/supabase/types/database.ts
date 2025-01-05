@@ -1,12 +1,6 @@
+import type { Json } from './json';
+import type { ManualMeeting, ManualMeetingInsert, ManualMeetingUpdate } from './manual-meetings';
 import type { NotetakerQueue, NotetakerQueueInsert, NotetakerQueueUpdate } from './notetaker-queue';
-
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[]
 
 export type Database = {
   public: {
@@ -97,7 +91,21 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          },
+          }
+        ]
+      }
+      manual_meetings: {
+        Row: ManualMeeting;
+        Insert: ManualMeetingInsert;
+        Update: ManualMeetingUpdate;
+        Relationships: [
+          {
+            foreignKeyName: "manual_meetings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
         ]
       }
       notetaker_queue: {
@@ -199,7 +207,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          },
+          }
         ]
       }
     }
@@ -233,6 +241,8 @@ export type Database = {
   }
 }
 
+type PublicSchema = Database[Extract<keyof Database, "public">]
+
 export type Tables<
   PublicTableNameOrOptions extends
     | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
@@ -257,8 +267,6 @@ export type Tables<
       ? R
       : never
     : never
-
-type PublicSchema = Database[Extract<keyof Database, "public">]
 
 export type TablesInsert<
   PublicTableNameOrOptions extends
