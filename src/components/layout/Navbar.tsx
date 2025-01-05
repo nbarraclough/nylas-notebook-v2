@@ -4,15 +4,13 @@ import { Button } from "../ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { 
-  LogOut, 
   Calendar, 
   Settings, 
-  Share2, 
   ListTodo, 
-  Video,
-  Home,
-  Menu,
   Library,
+  LogOut,
+  Menu,
+  Home,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -75,36 +73,12 @@ export function Navbar() {
         Queue
       </Link>
       <Link
-        to="/recordings"
-        className="text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2"
-        onClick={onClick}
-      >
-        <Video className="h-4 w-4" />
-        Recordings
-      </Link>
-      <Link
         to="/library"
         className="text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2"
         onClick={onClick}
       >
         <Library className="h-4 w-4" />
         Library
-      </Link>
-      <Link
-        to="/shared"
-        className="text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2"
-        onClick={onClick}
-      >
-        <Share2 className="h-4 w-4" />
-        Shared
-      </Link>
-      <Link
-        to="/settings"
-        className="text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2"
-        onClick={onClick}
-      >
-        <Settings className="h-4 w-4" />
-        Settings
       </Link>
       <div className="lg:hidden">
         <SendNotetaker />
@@ -154,19 +128,31 @@ export function Navbar() {
           )}
         </div>
         
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2">
           <div className="hidden lg:block">
             {isLoggedIn && <SendNotetaker />}
           </div>
           {isLoggedIn && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">Logout</span>
-            </Button>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                asChild
+              >
+                <Link to="/settings">
+                  <Settings className="h-5 w-5" />
+                  <span className="sr-only">Settings</span>
+                </Link>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-5 w-5" />
+                <span className="sr-only">Logout</span>
+              </Button>
+            </div>
           )}
         </div>
       </div>

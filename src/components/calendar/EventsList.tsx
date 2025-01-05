@@ -89,7 +89,7 @@ export const EventsList = ({ events, isLoadingEvents, userId, filter }: EventsLi
             </div>
           ) : (
             <div className="text-center py-6 sm:py-8 text-[#555555]">
-              No {filter} events found. Go to Settings > Manual Sync to fetch your calendar events.
+              No {filter} events found. Go to Settings &gt; Manual Sync to fetch your calendar events.
             </div>
           )}
         </CardContent>
