@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { SendNotetaker } from "../notetaker/SendNotetaker";
 
 export function Navbar() {
   return (
@@ -29,17 +30,12 @@ export function Navbar() {
             Recordings
           </Link>
           <Link
-            to="/manual"
-            className="text-sm font-medium transition-colors hover:text-primary"
-          >
-            Manual
-          </Link>
-          <Link
             to="/settings"
             className="text-sm font-medium transition-colors hover:text-primary"
           >
             Settings
           </Link>
+          <SendNotetaker />
         </div>
       </div>
     </nav>

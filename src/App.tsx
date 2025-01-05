@@ -5,7 +5,6 @@ import Calendar from "./pages/Calendar";
 import Queue from "./pages/Queue";
 import Recordings from "./pages/Recordings";
 import Settings from "./pages/Settings";
-import Manual from "./pages/Manual";
 import Shared from "./pages/Shared";
 
 // Define the router with all routes
@@ -33,10 +32,6 @@ const router = createBrowserRouter([
   {
     path: "/settings",
     element: <Settings />,
-  },
-  {
-    path: "/manual",
-    element: <Manual />,
   },
   {
     path: "/shared/:shareId",
