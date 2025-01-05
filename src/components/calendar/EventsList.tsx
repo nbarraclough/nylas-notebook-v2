@@ -38,13 +38,13 @@ export const EventsList = ({ events, isLoadingEvents, userId, filter }: EventsLi
       const eventDate = new Date(event.start_time);
       const endTime = new Date(event.end_time);
       
-      // Filter based on whether it's past or upcoming
-      const isPastEvent = isPast(endTime);
-      if (filter === "upcoming" && isPastEvent) return false;
-      if (filter === "past" && !isPastEvent) return false;
-
-      // Check if event is within the current week
-      return isWithinInterval(eventDate, {
+      // For past events, show all of them
+      if (filter === "past") {
+        return isPast(endTime);
+      }
+      
+      // For upcoming events, filter by week and ensure they're not past
+      return !isPast(endTime) && isWithinInterval(eventDate, {
         start: currentWeekStart,
         end: weekEnd
       });
@@ -83,25 +83,27 @@ export const EventsList = ({ events, isLoadingEvents, userId, filter }: EventsLi
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between mb-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => navigateWeek('prev')}
-        >
-          <ChevronLeft className="h-4 w-4 mr-1" />
-          Previous Week
-        </Button>
-        <h2 className="text-lg font-semibold">{weekRange}</h2>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => navigateWeek('next')}
-        >
-          Next Week
-          <ChevronRight className="h-4 w-4 ml-1" />
-        </Button>
-      </div>
+      {filter === "upcoming" && (
+        <div className="flex items-center justify-between mb-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigateWeek('prev')}
+          >
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Previous Week
+          </Button>
+          <h2 className="text-lg font-semibold">{weekRange}</h2>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigateWeek('next')}
+          >
+            Next Week
+            <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
+        </div>
+      )}
 
       <Card>
         <CardContent className="p-4 sm:p-6">
@@ -133,7 +135,7 @@ export const EventsList = ({ events, isLoadingEvents, userId, filter }: EventsLi
             </div>
           ) : (
             <div className="text-center py-6 sm:py-8 text-[#555555]">
-              No {filter} events found for this week. Go to Settings &gt; Manual Sync to fetch your calendar events.
+              No {filter} events found{filter === "upcoming" ? " for this week" : ""}. Go to Settings &gt; Manual Sync to fetch your calendar events.
             </div>
           )}
         </CardContent>
