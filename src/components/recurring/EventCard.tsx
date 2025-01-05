@@ -9,8 +9,15 @@ import { EventParticipants } from "@/components/calendar/EventParticipants";
 interface EventCardProps {
   event: {
     masterId: string;
-    latestEvent: any;
-    nextEvent?: any;
+    latestEvent: {
+      title: string;
+      participants?: Array<{ email?: string; name?: string }>;
+      organizer?: { email?: string };
+      start_time?: string;
+    } | null;
+    nextEvent?: {
+      start_time: string;
+    } | null;
     recordingsCount: number;
     isPinned: boolean;
   };
@@ -18,10 +25,13 @@ interface EventCardProps {
 }
 
 export function EventCard({ event, onTogglePin }: EventCardProps) {
+  // Early return if no latestEvent
+  if (!event.latestEvent) {
+    return null;
+  }
+
   // Determine if meeting is internal based on email domains
   const isInternalMeeting = (() => {
-    if (!event.latestEvent?.participants) return true;
-    
     const participants = event.latestEvent.participants || [];
     if (participants.length === 0) return true;
     
@@ -32,11 +42,6 @@ export function EventCard({ event, onTogglePin }: EventCardProps) {
       participant.email?.split('@')[1] === organizerDomain
     );
   })();
-
-  // Ensure latestEvent exists before rendering
-  if (!event.latestEvent) {
-    return null;
-  }
 
   return (
     <div className="relative group">
