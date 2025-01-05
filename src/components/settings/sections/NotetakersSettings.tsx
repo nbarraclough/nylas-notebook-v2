@@ -1,62 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
-import { format } from "date-fns";
 import { useState } from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader } from "lucide-react";
-
-interface NotetakerRecord {
-  id: string;
-  notetaker_id: string;
-  event: {
-    title: string;
-    start_time: string;
-    manual_meeting?: {
-      title: string;
-      meeting_url: string;
-    } | null;
-  };
-}
+import { NotetakersTable } from "./notetakers/NotetakersTable";
+import { useNotetakers } from "./notetakers/useNotetakers";
 
 export function NotetakersSettings({ userId }: { userId: string }) {
   const { toast } = useToast();
   const [isKicking, setIsKicking] = useState<{ [key: string]: boolean }>({});
   const [isRetrieving, setIsRetrieving] = useState<{ [key: string]: boolean }>({});
-
-  const { data: recordings, isLoading } = useQuery({
-    queryKey: ['notetakers', userId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('recordings')
-        .select(`
-          id,
-          notetaker_id,
-          event:events (
-            title,
-            start_time,
-            manual_meeting:manual_meetings (
-              title,
-              meeting_url
-            )
-          )
-        `)
-        .eq('user_id', userId)
-        .not('notetaker_id', 'is', null)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data as NotetakerRecord[];
-    },
-  });
+  const { data: recordings, isLoading } = useNotetakers(userId);
 
   const handleManualKick = async (notetakerId: string, recordingId: string) => {
     try {
@@ -138,78 +90,13 @@ export function NotetakersSettings({ userId }: { userId: string }) {
         <h2 className="text-lg font-semibold">Notetakers</h2>
       </div>
 
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Notetaker ID</TableHead>
-              <TableHead>Event</TableHead>
-              <TableHead>Time</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {recordings?.map((record) => (
-              <TableRow key={record.id}>
-                <TableCell className="font-mono text-sm">
-                  {record.notetaker_id}
-                </TableCell>
-                <TableCell>
-                  {record.event.manual_meeting ? record.event.manual_meeting.title : record.event.title}
-                </TableCell>
-                <TableCell>
-                  {format(new Date(record.event.start_time), "MMM d, yyyy 'at' h:mm a")}
-                </TableCell>
-                <TableCell>
-                  {record.event.manual_meeting ? 'Manual Meeting' : 'Calendar Event'}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleManualKick(record.notetaker_id, record.id)}
-                      disabled={isKicking[record.id]}
-                    >
-                      {isKicking[record.id] ? (
-                        <>
-                          <Loader className="h-4 w-4 animate-spin mr-2" />
-                          Kicking...
-                        </>
-                      ) : (
-                        'Manual Kick'
-                      )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleRetrieveMedia(record.id, record.notetaker_id)}
-                      disabled={isRetrieving[record.id]}
-                    >
-                      {isRetrieving[record.id] ? (
-                        <>
-                          <Loader className="h-4 w-4 animate-spin mr-2" />
-                          Retrieving...
-                        </>
-                      ) : (
-                        'Retrieve Media'
-                      )}
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {recordings?.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
-                  No notetakers found
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <NotetakersTable
+        recordings={recordings || []}
+        isKicking={isKicking}
+        isRetrieving={isRetrieving}
+        onKick={handleManualKick}
+        onRetrieve={handleRetrieveMedia}
+      />
     </div>
   );
 }
