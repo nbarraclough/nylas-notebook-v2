@@ -77,7 +77,7 @@ export default function Index() {
           
           <Card className="card-hover-effect">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <h3 className="font-semibold">Quick Stats</h3>
+              <h3 className="text-lg font-semibold">Quick Stats</h3>
               <Button 
                 variant="ghost" 
                 className="text-sm" 
@@ -92,7 +92,7 @@ export default function Index() {
                 {publicShares?.map((share) => (
                   <div key={share.id} className="space-y-2 border-b pb-4 last:border-0">
                     <div className="flex items-center justify-between">
-                      <p className="font-medium line-clamp-1">
+                      <p className="text-sm line-clamp-1">
                         {share.recording?.event?.title || 'Untitled Event'}
                       </p>
                       <div className="flex items-center gap-1 text-sm text-muted-foreground">
