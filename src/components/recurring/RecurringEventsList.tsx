@@ -1,7 +1,8 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { RecurringEventMaster } from "./RecurringEventMaster";
+import { format } from "date-fns";
+import { Link } from "react-router-dom";
+import { ChevronRight } from "lucide-react";
 
 interface RecurringEventsListProps {
   recurringEvents: Record<string, any[]>;
@@ -19,33 +20,32 @@ export function RecurringEventsList({
   isLoading,
   filters,
 }: RecurringEventsListProps) {
-  const { toast } = useToast();
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3].map((n) => (
+          <Card key={n}>
+            <CardContent className="p-4">
+              <div className="animate-pulse space-y-4">
+                <div className="h-6 bg-muted rounded w-1/4" />
+                <div className="h-4 bg-muted rounded w-3/4" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
 
-  const handleSaveNotes = async (masterId: string, content: string) => {
-    try {
-      const { error } = await supabase
-        .from('recurring_event_notes')
-        .upsert({
-          master_event_id: masterId,
-          content: content,
-          user_id: (await supabase.auth.getUser()).data.user?.id
-        });
-
-      if (error) throw error;
-
-      toast({
-        title: "Notes saved",
-        description: "Your notes have been saved successfully.",
-      });
-    } catch (error) {
-      console.error('Error saving notes:', error);
-      toast({
-        title: "Error saving notes",
-        description: "There was a problem saving your notes. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
+  if (!recurringEvents || Object.keys(recurringEvents).length === 0) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-center text-muted-foreground">
+          No recurring events found.
+        </CardContent>
+      </Card>
+    );
+  }
 
   const filterEvents = (events: any[]) => {
     return events.filter(event => {
@@ -77,33 +77,6 @@ export function RecurringEventsList({
     });
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        {[1, 2, 3].map((n) => (
-          <Card key={n}>
-            <CardContent className="p-4">
-              <div className="animate-pulse space-y-4">
-                <div className="h-6 bg-muted rounded w-1/4" />
-                <div className="h-4 bg-muted rounded w-3/4" />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
-  }
-
-  if (!recurringEvents || Object.keys(recurringEvents).length === 0) {
-    return (
-      <Card>
-        <CardContent className="p-6 text-center text-muted-foreground">
-          No recurring events found.
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <div className="space-y-4">
       {Object.entries(recurringEvents).map(([masterId, events]) => {
@@ -112,16 +85,30 @@ export function RecurringEventsList({
         const filteredEvents = filterEvents(events);
         if (filteredEvents.length === 0) return null;
 
-        const notes = events[0]?.recurring_event_notes || [];
+        const latestEvent = events[0];
+        const recordingsCount = events.reduce((count, event) => 
+          count + (event.recordings?.length || 0), 0
+        );
 
         return (
-          <RecurringEventMaster
-            key={masterId}
-            masterId={masterId}
-            events={filteredEvents}
-            notes={notes}
-            onSaveNotes={handleSaveNotes}
-          />
+          <Link key={masterId} to={`/recurring-events/${masterId}`}>
+            <Card className="transition-colors hover:bg-muted/50">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-semibold">{latestEvent.title}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {events.length} occurrences • {recordingsCount} recordings
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Last occurrence: {format(new Date(latestEvent.start_time), "PPp")}
+                    </p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
         );
       })}
     </div>
