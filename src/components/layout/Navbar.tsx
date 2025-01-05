@@ -11,6 +11,7 @@ import {
   LogOut,
   Menu,
   Home,
+  Repeat,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -67,6 +68,17 @@ export function Navbar() {
       >
         <Calendar className="h-4 w-4" />
         Calendar
+      </Link>
+      <Link
+        to="/recurring-events"
+        className={cn(
+          "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2",
+          location.pathname === "/recurring-events" && "text-primary font-semibold"
+        )}
+        onClick={onClick}
+      >
+        <Repeat className="h-4 w-4" />
+        Recurring Events
       </Link>
       <Link
         to="/queue"
