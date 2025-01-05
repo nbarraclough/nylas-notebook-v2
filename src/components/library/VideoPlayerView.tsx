@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ShareVideoDialog } from "@/components/recordings/ShareVideoDialog";
 import { ShareViaEmailButton } from "@/components/recordings/email/ShareViaEmailButton";
 import { VideoPlayer } from "@/components/recordings/player/VideoPlayer";
-import { TranscriptViewer } from "@/components/recordings/transcript/TranscriptViewer";
+import { TranscriptSection } from "@/components/recordings/transcript/TranscriptSection";
 import type { EventParticipant } from "@/types/calendar";
 import type { Json } from "@/integrations/supabase/types";
 
@@ -198,10 +198,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
             </div>
             
             {recording.transcript_content && (
-              <div className="h-full">
-                <h3 className="text-lg font-medium mb-4">Transcript</h3>
-                <TranscriptViewer content={recording.transcript_content as any} />
-              </div>
+              <TranscriptSection content={recording.transcript_content} />
             )}
           </div>
 
