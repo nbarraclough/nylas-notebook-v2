@@ -8,7 +8,7 @@ export function PageLayout({ children }: PageLayoutProps) {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-7xl">
         <main className="space-y-6">
           {children}
         </main>
