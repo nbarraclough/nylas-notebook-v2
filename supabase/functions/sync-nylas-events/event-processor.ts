@@ -34,7 +34,7 @@ export const processEvent = async (
     let endTime: string | null;
 
     if (event.when) {
-      // Coming from Nylas API
+      // Coming from Nylas API - convert Unix timestamp to ISO string
       startTime = event.when.start_time ? new Date(event.when.start_time * 1000).toISOString() : null;
       endTime = event.when.end_time ? new Date(event.when.end_time * 1000).toISOString() : null;
     } else {
