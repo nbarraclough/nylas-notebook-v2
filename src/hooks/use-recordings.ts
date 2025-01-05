@@ -52,7 +52,13 @@ export function useRecordings({ isAuthenticated, recordingId, filters }: UseReco
         }
 
         if (filters.hasPublicLink) {
-          query = query.contains('video_shares', [{ share_type: 'external' }]);
+          // Use exists to check for video shares with external share type
+          query = query.filter('id', 'in', (
+            supabase
+              .from('video_shares')
+              .select('recording_id')
+              .eq('share_type', 'external')
+          ));
         }
       }
 
