@@ -1,0 +1,3 @@
+project_id = "xqzlejcvvtjdrabofrxs"
+[functions.incremental-cant-trust-webhooks]
+verify_jwt = false
