@@ -7,7 +7,7 @@ import { VideoPlayerView } from "@/components/library/VideoPlayerView";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@supabase/auth-helpers-react";
+import { useUser } from "@supabase/auth-helpers-react";
 
 interface RecurringEventsListProps {
   recurringEvents: Record<string, any[]>;
@@ -29,7 +29,7 @@ export function RecurringEventsList({
   const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const { toast } = useToast();
-  const { user } = useAuth();
+  const user = useUser();
 
   const toggleExpanded = (masterId: string) => {
     setExpandedEvents(prev =>
