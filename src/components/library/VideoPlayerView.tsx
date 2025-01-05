@@ -9,10 +9,16 @@ import { ShareVideoDialog } from "@/components/recordings/ShareVideoDialog";
 import { ShareViaEmailButton } from "@/components/recordings/email/ShareViaEmailButton";
 import { VideoPlayer } from "@/components/recordings/player/VideoPlayer";
 import type { EventParticipant } from "@/types/calendar";
+import type { Json } from "@/integrations/supabase/types";
 
 interface VideoPlayerViewProps {
   recordingId: string;
   onClose: () => void;
+}
+
+interface Organizer {
+  email?: string;
+  name?: string;
 }
 
 export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) {
@@ -65,18 +71,24 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   });
 
   const isInternalMeeting = () => {
-    const organizerEmail = typeof recording?.event?.organizer === 'object' && recording?.event?.organizer !== null ? 
-      (recording.event.organizer as { email?: string })?.email : 
-      profile?.email; // Fallback to user's email for manual meetings
+    const organizer = recording?.event?.organizer as Organizer | null;
+    const organizerEmail = organizer?.email || profile?.email; // Fallback to user's email for manual meetings
     
     if (!organizerEmail || !Array.isArray(recording?.event?.participants)) return false;
     
     const organizerDomain = organizerEmail.split('@')[1];
-    return recording.event.participants.every((participant: any) => {
-      const participantEmail = typeof participant === 'object' && participant !== null ? 
-        (participant as { email?: string })?.email : 
-        participant as string;
-      const participantDomain = participantEmail?.split('@')[1];
+    return recording.event.participants.every((participant: Json) => {
+      let participantEmail: string | undefined;
+      
+      if (typeof participant === 'object' && participant !== null) {
+        participantEmail = (participant as Organizer).email;
+      } else if (typeof participant === 'string') {
+        participantEmail = participant;
+      }
+      
+      if (!participantEmail) return false;
+      
+      const participantDomain = participantEmail.split('@')[1];
       return participantDomain === organizerDomain;
     });
   };
@@ -112,10 +124,19 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   const participants: EventParticipant[] = recording.event?.manual_meeting
     ? [{ name: profile?.email?.split('@')[0] || '', email: profile?.email || '' }]
     : Array.isArray(recording.event?.participants)
-      ? recording.event.participants.map((p: any) => ({
-          name: typeof p === 'object' && p !== null ? p.name || p.email?.split('@')[0] || '' : '',
-          email: typeof p === 'object' && p !== null ? p.email || '' : p || ''
-        }))
+      ? recording.event.participants.map((p: Json) => {
+          if (typeof p === 'object' && p !== null) {
+            const participant = p as Organizer;
+            return {
+              name: participant.name || participant.email?.split('@')[0] || '',
+              email: participant.email || ''
+            };
+          }
+          return {
+            name: typeof p === 'string' ? p.split('@')[0] : '',
+            email: typeof p === 'string' ? p : ''
+          };
+        })
       : [];
 
   const publicShare = recording.video_shares?.find(share => share.share_type === 'external');
