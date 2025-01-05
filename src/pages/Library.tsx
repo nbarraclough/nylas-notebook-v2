@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { LibraryHeader } from "@/components/library/LibraryHeader";
 import { LibraryFilters } from "@/components/library/LibraryFilters";
 import { RecordingGrid } from "@/components/library/RecordingGrid";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useSearchParams } from "react-router-dom";
 import type { Database } from "@/integrations/supabase/types";
 import type { EventParticipant } from "@/types/calendar";
 
@@ -42,6 +43,17 @@ export default function Library() {
     participants: [],
     titleSearch: null,
   });
+
+  const [searchParams] = useSearchParams();
+  const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
+
+  // Handle deep link on component mount
+  useEffect(() => {
+    const recordingId = searchParams.get('recording');
+    if (recordingId) {
+      setSelectedRecording(recordingId);
+    }
+  }, [searchParams]);
 
   const { data: recordings, isLoading } = useQuery({
     queryKey: ['library-recordings', filters],
@@ -174,7 +186,12 @@ export default function Library() {
       <div className="space-y-6">
         <LibraryHeader recordingsCount={recordings?.length || 0} />
         <LibraryFilters filters={filters} onFiltersChange={setFilters} />
-        <RecordingGrid recordings={recordings || []} isLoading={isLoading} />
+        <RecordingGrid 
+          recordings={recordings || []} 
+          isLoading={isLoading} 
+          selectedRecording={selectedRecording}
+          onRecordingSelect={setSelectedRecording}
+        />
       </div>
     </PageLayout>
   );

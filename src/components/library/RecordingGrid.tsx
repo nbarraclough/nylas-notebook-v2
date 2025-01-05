@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { format } from "date-fns";
 import { VideoPlayerView } from "./VideoPlayerView";
@@ -8,11 +7,16 @@ import { Shield, Globe } from "lucide-react";
 interface RecordingGridProps {
   recordings: any[];
   isLoading: boolean;
+  selectedRecording: string | null;
+  onRecordingSelect: (id: string | null) => void;
 }
 
-export function RecordingGrid({ recordings, isLoading }: RecordingGridProps) {
-  const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
-
+export function RecordingGrid({ 
+  recordings, 
+  isLoading, 
+  selectedRecording,
+  onRecordingSelect 
+}: RecordingGridProps) {
   const isInternalMeeting = (recording: any) => {
     const organizerDomain = recording.event?.organizer?.email?.split('@')[1];
     if (!organizerDomain || !Array.isArray(recording.event?.participants)) return false;
@@ -56,7 +60,7 @@ export function RecordingGrid({ recordings, isLoading }: RecordingGridProps) {
             <Card
               key={recording.id}
               className="cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => setSelectedRecording(recording.id)}
+              onClick={() => onRecordingSelect(recording.id)}
             >
               <div className="aspect-video bg-muted relative">
                 {(recording.video_url || recording.recording_url) && (
@@ -109,7 +113,7 @@ export function RecordingGrid({ recordings, isLoading }: RecordingGridProps) {
       {selectedRecording && (
         <VideoPlayerView
           recordingId={selectedRecording}
-          onClose={() => setSelectedRecording(null)}
+          onClose={() => onRecordingSelect(null)}
         />
       )}
     </>

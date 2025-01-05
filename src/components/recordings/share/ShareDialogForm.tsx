@@ -107,6 +107,7 @@ export function ShareDialogForm({ recordingId, onSuccess }: ShareDialogFormProps
       <OrganizationShare
         isEnabled={isInternalEnabled}
         onToggle={setIsInternalEnabled}
+        recordingId={recordingId}
       />
       
       <PublicLinkShare
