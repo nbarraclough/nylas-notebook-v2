@@ -32,13 +32,26 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
       sessionStorage.clear();
     } catch (error) {
       console.error('Error clearing auth state:', error);
-    } finally {
-      setIsLoading(false); // Ensure loading state is cleared even if there's an error
     }
   };
 
-  const handleAuthError = async (error: any, message: string) => {
-    console.error(message, error);
+  const redirectToAuth = (message?: string) => {
+    setIsLoading(false);
+    if (message) {
+      toast({
+        title: "Authentication Required",
+        description: message,
+        variant: "destructive",
+      });
+    }
+    // Preserve the current path to redirect back after auth
+    if (!PUBLIC_ROUTES.includes(location.pathname)) {
+      navigate('/auth', { state: { returnTo: location.pathname } });
+    }
+  };
+
+  const handleAuthError = async (error: any) => {
+    console.error('Auth error:', error);
     
     // Check if error is related to invalid/expired token or storage issues
     const isTokenError = error?.message?.includes('JWT') || 
@@ -50,17 +63,11 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
     if (isTokenError) {
       console.log('Detected token/storage error, clearing auth state');
       await clearAuthState();
+      redirectToAuth("Your session has expired. Please sign in again.");
     } else {
       setIsLoading(false);
+      redirectToAuth("Authentication error. Please sign in again.");
     }
-    
-    toast({
-      title: "Authentication Error",
-      description: "Please sign in again.",
-      variant: "destructive",
-    });
-    
-    navigate('/auth', { state: { returnTo: location.pathname } });
   };
 
   useEffect(() => {
@@ -77,23 +84,20 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
-          await handleAuthError(sessionError, 'Error checking auth session:');
+          await handleAuthError(sessionError);
           return;
         }
 
         if (!session) {
           console.log('No session found, redirecting to auth page');
-          if (mounted) {
-            setIsLoading(false);
-            navigate('/auth', { state: { returnTo: location.pathname } });
-          }
+          redirectToAuth();
           return;
         }
 
         // Verify the session is still valid
         const { error: userError } = await supabase.auth.getUser();
         if (userError) {
-          await handleAuthError(userError, 'Session invalid:');
+          await handleAuthError(userError);
           return;
         }
 
@@ -102,7 +106,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
         }
       } catch (error) {
         if (mounted) {
-          await handleAuthError(error, 'Error in auth check:');
+          await handleAuthError(error);
         }
       }
     };
@@ -114,20 +118,20 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
           
           if (event === 'SIGNED_OUT' || (!session && !PUBLIC_ROUTES.includes(location.pathname))) {
             if (mounted) {
-              await clearAuthState(); // Clear state on sign out
-              navigate('/auth');
+              await clearAuthState();
+              redirectToAuth();
             }
           } else if (event === 'SIGNED_IN' && session) {
             try {
               const { error: verifyError } = await supabase.auth.getUser();
               if (verifyError) {
-                await handleAuthError(verifyError, 'New session verification failed:');
+                await handleAuthError(verifyError);
               } else if (mounted) {
                 setIsLoading(false);
               }
             } catch (error) {
               if (mounted) {
-                await handleAuthError(error, 'Error verifying new session:');
+                await handleAuthError(error);
               }
             }
           }
@@ -152,9 +156,8 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
       if (authListener) {
         authListener.unsubscribe();
       }
-      setIsLoading(false); // Ensure loading state is cleared when component unmounts
     };
-  }, [navigate, location.pathname, toast]);
+  }, [navigate, location.pathname]);
 
   if (isLoading) {
     return (
