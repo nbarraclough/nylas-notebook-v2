@@ -76,17 +76,13 @@ export function useSharedVideo() {
 
       console.log('Fetching shared video with token:', token);
 
-      const headers = {
-        'external-token': token
-      };
-
       // First get the recording ID from video_shares
       const { data: share, error: shareError } = await supabase
         .from('video_shares')
         .select('recording_id')
         .eq('external_token', token)
         .eq('share_type', 'external')
-        .headers(headers)
+        .headers({ 'external-token': token })
         .maybeSingle();
 
       if (shareError) throw shareError;
@@ -116,7 +112,7 @@ export function useSharedVideo() {
           )
         `)
         .eq('id', share.recording_id)
-        .headers(headers)
+        .headers({ 'external-token': token })
         .maybeSingle();
 
       if (recordingError) throw recordingError;
