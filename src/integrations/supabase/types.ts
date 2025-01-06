@@ -650,6 +650,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_shared_recording: {
+        Args: {
+          p_recording_id: string
+          p_token: string
+        }
+        Returns: {
+          id: string
+          video_url: string
+          recording_url: string
+          notetaker_id: string
+          transcript_content: Json
+          event: Json
+        }[]
+      }
       queue_notetaker_request: {
         Args: {
           p_queue_name: string
