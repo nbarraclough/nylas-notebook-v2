@@ -93,6 +93,8 @@ export function useSharedVideo() {
         return;
       }
 
+      console.log('Found share with recording ID:', share.recording_id);
+
       // Then fetch the recording with its event data
       const { data: recordingData, error: recordingError } = await supabase
         .from('recordings')
@@ -113,14 +115,19 @@ export function useSharedVideo() {
         .eq('id', share.recording_id)
         .maybeSingle();
 
-      if (recordingError) throw recordingError;
+      if (recordingError) {
+        console.error('Error fetching recording:', recordingError);
+        throw recordingError;
+      }
 
       if (!recordingData || !recordingData.event) {
-        console.log('No recording or event data found');
+        console.log('No recording or event data found for ID:', share.recording_id);
         setEventData(null);
         setRecording(null);
         return;
       }
+
+      console.log('Found recording data:', recordingData);
 
       const eventInfo = {
         ...recordingData.event,
