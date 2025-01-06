@@ -17,6 +17,7 @@ export function RecurringRecordingToggle({
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isEnabled, setIsEnabled] = useState(false);
+  const [settingId, setSettingId] = useState<string | null>(null);
 
   // Fetch initial state from recurring_recording_settings
   useEffect(() => {
@@ -24,15 +25,16 @@ export function RecurringRecordingToggle({
       try {
         const { data, error } = await supabase
           .from('recurring_recording_settings')
-          .select('enabled')
+          .select('id, enabled')
           .eq('master_event_id', masterId)
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
         
         // If we have a setting, use it. Otherwise, check if any events are queued
         if (data) {
           setIsEnabled(data.enabled);
+          setSettingId(data.id);
         } else {
           // Fall back to checking queue state
           const hasQueuedEvents = events.some(event => 
@@ -78,6 +80,7 @@ export function RecurringRecordingToggle({
         const { error: settingsError } = await supabase
           .from('recurring_recording_settings')
           .upsert({
+            ...(settingId && { id: settingId }),
             master_event_id: masterId,
             enabled: true,
             user_id: events[0].user_id
@@ -102,6 +105,7 @@ export function RecurringRecordingToggle({
         const { error: settingsError } = await supabase
           .from('recurring_recording_settings')
           .upsert({
+            ...(settingId && { id: settingId }),
             master_event_id: masterId,
             enabled: false,
             user_id: events[0].user_id
