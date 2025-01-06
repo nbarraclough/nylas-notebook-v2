@@ -97,6 +97,14 @@ export function EmailComposerDialog({
 
     setIsSending(true);
     try {
+      console.log('Sending email request:', {
+        grantId,
+        subject,
+        body,
+        recipients,
+        recordingId,
+      });
+
       const { data, error } = await supabase.functions.invoke('send-recording-email', {
         body: {
           grantId,
@@ -106,6 +114,8 @@ export function EmailComposerDialog({
           recordingId,
         },
       });
+
+      console.log('Email response:', { data, error });
 
       if (error) throw error;
 
@@ -117,7 +127,7 @@ export function EmailComposerDialog({
     } catch (error: any) {
       console.error('Error sending email:', error);
       toast({
-        title: "Error",
+        title: "Error sending email",
         description: error.message || "Failed to send email. Please try again.",
         variant: "destructive",
       });
