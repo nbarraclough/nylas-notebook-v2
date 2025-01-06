@@ -26,7 +26,8 @@ Deno.serve(async (req) => {
           end_time
         ),
         profiles!inner (
-          notetaker_name
+          notetaker_name,
+          nylas_grant_id
         )
       `)
       .eq('status', 'pending')
@@ -68,20 +69,26 @@ Deno.serve(async (req) => {
             throw updateError
           }
 
+          if (!item.profiles.nylas_grant_id) {
+            throw new Error('Nylas grant ID not found for user')
+          }
+
           // Send notetaker request using the correct endpoint
-          const response = await fetch('https://api-staging.us.nylas.com/v3/notetakers/join', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`
-            },
-            body: JSON.stringify({
-              name: item.profiles.notetaker_name || 'Nylas Notetaker',
-              conference_url: item.events.conference_url,
-              start_time: Math.floor(new Date(item.events.start_time).getTime() / 1000),
-              end_time: Math.floor(new Date(item.events.end_time).getTime() / 1000)
-            })
-          })
+          const response = await fetch(
+            `https://api-staging.us.nylas.com/v3/grants/${item.profiles.nylas_grant_id}/notetakers`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json, application/gzip',
+                'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`
+              },
+              body: JSON.stringify({
+                meeting_link: item.events.conference_url,
+                notetaker_name: item.profiles.notetaker_name || 'Nylas Notetaker'
+              })
+            }
+          )
 
           const responseData = await response.json()
           console.log(`Notetaker API response for queue item ${item.id}:`, responseData)
@@ -95,7 +102,7 @@ Deno.serve(async (req) => {
             .from('notetaker_queue')
             .update({
               status: 'success',
-              notetaker_id: responseData.data.id
+              notetaker_id: responseData.data.notetaker_id
             })
             .eq('id', item.id)
 
@@ -110,7 +117,7 @@ Deno.serve(async (req) => {
             .upsert({
               user_id: item.user_id,
               event_id: item.event_id,
-              notetaker_id: responseData.data.id,
+              notetaker_id: responseData.data.notetaker_id,
               status: 'processing',
               recording_url: responseData.data.recording_url || '',
               updated_at: new Date().toISOString()
@@ -124,7 +131,7 @@ Deno.serve(async (req) => {
           return {
             queueId: item.id,
             status: 'success',
-            notetakerId: responseData.data.id
+            notetakerId: responseData.data.notetaker_id
           }
 
         } catch (error) {
