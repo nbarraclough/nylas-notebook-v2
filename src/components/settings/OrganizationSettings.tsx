@@ -7,10 +7,27 @@ import { MembersList } from "./organization/MembersList";
 import { OrganizationInfo } from "./organization/OrganizationInfo";
 import { CreateJoinOrganization } from "./organization/CreateJoinOrganization";
 import { getUserDomain, isFreeDomain } from "@/utils/emailDomains";
+import { useEffect, useState } from "react";
 
 export const OrganizationSettings = ({ userId }: { userId: string }) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [session, setSession] = useState<any>(null);
+
+  // Get and maintain session
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['profile', userId],
@@ -31,7 +48,7 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
     queryKey: ['organization_data', userId],
     queryFn: async () => {
       console.log('Fetching organization data for user:', userId);
-      const { data: { session } } = await supabase.auth.getSession();
+      
       if (!session?.access_token) {
         throw new Error('No session found');
       }
@@ -50,7 +67,7 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
       console.log('Organization data:', data);
       return data;
     },
-    enabled: !!userId && !!profile?.email && !isFreeDomain(getUserDomain(profile.email)),
+    enabled: !!userId && !!session?.access_token && !!profile?.email && !isFreeDomain(getUserDomain(profile.email)),
   });
 
   if (profileLoading || (isLoading && !isFreeDomain(getUserDomain(profile?.email || '')))) {
@@ -97,12 +114,6 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
   const isAdmin = organizationData.members.some(
     member => member.user_id === userId && member.role === 'admin'
   );
-
-  const handleOrganizationUpdate = () => {
-    queryClient.invalidateQueries({
-      queryKey: ['organization_data', userId],
-    });
-  };
 
   return (
     <Card>
