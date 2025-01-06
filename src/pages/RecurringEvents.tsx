@@ -31,7 +31,8 @@ export default function RecurringEvents() {
             created_at
           )
         `)
-        .not('master_event_id', 'is', null)
+        .not('master_event_id', 'is', null)  // Only get events with a master_event_id
+        .not('master_event_id', 'eq', '')    // Ensure master_event_id is not empty string
         .order('start_time', { ascending: false });
 
       if (masterEventsError) {
