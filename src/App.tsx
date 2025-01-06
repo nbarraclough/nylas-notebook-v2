@@ -1,36 +1,50 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { AuthGuard } from "./components/auth/AuthGuard";
-import { NylasAuthGuard } from "./components/auth/NylasAuthGuard";
-import Auth from "./pages/Auth";
-import Calendar from "./pages/Calendar";
-import Index from "./pages/Index";
-import Library from "./pages/Library";
-import Recordings from "./pages/Recordings";
-import Settings from "./pages/Settings";
-import Shared from "./pages/Shared";
-import RecurringEvents from "./pages/RecurringEvents";
-import RecurringEventSeries from "./pages/RecurringEventSeries";
+import { Toaster } from "@/components/ui/toaster";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AuthGuard } from "@/components/auth/AuthGuard";
+import Marketing from "@/pages/Marketing";
+import Auth from "@/pages/Auth";
+import Calendar from "@/pages/Calendar";
+import Library from "@/pages/Library";
+import Queue from "@/pages/Queue";
+import Recordings from "@/pages/Recordings";
+import Settings from "@/pages/Settings";
+import Index from "@/pages/Index";
+import Shared from "@/pages/Shared";
+import RecurringEvents from "@/pages/RecurringEvents";
+import RecurringEventSeries from "@/pages/RecurringEventSeries";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function App() {
   return (
-    <Router>
-      <AuthGuard>
-        <NylasAuthGuard>
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <AuthGuard>
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<Marketing />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/dashboard" element={<Index />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/library" element={<Library />} />
-            <Route path="/library/:recordingId" element={<Library />} />
+            <Route path="/queue" element={<Queue />} />
             <Route path="/recordings" element={<Recordings />} />
             <Route path="/settings/*" element={<Settings />} />
-            <Route path="/shared/:token" element={<Shared />} />
+            <Route path="/shared/*" element={<Shared />} />
             <Route path="/recurring-events" element={<RecurringEvents />} />
-            <Route path="/recurring-events/:masterId" element={<RecurringEventSeries />} />
+            <Route path="/recurring-events/:masterEventId" element={<RecurringEventSeries />} />
           </Routes>
-        </NylasAuthGuard>
-      </AuthGuard>
-    </Router>
+        </AuthGuard>
+        <Toaster />
+      </Router>
+    </QueryClientProvider>
   );
 }
 
