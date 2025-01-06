@@ -17,65 +17,28 @@ export function LoginForm() {
   const returnTo = location.state?.returnTo || "/calendar";
 
   useEffect(() => {
-    let mounted = true;
-
     // Check if user is already logged in
-    const checkSession = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error("Auth session error:", error);
-          toast({
-            title: "Authentication Error",
-            description: "There was a problem checking your login status.",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        // Only redirect if we have a valid session and are still mounted
-        if (session?.user && mounted) {
-          console.log("User is already logged in, redirecting to:", returnTo);
-          navigate(returnTo, { replace: true });
-        }
-      } catch (error) {
-        console.error("Error checking session:", error);
-        toast({
-          title: "Error",
-          description: "An unexpected error occurred. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        navigate(returnTo, { replace: true });
       }
-    };
-
-    checkSession();
+      setIsLoading(false);
+    });
 
     // Subscribe to auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth state changed:", event, session?.user?.id);
-      
-      // Only handle sign in event when we have both session and user
-      if (event === 'SIGNED_IN' && session?.user && mounted) {
-        console.log("User signed in, redirecting to:", returnTo);
-        // Add a small delay to ensure auth state is fully updated
-        await new Promise(resolve => setTimeout(resolve, 100));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
         navigate(returnTo, { replace: true });
       }
     });
 
     return () => {
-      mounted = false;
       subscription.unsubscribe();
     };
-  }, [navigate, returnTo, toast]);
+  }, [navigate, returnTo]);
 
   if (isLoading) {
-    return null; // Or a loading spinner if you prefer
+    return null;
   }
 
   return (
