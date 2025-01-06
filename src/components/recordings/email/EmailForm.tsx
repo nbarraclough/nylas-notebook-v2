@@ -1,5 +1,8 @@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 
 interface EmailFormProps {
   subject: string;
@@ -14,6 +17,44 @@ export function EmailForm({
   body,
   onBodyChange,
 }: EmailFormProps) {
+  const { data: profile } = useQuery({
+    queryKey: ['profile'],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
+
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select(`
+          first_name,
+          last_name,
+          job_title,
+          organizations (
+            name
+          )
+        `)
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) throw error;
+      return profile;
+    },
+  });
+
+  useEffect(() => {
+    if (profile && body === '') {
+      const signature = [
+        '',
+        '',
+        profile.first_name ? `${profile.first_name}${profile.last_name ? ` ${profile.last_name}` : ''}` : '',
+        profile.job_title || '',
+        profile.organizations?.name || '',
+      ].filter(Boolean).join('\n');
+
+      onBodyChange(signature);
+    }
+  }, [profile, body, onBodyChange]);
+
   return (
     <>
       <div className="space-y-2">
