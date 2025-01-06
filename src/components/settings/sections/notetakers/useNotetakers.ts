@@ -58,19 +58,28 @@ export function useNotetakers(userId: string) {
         throw queueError;
       }
 
-      // Combine and deduplicate records
+      // Combine records, preserving the most recent notetaker_id
       const allRecords = [
         ...(recordingsData || []),
         ...(queueData || [])
       ].filter(record => record.notetaker_id);
 
-      console.log('Combined records before deduplication:', allRecords);
+      console.log('Combined records before processing:', allRecords);
 
-      // Remove duplicates based on notetaker_id
-      const uniqueRecords = Array.from(
-        new Map(allRecords.map(record => [record.notetaker_id, record]))
-        .values()
-      ) as NotetakerRecord[];
+      // Create a map to store the most recent record for each notetaker_id
+      const notetakerMap = new Map();
+      
+      allRecords.forEach(record => {
+        if (record.notetaker_id) {
+          const existingRecord = notetakerMap.get(record.notetaker_id);
+          // If no existing record or current record is more recent (based on presence in queue)
+          if (!existingRecord || queueData?.some(q => q.id === record.id)) {
+            notetakerMap.set(record.notetaker_id, record);
+          }
+        }
+      });
+
+      const uniqueRecords = Array.from(notetakerMap.values()) as NotetakerRecord[];
 
       console.log('Final unique records:', uniqueRecords);
       return uniqueRecords;
