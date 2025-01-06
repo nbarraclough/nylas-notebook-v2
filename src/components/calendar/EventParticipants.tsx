@@ -29,12 +29,12 @@ export const EventParticipants = ({ participants, organizer, isInternalMeeting }
           }`} 
         />
       </HoverCardTrigger>
-      <HoverCardContent className="w-80">
+      <HoverCardContent className="w-80 z-50">
         <div className="space-y-3">
           {organizer && (
             <div>
               <h4 className="text-sm font-semibold">Host</h4>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm text-muted-foreground break-words">
                 {organizer.name} ({organizer.email})
               </div>
             </div>
@@ -44,7 +44,7 @@ export const EventParticipants = ({ participants, organizer, isInternalMeeting }
               <h4 className="text-sm font-semibold">Participants</h4>
               <div className="text-sm space-y-1">
                 {filteredParticipants.map((participant, index) => (
-                  <div key={index} className="text-muted-foreground">
+                  <div key={index} className="text-muted-foreground break-words">
                     {participant.name} ({participant.email})
                   </div>
                 ))}
