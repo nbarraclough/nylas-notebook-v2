@@ -8,7 +8,7 @@ export function useNotetakers(userId: string) {
     queryFn: async () => {
       console.log('Fetching notetakers for user:', userId);
 
-      // First, get recordings with notetakers
+      // Get recordings with notetakers
       const { data: recordingsData, error: recordingsError } = await supabase
         .from('recordings')
         .select(`
@@ -29,62 +29,40 @@ export function useNotetakers(userId: string) {
       console.log('Recordings query result:', { recordingsData, recordingsError });
       
       if (recordingsError) {
-        console.error('Recordings error:', recordingsError);
+        console.error('Error fetching recordings:', recordingsError);
         throw recordingsError;
       }
 
-      // Then, get active notetakers from queue
-      const { data: queueData, error: queueError } = await supabase
-        .from('notetaker_queue')
-        .select(`
-          id,
-          notetaker_id,
-          event:events (
-            title,
-            start_time,
-            manual_meeting:manual_meetings (
-              title,
-              meeting_url
-            )
-          )
-        `)
-        .eq('user_id', userId)
-        .not('notetaker_id', 'is', null);
-
-      console.log('Queue query result:', { queueData, queueError });
-
-      if (queueError) {
-        console.error('Queue error:', queueError);
-        throw queueError;
+      if (!recordingsData) {
+        console.log('No recordings found');
+        return [];
       }
 
-      // Combine and deduplicate records
-      const allRecords = [
-        ...(recordingsData || []),
-        ...(queueData || [])
-      ].filter(record => record.notetaker_id);
+      // Transform the data to match NotetakerRecord type
+      const allRecords = recordingsData.map(record => ({
+        id: record.id,
+        notetaker_id: record.notetaker_id,
+        event: {
+          title: record.event?.title || '',
+          start_time: record.event?.start_time || '',
+          manual_meeting: record.event?.manual_meeting ? {
+            title: record.event.manual_meeting.title,
+            meeting_url: record.event.manual_meeting.meeting_url
+          } : undefined
+        }
+      }));
 
       console.log('Combined records before deduplication:', allRecords);
 
-      // Remove duplicates based on notetaker_id and ensure correct typing
+      // Remove duplicates based on notetaker_id
       const uniqueRecords = Array.from(
-        new Map(allRecords.map(record => [record.notetaker_id, {
-          id: record.id,
-          notetaker_id: record.notetaker_id,
-          event: {
-            title: record.event?.title || '',
-            start_time: record.event?.start_time || '',
-            manual_meeting: record.event?.manual_meeting ? {
-              title: record.event.manual_meeting.title,
-              meeting_url: record.event.manual_meeting.meeting_url
-            } : undefined
-          }
-        } as NotetakerRecord]))
+        new Map(allRecords.map(record => [record.notetaker_id, record]))
         .values()
       );
 
       console.log('Final unique records:', uniqueRecords);
       return uniqueRecords;
     },
+    enabled: !!userId,
   });
 }
