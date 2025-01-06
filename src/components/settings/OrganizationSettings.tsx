@@ -13,31 +13,44 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
   const { redirectToAuth } = useAuthRedirect();
   
   const { data: profile, isLoading: profileLoading } = useProfileData();
-  const { data: organizationData, isLoading } = useOrganizationData(userId);
+  const { data: organizationData, isLoading: orgLoading, error } = useOrganizationData(userId);
 
-  // Check authentication status
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         redirectToAuth("Please sign in to access organization settings");
+        return;
       }
     };
 
     checkAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!session) {
+      if (event === 'SIGNED_OUT') {
         redirectToAuth("Your session has expired. Please sign in again.");
       }
     });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, [redirectToAuth]);
 
-  if (profileLoading || isLoading) {
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Organization</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Error loading organization data. Please try again later.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (profileLoading || orgLoading) {
     return (
       <Card>
         <CardHeader>

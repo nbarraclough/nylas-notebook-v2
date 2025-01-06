@@ -5,12 +5,7 @@ export function useOrganizationData(userId: string) {
   return useQuery({
     queryKey: ['organization_data', userId],
     queryFn: async () => {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session?.session) {
-        throw new Error('No active session');
-      }
-
-      // Get user's organization ID from profile
+      // First get the user's organization ID
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('organization_id')
@@ -31,23 +26,29 @@ export function useOrganizationData(userId: string) {
 
       if (orgError) throw orgError;
 
-      // Get organization members
-      const { data: members, error: membersError } = await supabase
-        .from('organization_members')
+      // Get members separately
+      const { data: membersData, error: membersError } = await supabase
+        .from('profiles')
         .select(`
-          user_id,
-          role,
-          profiles (
-            email
+          id,
+          email,
+          organization_members!inner (
+            role
           )
         `)
         .eq('organization_id', profile.organization_id);
 
       if (membersError) throw membersError;
 
+      const members = membersData.map(member => ({
+        user_id: member.id,
+        role: member.organization_members[0]?.role || 'user',
+        profiles: { email: member.email }
+      }));
+
       return {
         organization,
-        members: members || []
+        members
       };
     },
     enabled: !!userId,
