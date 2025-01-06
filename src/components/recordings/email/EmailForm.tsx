@@ -4,13 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useAuthRedirect } from "@/hooks/useAuthRedirect";
 
 interface EmailFormProps {
   subject: string;
   onSubjectChange: (subject: string) => void;
   body: string;
   onBodyChange: (body: string) => void;
+  shareUrl: string;
 }
 
 export function EmailForm({
@@ -18,9 +18,9 @@ export function EmailForm({
   onSubjectChange,
   body,
   onBodyChange,
+  shareUrl,
 }: EmailFormProps) {
   const { toast } = useToast();
-  const { redirectToAuth } = useAuthRedirect();
 
   const { data: profile } = useQuery({
     queryKey: ['profile'],
@@ -88,7 +88,7 @@ export function EmailForm({
       const defaultTemplate = [
         'Hi everyone,',
         '',
-        'I wanted to share the recording from our meeting "Manual Meeting".',
+        'I wanted to share the recording from our meeting.',
         '',
         'You can watch it here: {RECORDING_LINK}',
         signature
@@ -118,6 +118,9 @@ export function EmailForm({
           placeholder="Enter your message"
           rows={8}
         />
+        <p className="text-sm text-muted-foreground">
+          Use {'{RECORDING_LINK}'} to insert the recording link in your message.
+        </p>
       </div>
     </>
   );

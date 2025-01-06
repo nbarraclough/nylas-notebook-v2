@@ -34,9 +34,7 @@ export function EmailComposerDialog({
   const { toast } = useToast();
   const [isSending, setIsSending] = useState(false);
   const [subject, setSubject] = useState(`${eventTitle} - Recording`);
-  const [body, setBody] = useState(
-    `Hi everyone,\n\nI wanted to share the recording from our meeting "${eventTitle}".\n\nYou can watch it here: ${shareUrl}\n\nBest regards`
-  );
+  const [body, setBody] = useState('');
   const [recipients, setRecipients] = useState<Recipient[]>(initialRecipients);
   const [newEmail, setNewEmail] = useState("");
 
@@ -95,12 +93,21 @@ export function EmailComposerDialog({
       return;
     }
 
+    if (!shareUrl) {
+      toast({
+        title: "Error",
+        description: "Share URL not found. Please generate a share link first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSending(true);
     try {
       console.log('Sending email request:', {
         grantId,
         subject,
-        body,
+        body: body.replace('{RECORDING_LINK}', shareUrl),
         recipients,
         recordingId,
       });
@@ -109,7 +116,7 @@ export function EmailComposerDialog({
         body: {
           grantId,
           subject,
-          body,
+          body: body.replace('{RECORDING_LINK}', shareUrl),
           recipients,
           recordingId,
         },
@@ -159,6 +166,7 @@ export function EmailComposerDialog({
             onSubjectChange={setSubject}
             body={body}
             onBodyChange={setBody}
+            shareUrl={shareUrl}
           />
         </div>
 
