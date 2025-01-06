@@ -9,9 +9,8 @@ import {
   Library,
   LogOut,
   Menu,
-  LayoutDashboard,
   Repeat,
-  Home,
+  NotebookPen,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -70,7 +69,7 @@ export function Navbar() {
         )}
         onClick={onClick}
       >
-        <Home className="h-4 w-4" />
+        <NotebookPen className="h-4 w-4" />
         Dashboard
       </Link>
       <Link
@@ -117,8 +116,8 @@ export function Navbar() {
       <div className="flex h-16 items-center px-4 justify-between">
         <div className="flex items-center">
           <div className="mr-6 flex items-center space-x-2">
-            <Home className="h-5 w-5" />
-            <span className="font-bold">
+            <NotebookPen className="h-5 w-5" />
+            <span className="font-bold text-lg">
               Notebook
             </span>
           </div>
@@ -142,8 +141,8 @@ export function Navbar() {
                   <SheetContent side="left" className="w-[240px] sm:w-[300px]">
                     <div className="flex flex-col h-full">
                       <div className="flex items-center space-x-2 mb-6">
-                        <Home className="h-5 w-5" />
-                        <span className="font-bold">Notebook</span>
+                        <NotebookPen className="h-5 w-5" />
+                        <span className="font-bold text-lg">Notebook</span>
                       </div>
                       <NavLinks onClick={() => setIsOpen(false)} />
                     </div>
