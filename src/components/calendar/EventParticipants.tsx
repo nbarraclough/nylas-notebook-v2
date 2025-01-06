@@ -29,12 +29,7 @@ export const EventParticipants = ({ participants, organizer, isInternalMeeting }
           }`} 
         />
       </HoverCardTrigger>
-      <HoverCardContent 
-        className="w-80 z-50" 
-        side="right" 
-        align="start"
-        sideOffset={10}
-      >
+      <HoverCardContent className="w-80 z-50">
         <div className="space-y-3">
           {organizer && (
             <div>
