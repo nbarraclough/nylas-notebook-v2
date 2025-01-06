@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get all pending queue items without notetaker_id
+    // Get all pending queue items without notetaker_id and less than 3 attempts
     const { data: queueItems, error: queueError } = await supabaseClient
       .from('notetaker_queue')
       .select(`
@@ -149,14 +149,17 @@ Deno.serve(async (req) => {
         } catch (error) {
           console.error(`Error processing queue item ${item.id}:`, error)
 
-          // Update queue item with error but keep it pending
+          const newAttempts = (item.attempts || 0) + 1;
+          const newStatus = newAttempts >= 3 ? 'failed' : 'pending';
+
+          // Update queue item with error and increment attempts
           const { error: updateError } = await supabaseClient
             .from('notetaker_queue')
             .update({
-              attempts: (item.attempts || 0) + 1,
+              attempts: newAttempts,
               last_attempt: new Date().toISOString(),
               error: error.message,
-              status: (item.attempts || 0) >= 2 ? 'failed' : 'pending' // Mark as failed after 3 attempts
+              status: newStatus // Mark as failed after 3 attempts
             })
             .eq('id', item.id)
 
