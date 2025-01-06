@@ -18,14 +18,16 @@ export const NotetakerSettings = ({
 }) => {
   const { toast } = useToast();
   const [name, setName] = useState(notetakerName);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
 
-  // Query to fetch the notetaker name
+  // Query to fetch the profile data
   const { data: profile } = useQuery({
     queryKey: ['profile', userId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('notetaker_name')
+        .select('notetaker_name, first_name, last_name')
         .eq('id', userId)
         .single();
 
@@ -36,19 +38,31 @@ export const NotetakerSettings = ({
 
   // Update local state when profile data is fetched
   useEffect(() => {
-    if (profile?.notetaker_name) {
-      setName(profile.notetaker_name);
-      onNotetakerNameChange(profile.notetaker_name);
+    if (profile) {
+      if (profile.notetaker_name) {
+        setName(profile.notetaker_name);
+        onNotetakerNameChange(profile.notetaker_name);
+      }
+      if (profile.first_name) setFirstName(profile.first_name);
+      if (profile.last_name) setLastName(profile.last_name);
     }
   }, [profile, onNotetakerNameChange]);
 
-  const updateNotetakerName = useMutation({
-    mutationFn: async (newName: string) => {
+  const updateProfile = useMutation({
+    mutationFn: async ({ notetakerName, firstName, lastName }: { 
+      notetakerName: string;
+      firstName: string;
+      lastName: string;
+    }) => {
       if (!userId) throw new Error('No user ID');
       
       const { error } = await supabase
         .from('profiles')
-        .update({ notetaker_name: newName })
+        .update({ 
+          notetaker_name: notetakerName,
+          first_name: firstName,
+          last_name: lastName
+        })
         .eq('id', userId);
 
       if (error) throw error;
@@ -57,25 +71,49 @@ export const NotetakerSettings = ({
       onNotetakerNameChange(name);
       toast({
         title: "Success",
-        description: "Notetaker name updated successfully!",
+        description: "Profile updated successfully!",
       });
     },
     onError: (error) => {
-      console.error('Error updating notetaker name:', error);
+      console.error('Error updating profile:', error);
       toast({
         title: "Error",
-        description: "Failed to update notetaker name. Please try again.",
+        description: "Failed to update profile. Please try again.",
         variant: "destructive",
       });
     },
   });
 
-  const handleSaveNotetakerName = () => {
-    updateNotetakerName.mutate(name);
+  const handleSaveProfile = () => {
+    updateProfile.mutate({ 
+      notetakerName: name,
+      firstName,
+      lastName
+    });
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="first-name">First Name</Label>
+          <Input 
+            id="first-name" 
+            placeholder="Enter your first name" 
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="last-name">Last Name</Label>
+          <Input 
+            id="last-name" 
+            placeholder="Enter your last name" 
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+          />
+        </div>
+      </div>
       <div className="flex items-end gap-4">
         <div className="flex-1 space-y-2">
           <Label htmlFor="notetaker-name">Notetaker Name</Label>
@@ -87,10 +125,10 @@ export const NotetakerSettings = ({
           />
         </div>
         <Button 
-          onClick={handleSaveNotetakerName}
-          disabled={updateNotetakerName.isPending}
+          onClick={handleSaveProfile}
+          disabled={updateProfile.isPending}
         >
-          Save Name
+          Save Profile
         </Button>
       </div>
     </div>

@@ -14,7 +14,7 @@ export function GeneralSettings({ userId }: GeneralSettingsProps) {
       <h2 className="text-2xl font-bold">General Settings</h2>
       <Card>
         <CardHeader>
-          <CardTitle>Notetaker Settings</CardTitle>
+          <CardTitle>Profile Settings</CardTitle>
         </CardHeader>
         <CardContent>
           <NotetakerSettings 
