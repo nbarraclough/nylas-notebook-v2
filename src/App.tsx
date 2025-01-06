@@ -15,11 +15,11 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Public routes */}
+        {/* Public routes - no auth required */}
         <Route path="/shared/:token" element={<Shared />} />
         <Route path="/auth" element={<Auth />} />
 
-        {/* Protected routes */}
+        {/* Protected routes - require authentication */}
         <Route
           path="/"
           element={

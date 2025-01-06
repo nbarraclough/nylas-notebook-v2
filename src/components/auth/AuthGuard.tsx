@@ -16,7 +16,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const { toast } = useToast();
 
   // Define public routes that don't require authentication
-  const isPublicRoute = location.pathname === '/auth' || location.pathname.startsWith('/shared');
+  const isPublicRoute = location.pathname === '/auth' || location.pathname.startsWith('/shared/');
 
   useEffect(() => {
     const checkSession = async () => {
