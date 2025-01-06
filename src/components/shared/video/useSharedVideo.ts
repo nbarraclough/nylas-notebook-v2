@@ -143,11 +143,17 @@ export function useSharedVideo() {
         description: null,
         start_time: new Date().toISOString(),
         end_time: new Date().toISOString(),
-        participants: []
+        participants: [] as EventParticipant[]
       };
 
-      console.log('Setting event info:', eventInfo);
-      setEventData(eventInfo);
+      // Transform participants regardless of whether we're using default or actual event data
+      const transformedEventInfo = {
+        ...eventInfo,
+        participants: transformParticipants(eventInfo.participants || [])
+      };
+
+      console.log('Setting event info:', transformedEventInfo);
+      setEventData(transformedEventInfo);
 
       const transformedRecording: SharedRecording = {
         id: recordingData.id,
@@ -155,7 +161,7 @@ export function useSharedVideo() {
         recording_url: recordingData.recording_url,
         notetaker_id: recordingData.notetaker_id,
         transcript_content: recordingData.transcript_content,
-        event: eventInfo
+        event: transformedEventInfo
       };
 
       console.log('Setting transformed recording:', transformedRecording);
