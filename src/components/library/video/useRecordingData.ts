@@ -1,9 +1,7 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export function useRecordingData(recordingId: string) {
-  const queryClient = useQueryClient();
-
   const { data: recording, isLoading, error } = useQuery({
     queryKey: ['recording', recordingId],
     queryFn: async () => {
@@ -31,7 +29,7 @@ export function useRecordingData(recordingId: string) {
           )
         `)
         .eq('id', recordingId)
-        .maybeSingle(); // Changed from .single() to .maybeSingle()
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching recording:', error);
@@ -45,6 +43,7 @@ export function useRecordingData(recordingId: string) {
 
       return data;
     },
+    retry: false
   });
 
   return { recording, isLoading, error };

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 export function useVideoRefresh(recordingId: string, notetakerId: string | null | undefined) {
   const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const externalToken = new URLSearchParams(window.location.search).get('token');
 
   const refreshMedia = async () => {
     if (!recordingId) {
@@ -21,7 +22,8 @@ export function useVideoRefresh(recordingId: string, notetakerId: string | null 
       const { error } = await supabase.functions.invoke('get-recording-media', {
         body: { 
           recordingId,
-          notetakerId: notetakerId || undefined // Only pass if it exists
+          notetakerId: notetakerId || undefined,
+          externalToken
         },
       });
 
