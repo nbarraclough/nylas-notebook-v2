@@ -1,32 +1,50 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export function useOrganizationData(userId: string) {
+export const useOrganizationData = (userId: string) => {
   return useQuery({
     queryKey: ['organization_data', userId],
     queryFn: async () => {
-      // First get the user's organization ID
+      console.log('Fetching organization data for user:', userId);
+      
+      // First check if we have an active session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.log('No active session found');
+        throw new Error('No active session');
+      }
+
+      // Get user's organization ID first
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('organization_id')
         .eq('id', userId)
         .single();
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+        throw profileError;
+      }
+
       if (!profile?.organization_id) {
+        console.log('User has no organization');
         return { organization: null, members: [] };
       }
 
       // Get organization details
-      const { data: organization, error: orgError } = await supabase
+      const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('*')
         .eq('id', profile.organization_id)
         .single();
 
-      if (orgError) throw orgError;
+      if (orgError) {
+        console.error('Error fetching organization:', orgError);
+        throw orgError;
+      }
 
-      // Get members with a left join instead of inner join
+      // Get members with a left join
+      console.log('Fetching members for organization:', profile.organization_id);
       const { data: membersData, error: membersError } = await supabase
         .from('profiles')
         .select(`
@@ -38,19 +56,32 @@ export function useOrganizationData(userId: string) {
         `)
         .eq('organization_id', profile.organization_id);
 
-      if (membersError) throw membersError;
+      if (membersError) {
+        console.error('Error fetching members:', membersError);
+        throw membersError;
+      }
 
+      // Transform members data to include role
       const members = membersData.map(member => ({
         user_id: member.id,
-        role: member.organization_members[0]?.role || 'user',
-        profiles: { email: member.email }
+        email: member.email,
+        role: member.organization_members?.[0]?.role || 'user',
+        profiles: {
+          email: member.email
+        }
       }));
 
+      console.log('Successfully fetched organization data:', {
+        orgId: org.id,
+        memberCount: members.length
+      });
+
       return {
-        organization,
+        organization: org,
         members
       };
     },
-    enabled: !!userId,
+    retry: false,
+    refetchOnWindowFocus: false,
   });
-}
+};
