@@ -37,21 +37,30 @@ export function EmailForm({
         .eq('id', session.user.id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching profile:', error);
+        throw error;
+      }
       return profile;
     },
   });
 
   useEffect(() => {
     if (profile && body === '') {
-      const signature = [
+      // Construct signature parts, filtering out any undefined/null values
+      const signatureParts = [
         '',
         'Best regards,',
         '',
-        profile.first_name ? `${profile.first_name}${profile.last_name ? ` ${profile.last_name}` : ''}` : '',
+        profile.first_name && profile.last_name 
+          ? `${profile.first_name} ${profile.last_name}`
+          : profile.first_name || '',
         profile.job_title || '',
-        profile.organizations?.name || '',
-      ].filter(Boolean).join('\n');
+        profile.organizations?.name || ''
+      ].filter(Boolean); // Remove empty strings
+
+      // Join signature parts with newlines
+      const signature = signatureParts.join('\n');
 
       const defaultTemplate = [
         'Hi everyone,',
@@ -62,6 +71,7 @@ export function EmailForm({
         signature
       ].join('\n');
 
+      console.log('Setting email template with signature:', defaultTemplate); // Debug log
       onBodyChange(defaultTemplate);
     }
   }, [profile, body, onBodyChange]);
