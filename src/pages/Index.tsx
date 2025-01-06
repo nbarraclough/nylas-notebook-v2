@@ -110,17 +110,17 @@ export default function Index() {
           </Card>
         </div>
 
-        {/* Bottom row - Responsive grid */}
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card className="card-hover-effect">
-            <CardContent className="p-4 sm:p-6">
+        {/* Bottom row - Responsive grid with improved mobile layout */}
+        <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
+          <Card className="card-hover-effect min-h-[300px]">
+            <CardContent className="p-4 sm:p-6 h-full">
               <RecentRecordings />
             </CardContent>
           </Card>
-          <Card className="card-hover-effect">
-            <CardContent className="p-4 sm:p-6">
+          <Card className="card-hover-effect min-h-[300px]">
+            <CardContent className="p-4 sm:p-6 h-full">
               <h3 className="text-lg font-semibold mb-4">Upcoming Meetings</h3>
-              <div className="space-y-4">
+              <div className="space-y-4 overflow-y-auto max-h-[500px]">
                 {upcomingEvents?.map((event) => (
                   <EventCard
                     key={event.id}
