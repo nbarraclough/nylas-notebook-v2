@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useToast } from "@/hooks/use-toast";
-import { isTokenError } from "@/utils/authStorage";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -27,14 +26,11 @@ export function AuthGuard({ children }: AuthGuardProps) {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) {
-          if (isTokenError(error)) {
-            console.error('Token error:', error);
-            // Clear local storage and redirect to auth
+          console.error('Session error:', error);
+          // If there's a token error, clear storage and redirect
+          if (error.message?.includes('token') || error.message?.includes('JWT')) {
             localStorage.clear();
             sessionStorage.clear();
-            if (!isPublicRoute) {
-              navigate('/auth', { state: { returnTo: location.pathname } });
-            }
           }
           throw error;
         }
@@ -78,7 +74,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
         switch (event) {
           case 'SIGNED_IN':
             // Refresh the session
-            await supabase.auth.getSession();
+            await checkSession();
             break;
           case 'SIGNED_OUT':
             if (!isPublicRoute) {
@@ -90,7 +86,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
             break;
           case 'USER_UPDATED':
             // Refresh the session to get updated user data
-            await supabase.auth.getSession();
+            await checkSession();
             break;
         }
         
