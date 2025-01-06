@@ -38,7 +38,6 @@ Deno.serve(async (req) => {
       `)
       .eq('status', 'pending')
       .is('notetaker_id', null)
-      .lt('scheduled_for', new Date().toISOString())
       .order('scheduled_for', { ascending: true })
 
     if (queueError) {
@@ -61,20 +60,6 @@ Deno.serve(async (req) => {
         console.log(`Processing queue item ${item.id} for event: ${item.events.title}`)
         
         try {
-          // Update attempts count
-          const { error: updateError } = await supabaseClient
-            .from('notetaker_queue')
-            .update({
-              attempts: (item.attempts || 0) + 1,
-              last_attempt: new Date().toISOString()
-            })
-            .eq('id', item.id)
-
-          if (updateError) {
-            console.error(`Error updating attempts for queue item ${item.id}:`, updateError)
-            throw updateError
-          }
-
           if (!item.profiles.nylas_grant_id) {
             throw new Error('Nylas grant ID not found for user')
           }
@@ -108,7 +93,9 @@ Deno.serve(async (req) => {
             .from('notetaker_queue')
             .update({
               status: 'success',
-              notetaker_id: responseData.data.notetaker_id
+              notetaker_id: responseData.data.notetaker_id,
+              attempts: (item.attempts || 0) + 1,
+              last_attempt: new Date().toISOString()
             })
             .eq('id', item.id)
 
@@ -143,11 +130,12 @@ Deno.serve(async (req) => {
         } catch (error) {
           console.error(`Error processing queue item ${item.id}:`, error)
 
-          // Update queue item status to error
+          // Update queue item with error but keep it pending
           const { error: updateError } = await supabaseClient
             .from('notetaker_queue')
             .update({
-              status: 'error',
+              attempts: (item.attempts || 0) + 1,
+              last_attempt: new Date().toISOString(),
               error: error.message
             })
             .eq('id', item.id)
