@@ -1,11 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { VideoPlayer } from "@/components/recordings/player/VideoPlayer";
 import { TranscriptSection } from "@/components/recordings/transcript/TranscriptSection";
 import { VideoHeader } from "./VideoHeader";
 import { useVideoMedia } from "@/hooks/use-video-media";
-import { useEffect } from "react";
 import type { EventParticipant } from "@/types/calendar";
 import type { Json } from "@/integrations/supabase/types";
 
@@ -20,6 +19,8 @@ interface Organizer {
 }
 
 export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) {
+  const queryClient = useQueryClient();
+  
   const { data: recording, isLoading } = useQuery({
     queryKey: ['recording', recordingId],
     queryFn: async () => {
