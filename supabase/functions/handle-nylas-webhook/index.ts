@@ -8,6 +8,11 @@ import {
   logWebhookError,
   logWebhookSuccess
 } from '../_shared/webhook-logger.ts'
+import {
+  handleEventCreated,
+  handleEventUpdated,
+  handleEventDeleted
+} from '../_shared/webhook-handlers.ts'
 
 serve(async (req) => {
   const requestId = crypto.randomUUID();
@@ -56,35 +61,66 @@ serve(async (req) => {
       const webhookData = JSON.parse(rawBody);
       logParsedWebhook(webhookData);
 
-      // Handle notetaker webhooks
-      if (webhookData.type.startsWith('notetaker.')) {
-        console.log(`📝 [${requestId}] Processing ${webhookData.type} webhook`);
-        logWebhookSuccess(webhookData.type);
-        
-        return new Response(
-          JSON.stringify({
-            success: true,
-            message: `Successfully processed ${webhookData.type} webhook`,
-            status: 'acknowledged'
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
+      // Get grant ID from webhook data
+      const grantId = webhookData.data?.object?.grant_id;
+      if (!grantId) {
+        throw new Error('No grant ID found in webhook data');
       }
 
-      // Unhandled webhook type
-      console.log(`⚠️ [${requestId}] Unhandled webhook type: ${webhookData.type}`);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: `Unhandled webhook type: ${webhookData.type}`
-        }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+      // Handle different webhook types
+      switch (webhookData.type) {
+        case 'event.created':
+          const createResult = await handleEventCreated(webhookData.data.object, grantId);
+          logWebhookSuccess(webhookData.type);
+          return new Response(JSON.stringify(createResult), { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+
+        case 'event.updated':
+          const updateResult = await handleEventUpdated(webhookData.data.object, grantId);
+          logWebhookSuccess(webhookData.type);
+          return new Response(JSON.stringify(updateResult), { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+
+        case 'event.deleted':
+          const deleteResult = await handleEventDeleted(webhookData.data.object, grantId);
+          logWebhookSuccess(webhookData.type);
+          return new Response(JSON.stringify(deleteResult), { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+
+        // Handle notetaker webhooks
+        default:
+          if (webhookData.type.startsWith('notetaker.')) {
+            console.log(`📝 [${requestId}] Processing ${webhookData.type} webhook`);
+            logWebhookSuccess(webhookData.type);
+            
+            return new Response(
+              JSON.stringify({
+                success: true,
+                message: `Successfully processed ${webhookData.type} webhook`,
+                status: 'acknowledged'
+              }),
+              { 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+              }
+            );
+          }
+
+          // Unhandled webhook type
+          console.log(`⚠️ [${requestId}] Unhandled webhook type: ${webhookData.type}`);
+          return new Response(
+            JSON.stringify({
+              success: false,
+              message: `Unhandled webhook type: ${webhookData.type}`
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
+      }
     }
 
     // Invalid method
