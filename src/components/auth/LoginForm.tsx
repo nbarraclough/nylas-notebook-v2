@@ -14,16 +14,24 @@ export function LoginForm() {
 
   useEffect(() => {
     // Check if user is already logged in
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        navigate("/calendar");
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          navigate("/calendar");
+        }
+      } catch (error) {
+        console.error("Error checking session:", error);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
-    });
+    };
+
+    checkSession();
 
     // Subscribe to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
+      if (event === 'SIGNED_IN' && session) {
         navigate("/calendar");
       }
     });
@@ -54,13 +62,13 @@ export function LoginForm() {
                   borderRadius: '0.5rem',
                   height: '2.75rem',
                   color: 'white',
-                  '&:hover': {
-                    backgroundColor: 'hsl(var(--primary) / 0.9)',
-                  }
                 },
                 input: {
                   borderRadius: '0.5rem',
                 },
+              },
+              className: {
+                button: 'hover:bg-primary/90',
               },
             }}
             theme="light"
