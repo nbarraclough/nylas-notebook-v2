@@ -36,13 +36,13 @@ export function useOrganizationData(userId: string) {
         throw orgError;
       }
 
-      // Get organization members with a proper join
+      // Get organization members using the foreign key reference syntax
       const { data: membersData, error: membersError } = await supabase
         .from('organization_members')
         .select(`
           user_id,
           role,
-          profiles (
+          profiles:user_id(
             email
           )
         `)
@@ -53,23 +53,14 @@ export function useOrganizationData(userId: string) {
         throw membersError;
       }
 
-      // Transform the data to match the expected format
-      const members = membersData?.map(member => ({
-        user_id: member.user_id,
-        role: member.role,
-        profiles: {
-          email: member.profiles?.email
-        }
-      }));
-
       console.log('Successfully fetched organization data:', {
         organizationId: profile.organization_id,
-        memberCount: members?.length
+        memberCount: membersData?.length
       });
 
       return {
         organization,
-        members
+        members: membersData
       };
     },
     enabled: !!userId,
