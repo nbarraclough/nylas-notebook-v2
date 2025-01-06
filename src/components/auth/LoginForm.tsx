@@ -4,10 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 export function LoginForm() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   
   // Get the current site URL for redirect
@@ -15,17 +17,38 @@ export function LoginForm() {
   const returnTo = location.state?.returnTo || "/calendar";
 
   useEffect(() => {
+    let mounted = true;
+
     // Check if user is already logged in
     const checkSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          navigate(returnTo);
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Auth session error:", error);
+          toast({
+            title: "Authentication Error",
+            description: "There was a problem checking your login status.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (session && mounted) {
+          console.log("User is already logged in, redirecting to:", returnTo);
+          navigate(returnTo, { replace: true });
         }
       } catch (error) {
         console.error("Error checking session:", error);
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred. Please try again.",
+          variant: "destructive",
+        });
       } finally {
-        setIsLoading(false);
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     };
 
@@ -33,15 +56,18 @@ export function LoginForm() {
 
     // Subscribe to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        navigate(returnTo);
+      console.log("Auth state changed:", event, session?.user?.id);
+      if (event === 'SIGNED_IN' && session && mounted) {
+        console.log("User signed in, redirecting to:", returnTo);
+        navigate(returnTo, { replace: true });
       }
     });
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
-  }, [navigate, returnTo]);
+  }, [navigate, returnTo, toast]);
 
   if (isLoading) {
     return null; // Or a loading spinner if you prefer
