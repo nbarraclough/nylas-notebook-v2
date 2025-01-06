@@ -9,6 +9,7 @@ import { ParticipantFilter } from "./filters/ParticipantFilter";
 import { TitleFilter } from "./filters/TitleFilter";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 interface LibraryFiltersProps {
   filters: {
@@ -67,15 +68,41 @@ export function LibraryFilters({ filters, onFiltersChange }: LibraryFiltersProps
     });
   };
 
+  const getBadgeStyle = (type: string) => {
+    switch (type) {
+      case 'my-recordings':
+      case 'organization':
+        return 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200';
+      case 'internal':
+        return 'bg-purple-50 text-purple-700 hover:bg-purple-100 border-purple-200';
+      case 'external':
+        return 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200';
+      case 'participant':
+        return 'bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200';
+      case 'title':
+        return 'bg-rose-50 text-rose-700 hover:bg-rose-100 border-rose-200';
+      case 'date':
+        return 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200';
+      case 'public-link':
+        return 'bg-teal-50 text-teal-700 hover:bg-teal-100 border-teal-200';
+      default:
+        return 'bg-gray-50 text-gray-700 hover:bg-gray-100 border-gray-200';
+    }
+  };
+
   const renderFilterBadges = () => {
     const badges = [];
 
     filters.types.forEach((type) => {
       badges.push(
-        <Badge key={`type-${type}`} variant="secondary" className="gap-1">
+        <Badge 
+          key={`type-${type}`} 
+          variant="outline"
+          className={cn("gap-1 transition-colors", getBadgeStyle('my-recordings'))}
+        >
           {type === "my-recordings" ? "My Recordings" : "Organization"}
           <X
-            className="h-3 w-3 cursor-pointer"
+            className="h-3 w-3 cursor-pointer hover:text-blue-900"
             onClick={() => clearFilter("types", type)}
           />
         </Badge>
@@ -84,10 +111,14 @@ export function LibraryFilters({ filters, onFiltersChange }: LibraryFiltersProps
 
     filters.meetingTypes.forEach((type) => {
       badges.push(
-        <Badge key={`meeting-${type}`} variant="secondary" className="gap-1">
+        <Badge 
+          key={`meeting-${type}`} 
+          variant="outline"
+          className={cn("gap-1 transition-colors", getBadgeStyle(type))}
+        >
           {type === "internal" ? "Internal" : "External"}
           <X
-            className="h-3 w-3 cursor-pointer"
+            className="h-3 w-3 cursor-pointer hover:text-purple-900"
             onClick={() => clearFilter("meetingTypes", type)}
           />
         </Badge>
@@ -96,10 +127,14 @@ export function LibraryFilters({ filters, onFiltersChange }: LibraryFiltersProps
 
     filters.participants.forEach((email) => {
       badges.push(
-        <Badge key={`participant-${email}`} variant="secondary" className="gap-1">
+        <Badge 
+          key={`participant-${email}`} 
+          variant="outline"
+          className={cn("gap-1 transition-colors", getBadgeStyle('participant'))}
+        >
           Participant: {email}
           <X
-            className="h-3 w-3 cursor-pointer"
+            className="h-3 w-3 cursor-pointer hover:text-amber-900"
             onClick={() => clearFilter("participants", email)}
           />
         </Badge>
@@ -108,10 +143,14 @@ export function LibraryFilters({ filters, onFiltersChange }: LibraryFiltersProps
 
     if (filters.titleSearch) {
       badges.push(
-        <Badge key="title" variant="secondary" className="gap-1">
+        <Badge 
+          key="title" 
+          variant="outline"
+          className={cn("gap-1 transition-colors", getBadgeStyle('title'))}
+        >
           Title: {filters.titleSearch}
           <X
-            className="h-3 w-3 cursor-pointer"
+            className="h-3 w-3 cursor-pointer hover:text-rose-900"
             onClick={() => clearFilter("titleSearch")}
           />
         </Badge>
@@ -120,11 +159,15 @@ export function LibraryFilters({ filters, onFiltersChange }: LibraryFiltersProps
 
     if (filters.startDate) {
       badges.push(
-        <Badge key="date" variant="secondary" className="gap-1">
+        <Badge 
+          key="date" 
+          variant="outline"
+          className={cn("gap-1 transition-colors", getBadgeStyle('date'))}
+        >
           {format(filters.startDate, "LLL dd, y")} -{" "}
           {filters.endDate ? format(filters.endDate, "LLL dd, y") : "Present"}
           <X
-            className="h-3 w-3 cursor-pointer"
+            className="h-3 w-3 cursor-pointer hover:text-indigo-900"
             onClick={() => clearFilter("date")}
           />
         </Badge>
@@ -133,10 +176,14 @@ export function LibraryFilters({ filters, onFiltersChange }: LibraryFiltersProps
 
     if (filters.hasPublicLink) {
       badges.push(
-        <Badge key="public-link" variant="secondary" className="gap-1">
+        <Badge 
+          key="public-link" 
+          variant="outline"
+          className={cn("gap-1 transition-colors", getBadgeStyle('public-link'))}
+        >
           Has Public Link
           <X
-            className="h-3 w-3 cursor-pointer"
+            className="h-3 w-3 cursor-pointer hover:text-teal-900"
             onClick={() => clearFilter("hasPublicLink")}
           />
         </Badge>
@@ -192,6 +239,7 @@ export function LibraryFilters({ filters, onFiltersChange }: LibraryFiltersProps
           <Button
             variant="ghost"
             size="sm"
+            className="text-gray-600 hover:text-gray-900"
             onClick={() =>
               onFiltersChange({
                 types: [],
