@@ -1,51 +1,49 @@
-import { Navbar } from "./Navbar";
+import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Footer } from "./Footer";
-import { LoadingScreen } from "../LoadingScreen";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { Navbar } from "./Navbar";
 
 interface PageLayoutProps {
   children: React.ReactNode;
 }
 
 export function PageLayout({ children }: PageLayoutProps) {
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const location = useLocation();
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setIsAuthenticated(!!session);
-      } catch (error) {
-        console.error('Error checking auth status:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    // Get the current route and format it for the title
+    const path = location.pathname;
+    let pageTitle = "Notebook"; // Default title
 
-    checkAuth();
+    // Map routes to their respective titles
+    if (path === "/") {
+      pageTitle = "Dashboard - Notebook";
+    } else if (path === "/auth") {
+      pageTitle = "Authentication - Notebook";
+    } else if (path === "/calendar") {
+      pageTitle = "Calendar - Notebook";
+    } else if (path === "/library") {
+      pageTitle = "Library - Notebook";
+    } else if (path === "/recordings") {
+      pageTitle = "Recordings - Notebook";
+    } else if (path === "/settings") {
+      pageTitle = "Settings - Notebook";
+    } else if (path === "/shared") {
+      pageTitle = "Shared - Notebook";
+    } else if (path.startsWith("/recurring-events")) {
+      pageTitle = "Recurring Events - Notebook";
+    }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(!!session);
-      setIsLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  if (isLoading || isAuthenticated === null) {
-    return <LoadingScreen />;
-  }
+    // Update the document title
+    document.title = pageTitle;
+  }, [location]);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen flex flex-col">
       <Navbar />
-      <div className="container mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 max-w-7xl flex-1">
-        <main className="space-y-4 sm:space-y-6">
-          {children}
-        </main>
-      </div>
+      <main className="flex-1 container mx-auto py-6">
+        {children}
+      </main>
       <Footer />
     </div>
   );
