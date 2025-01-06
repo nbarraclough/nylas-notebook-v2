@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,12 +16,42 @@ export function RecurringRecordingToggle({
 }: RecurringRecordingToggleProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [isEnabled, setIsEnabled] = useState(() => {
-    // Check if any events are queued
-    return events.some(event => 
-      event.notetaker_queue?.some((q: any) => q.status === 'pending')
-    );
-  });
+  const [isEnabled, setIsEnabled] = useState(false);
+
+  // Fetch initial state from recurring_recording_settings
+  useEffect(() => {
+    const fetchRecordingSettings = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('recurring_recording_settings')
+          .select('enabled')
+          .eq('master_event_id', masterId)
+          .single();
+
+        if (error) throw error;
+        
+        // If we have a setting, use it. Otherwise, check if any events are queued
+        if (data) {
+          setIsEnabled(data.enabled);
+        } else {
+          // Fall back to checking queue state
+          const hasQueuedEvents = events.some(event => 
+            event.notetaker_queue?.some((q: any) => q.status === 'pending')
+          );
+          setIsEnabled(hasQueuedEvents);
+        }
+      } catch (error) {
+        console.error('Error fetching recording settings:', error);
+        // Fall back to checking queue state
+        const hasQueuedEvents = events.some(event => 
+          event.notetaker_queue?.some((q: any) => q.status === 'pending')
+        );
+        setIsEnabled(hasQueuedEvents);
+      }
+    };
+
+    fetchRecordingSettings();
+  }, [masterId, events]);
 
   const handleToggle = async (enabled: boolean) => {
     try {
