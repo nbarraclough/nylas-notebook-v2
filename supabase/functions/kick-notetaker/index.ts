@@ -1,5 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
-import { corsHeaders } from '../_shared/cors.ts'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
 Deno.serve(async (req) => {
   // Handle CORS
@@ -49,28 +53,45 @@ Deno.serve(async (req) => {
 
     console.log('Found recording:', recordingData)
 
-    // Send kick request to Nylas
+    // Get the user's Nylas grant ID
+    const { data: profileData, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('nylas_grant_id')
+      .eq('id', queueData.user_id)
+      .single()
+
+    if (profileError) {
+      console.error('Error fetching profile:', profileError)
+      throw new Error('Failed to fetch profile')
+    }
+
+    if (!profileData.nylas_grant_id) {
+      throw new Error('No Nylas grant ID found for user')
+    }
+
+    // Send kick request to Nylas using the correct URL format
     const response = await fetch(
-      `https://api-staging.us.nylas.com/v3/notetakers/${notetakerId}/kick`,
+      `https://api-staging.us.nylas.com/v3/grants/${profileData.nylas_grant_id}/notetakers/${notetakerId}`,
       {
-        method: 'POST',
+        method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json, application/gzip'
         }
       }
     )
 
+    // Log the raw response for debugging
+    const responseText = await response.text()
+    console.log('Raw Nylas response:', responseText)
+
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Failed to kick notetaker:', errorText)
-      throw new Error(`Failed to kick notetaker: ${errorText}`)
+      console.error('Failed to kick notetaker. Status:', response.status, 'Response:', responseText)
+      throw new Error(`Failed to kick notetaker: ${responseText}`)
     }
 
-    // Try to parse as JSON first, if it fails, use text response
+    // Try to parse as JSON if possible, otherwise use text response
     let responseData;
-    const responseText = await response.text();
     try {
       responseData = JSON.parse(responseText);
       console.log('Parsed JSON response:', responseData);
