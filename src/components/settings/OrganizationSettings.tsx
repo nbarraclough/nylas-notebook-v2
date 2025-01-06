@@ -1,7 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getUserDomain, isFreeDomain } from "@/utils/emailDomains";
-import { CreateJoinOrganization } from "./organization/CreateJoinOrganization";
 import { useOrganizationData } from "./organization/useOrganizationData";
 import { OrganizationSettingsContent } from "./organization/OrganizationSettingsContent";
 import { useProfileData } from "@/components/library/video/useProfileData";
@@ -42,14 +41,16 @@ export const OrganizationSettings = ({ userId }: { userId: string }) => {
 
   if (!organizationData?.organization) {
     return (
-      <CreateJoinOrganization 
-        userId={userId} 
-        onOrganizationUpdate={async () => {
-          await queryClient.invalidateQueries({
-            queryKey: ['organization_data', userId],
-          });
-        }} 
-      />
+      <Card>
+        <CardHeader>
+          <CardTitle>Organization</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            You are not currently part of an organization. Please contact your organization administrator for an invitation.
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
