@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { VideoPlayer } from "@/components/recordings/player/VideoPlayer";
+import { VideoPlayer, type VideoPlayerRef } from "@/components/recordings/player/VideoPlayer";
 import { TranscriptSection } from "@/components/recordings/transcript/TranscriptSection";
 import { VideoHeader } from "./VideoHeader";
 import { useRecordingData } from "./video/useRecordingData";
@@ -9,7 +9,7 @@ import { useVideoRefresh } from "./video/useVideoRefresh";
 import type { EventParticipant } from "@/types/calendar";
 import type { Json } from "@/integrations/supabase/types";
 import { Loader2 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 interface VideoPlayerViewProps {
   recordingId: string;
@@ -26,6 +26,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   const { recording, isLoading: isRecordingLoading } = useRecordingData(recordingId);
   const { data: profile } = useProfileData();
   const { refreshMedia, isRefreshing } = useVideoRefresh(recordingId, recording?.notetaker_id);
+  const videoPlayerRef = useRef<VideoPlayerRef>(null);
 
   // Refresh media when component mounts
   useEffect(() => {
@@ -33,6 +34,11 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
       refreshMedia();
     }
   }, [recording?.notetaker_id]);
+
+  const handleClose = () => {
+    videoPlayerRef.current?.pause();
+    onClose();
+  };
 
   const isInternalMeeting = () => {
     const organizer = recording?.event?.organizer as Organizer | null;
@@ -121,7 +127,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
             participants={participants}
             grantId={profile?.nylas_grant_id}
             recordingId={recordingId}
-            onClose={onClose}
+            onClose={handleClose}
             startTime={recording.event?.start_time}
             endTime={recording.event?.end_time}
             onShareUpdate={handleShareUpdate}
@@ -138,6 +144,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
                 </div>
               ) : null}
               <VideoPlayer
+                ref={videoPlayerRef}
                 recordingId={recordingId}
                 videoUrl={recording.video_url}
                 recordingUrl={recording.recording_url}

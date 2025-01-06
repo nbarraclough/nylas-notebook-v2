@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { useRecordingMedia } from "@/hooks/use-recording-media";
 import type { EventParticipant } from "@/types/calendar";
 
@@ -13,16 +13,29 @@ interface VideoPlayerProps {
   onRefreshMedia?: () => Promise<void>;
 }
 
-export function VideoPlayer({ 
+export interface VideoPlayerRef {
+  pause: () => void;
+}
+
+export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ 
   recordingId,
   videoUrl: initialVideoUrl,
   recordingUrl,
   notetakerId,
   onRefreshMedia
-}: VideoPlayerProps) {
+}, ref) => {
   const [videoUrl, setVideoUrl] = useState<string | null>(initialVideoUrl);
   const { refreshMedia } = useRecordingMedia();
   const [isLoaded, setIsLoaded] = useState(false);
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    pause: () => {
+      if (videoElement) {
+        videoElement.pause();
+      }
+    }
+  }));
 
   useEffect(() => {
     setVideoUrl(initialVideoUrl);
@@ -55,6 +68,7 @@ export function VideoPlayer({
   return (
     <div className="aspect-video">
       <video
+        ref={setVideoElement}
         src={finalVideoUrl}
         controls
         autoPlay
@@ -76,4 +90,6 @@ export function VideoPlayer({
       </video>
     </div>
   );
-}
+});
+
+VideoPlayer.displayName = "VideoPlayer";
