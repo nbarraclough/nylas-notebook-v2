@@ -84,8 +84,28 @@ export function useSharedVideo() {
 
       console.log('Fetching shared video with token:', token);
 
-      // Set the external token in the request header
-      const { data: recordings, error: recordingsError } = await supabase
+      // First get the recording ID from video_shares
+      const { data: shares, error: sharesError } = await supabase
+        .from('video_shares')
+        .select('recording_id')
+        .eq('external_token', token)
+        .eq('share_type', 'external')
+        .single();
+
+      if (sharesError) {
+        console.error('Error fetching video shares:', sharesError);
+        throw sharesError;
+      }
+
+      if (!shares) {
+        console.log('No shares found for token:', token);
+        setEventData(null);
+        setRecording(null);
+        return;
+      }
+
+      // Then fetch the recording with its event data
+      const { data: recordingData, error: recordingError } = await supabase
         .from('recordings')
         .select(`
           id,
@@ -101,28 +121,14 @@ export function useSharedVideo() {
             participants
           )
         `)
-        .in('id', (
-          supabase
-            .from('video_shares')
-            .select('recording_id')
-            .eq('external_token', token)
-            .eq('share_type', 'external')
-        ));
+        .eq('id', shares.recording_id)
+        .single();
 
-      if (recordingsError) {
-        console.error('Error fetching recordings:', recordingsError);
-        throw recordingsError;
+      if (recordingError) {
+        console.error('Error fetching recording:', recordingError);
+        throw recordingError;
       }
 
-      if (!recordings || recordings.length === 0) {
-        console.log('No recording found for token:', token);
-        setEventData(null);
-        setRecording(null);
-        return;
-      }
-
-      const recordingData = recordings[0];
-      
       if (!recordingData || !recordingData.event) {
         console.log('No recording or event data found');
         setEventData(null);
