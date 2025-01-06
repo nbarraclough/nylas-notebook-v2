@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get all users with pending queue items that don't have a notetaker_id
+    // Get all pending queue items that don't have a notetaker_id
     const { data: queueItems, error: queueError } = await supabaseClient
       .from('notetaker_queue')
       .select(`
@@ -25,6 +25,7 @@ Deno.serve(async (req) => {
         event_id,
         scheduled_for,
         attempts,
+        error,
         events!inner (
           conference_url,
           title,
@@ -64,7 +65,7 @@ Deno.serve(async (req) => {
             throw new Error('Nylas grant ID not found for user')
           }
 
-          // Send notetaker request using the correct endpoint
+          // Send notetaker request to Nylas
           const response = await fetch(
             `https://api-staging.us.nylas.com/v3/grants/${item.profiles.nylas_grant_id}/notetakers`,
             {
@@ -104,7 +105,7 @@ Deno.serve(async (req) => {
             throw successError
           }
 
-          // Create or update recording entry with notetaker_id
+          // Create or update recording entry
           const { error: recordingError } = await supabaseClient
             .from('recordings')
             .upsert({
