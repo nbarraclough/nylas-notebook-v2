@@ -77,18 +77,18 @@ serve(async (req) => {
       body: JSON.stringify(requestBody),
     });
 
-    const responseData = await response.json();
-    console.log('📨 Nylas API response:', responseData);
-
     if (!response.ok) {
-      console.error('❌ Nylas API error:', {
+      const errorText = await response.text();
+      console.error('❌ Nylas API error response:', {
         status: response.status,
         statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-        body: responseData,
+        body: errorText,
       });
-      throw new Error(`Nylas API error: ${JSON.stringify(responseData)}`);
+      throw new Error(`Nylas API error: ${response.status} - ${errorText}`);
     }
+
+    const responseData = await response.json();
+    console.log('📨 Nylas API response:', responseData);
 
     // Store email data in the database
     const { data: emailShare, error: dbError } = await supabaseAdmin
@@ -128,12 +128,12 @@ serve(async (req) => {
       },
     )
   } catch (error) {
-    console.error('❌ Error in send-recording-email function:', {
-      error: error.message,
-      stack: error.stack,
-    });
+    console.error('❌ Error in send-recording-email function:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        details: error instanceof Error ? error.stack : undefined,
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
