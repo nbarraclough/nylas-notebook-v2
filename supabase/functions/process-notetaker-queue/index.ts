@@ -67,8 +67,8 @@ Deno.serve(async (req) => {
             throw updateError
           }
 
-          // Send notetaker request
-          const response = await fetch('https://api-staging.us.nylas.com/v3/notetakers', {
+          // Send notetaker request using the correct endpoint
+          const response = await fetch('https://api-staging.us.nylas.com/v3/notetakers/join', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -77,8 +77,8 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               name: item.profiles.notetaker_name || 'Nylas Notetaker',
               conference_url: item.events.conference_url,
-              start_time: item.events.start_time,
-              end_time: item.events.end_time
+              start_time: Math.floor(new Date(item.events.start_time).getTime() / 1000),
+              end_time: Math.floor(new Date(item.events.end_time).getTime() / 1000)
             })
           })
 
@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
             .from('notetaker_queue')
             .update({
               status: 'success',
-              notetaker_id: notetakerData.id
+              notetaker_id: notetakerData.data.id
             })
             .eq('id', item.id)
 
@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
           return {
             queueId: item.id,
             status: 'success',
-            notetakerId: notetakerData.id
+            notetakerId: notetakerData.data.id
           }
 
         } catch (error) {

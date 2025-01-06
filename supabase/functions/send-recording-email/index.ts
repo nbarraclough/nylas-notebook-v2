@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0"
-import { corsHeaders } from "../_shared/cors.ts"
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
 interface EmailRequest {
   grantId: string;
@@ -47,16 +51,16 @@ serve(async (req) => {
     const requestBody = {
       subject,
       body: formattedHtml,
-      to: recipients,
-      tracking_options: {
+      to: recipients.map(r => ({ email: r.email, name: r.name })),
+      tracking: {
         opens: true,
         links: true,
-        thread_replies: true,
+        thread: true,
       },
     };
 
     console.log('📤 Sending request to Nylas API:', {
-      url: `https://api-staging.us.nylas.com/v3/grants/${grantId}/messages/send`,
+      url: `https://api-staging.us.nylas.com/v3/grants/${grantId}/send`,
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
@@ -65,7 +69,7 @@ serve(async (req) => {
       body: JSON.stringify(requestBody, null, 2),
     });
 
-    const response = await fetch(`https://api-staging.us.nylas.com/v3/grants/${grantId}/messages/send`, {
+    const response = await fetch(`https://api-staging.us.nylas.com/v3/grants/${grantId}/send`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
