@@ -11,9 +11,6 @@ interface ShareDialogFormProps {
   onSuccess: () => void;
 }
 
-// Move share handling logic to a separate hook
-import { useShareHandling } from "./useShareHandling";
-
 export function ShareDialogForm({ recordingId, onSuccess }: ShareDialogFormProps) {
   const { toast } = useToast();
   const [isInternalEnabled, setIsInternalEnabled] = useState(false);
@@ -88,19 +85,94 @@ export function ShareDialogForm({ recordingId, onSuccess }: ShareDialogFormProps
     }
   }, [existingShares, profile]);
 
-  // Use the extracted share handling logic
-  const { handleShare, handleCopyLink } = useShareHandling({
-    recordingId,
-    isInternalEnabled,
-    isExternalEnabled,
-    isPasswordEnabled,
-    password,
-    externalShareUrl,
-    setExternalShareUrl,
-    setIsCopied,
-    setIsLoading,
-    onSuccess
-  });
+  const handleShare = async () => {
+    try {
+      setIsLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Remove existing shares
+      const { error: deleteError } = await supabase
+        .from('video_shares')
+        .delete()
+        .eq('recording_id', recordingId);
+
+      if (deleteError) throw deleteError;
+
+      // Create internal share if enabled
+      if (isInternalEnabled && profile?.organization_id) {
+        const { error: internalError } = await supabase
+          .from('video_shares')
+          .insert({
+            recording_id: recordingId,
+            shared_by: user.id,
+            organization_id: profile.organization_id,
+            share_type: 'internal'
+          });
+
+        if (internalError) throw internalError;
+      }
+
+      // Create external share if enabled
+      if (isExternalEnabled) {
+        const { data: newShare, error: externalError } = await supabase
+          .from('video_shares')
+          .insert({
+            recording_id: recordingId,
+            shared_by: user.id,
+            share_type: 'external',
+            password: isPasswordEnabled ? password : null
+          })
+          .select('external_token')
+          .single();
+
+        if (externalError) throw externalError;
+        if (!newShare) throw new Error('Failed to create share');
+
+        const shareUrl = `${window.location.origin}/shared/${newShare.external_token}`;
+        setExternalShareUrl(shareUrl);
+      } else {
+        setExternalShareUrl(null);
+      }
+
+      toast({
+        title: "Sharing settings updated",
+        description: "Your sharing preferences have been saved successfully."
+      });
+
+      onSuccess();
+    } catch (error) {
+      console.error('Error sharing video:', error);
+      toast({
+        title: "Error sharing video",
+        description: "There was a problem updating the sharing settings. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    if (!externalShareUrl) return;
+    
+    try {
+      await navigator.clipboard.writeText(externalShareUrl);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+      
+      toast({
+        title: "Link copied",
+        description: "The sharing link has been copied to your clipboard."
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to copy",
+        description: "Please try copying the link manually.",
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
     <div className="space-y-6">
