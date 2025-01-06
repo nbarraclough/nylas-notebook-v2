@@ -13,6 +13,7 @@ interface SharedVideoPlayerProps {
 export function SharedVideoPlayer({ videoUrl, recordingUrl, recordingId, notetakerId }: SharedVideoPlayerProps) {
   const { toast } = useToast();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
   
   // Use video_url if available, fall back to recording_url
   const finalVideoUrl = videoUrl || recordingUrl;
@@ -72,6 +73,10 @@ export function SharedVideoPlayer({ videoUrl, recordingUrl, recordingId, notetak
     await refreshMedia();
   };
 
+  const handleLoadedData = () => {
+    setIsLoaded(true);
+  };
+
   if (!finalVideoUrl) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-muted rounded-lg">
@@ -85,11 +90,19 @@ export function SharedVideoPlayer({ videoUrl, recordingUrl, recordingId, notetak
       <video
         src={finalVideoUrl}
         controls
+        autoPlay
         className="w-full h-full rounded-lg"
         playsInline
         preload="metadata"
         controlsList="nodownload"
         onError={handleError}
+        onLoadedData={handleLoadedData}
+        onCanPlay={() => {
+          const video = document.querySelector('video');
+          if (video) {
+            video.play().catch(e => console.log('Autoplay prevented:', e));
+          }
+        }}
       >
         <source src={finalVideoUrl} type="video/webm" />
         Your browser does not support the video tag.
