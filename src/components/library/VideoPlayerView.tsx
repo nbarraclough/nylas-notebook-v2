@@ -9,6 +9,7 @@ import { useVideoRefresh } from "./video/useVideoRefresh";
 import type { EventParticipant } from "@/types/calendar";
 import type { Json } from "@/integrations/supabase/types";
 import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
 
 interface VideoPlayerViewProps {
   recordingId: string;
@@ -25,6 +26,13 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   const { recording, isLoading: isRecordingLoading } = useRecordingData(recordingId);
   const { data: profile } = useProfileData();
   const { refreshMedia, isRefreshing } = useVideoRefresh(recordingId, recording?.notetaker_id);
+
+  // Refresh media when component mounts
+  useEffect(() => {
+    if (recording?.notetaker_id) {
+      refreshMedia();
+    }
+  }, [recording?.notetaker_id]);
 
   const isInternalMeeting = () => {
     const organizer = recording?.event?.organizer as Organizer | null;
