@@ -23,11 +23,17 @@ interface SharedRecording {
 
 interface SharedRecordingResponse {
   id: string;
-  video_url: string;
-  recording_url: string;
-  notetaker_id: string;
-  transcript_content: Json;
-  event: Json;
+  video_url: string | null;
+  recording_url: string | null;
+  notetaker_id: string | null;
+  transcript_content: Json | null;
+  event: {
+    title: string;
+    description: string | null;
+    start_time: string;
+    end_time: string;
+    participants: Json[];
+  };
 }
 
 export function useSharedVideo() {
@@ -112,11 +118,11 @@ export function useSharedVideo() {
 
       // Transform event data from the JSON response
       const eventInfo = sharedRecording.event ? {
-        title: sharedRecording.event.title as string || 'Recorded Meeting',
-        description: sharedRecording.event.description as string | null,
-        start_time: sharedRecording.event.start_time as string,
-        end_time: sharedRecording.event.end_time as string,
-        participants: transformParticipants(sharedRecording.event.participants || [])
+        title: sharedRecording.event.title,
+        description: sharedRecording.event.description,
+        start_time: sharedRecording.event.start_time,
+        end_time: sharedRecording.event.end_time,
+        participants: transformParticipants(sharedRecording.event.participants)
       } : null;
 
       console.log('Setting event info:', eventInfo);
