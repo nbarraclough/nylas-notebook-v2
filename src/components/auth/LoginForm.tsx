@@ -50,8 +50,13 @@ export function LoginForm() {
               theme: ThemeSupa,
               style: {
                 button: {
+                  backgroundColor: 'hsl(var(--primary))',
                   borderRadius: '0.5rem',
                   height: '2.75rem',
+                  color: 'white',
+                  '&:hover': {
+                    backgroundColor: 'hsl(var(--primary) / 0.9)',
+                  },
                 },
                 input: {
                   borderRadius: '0.5rem',
