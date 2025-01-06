@@ -4,7 +4,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { VideoPlayer } from "@/components/recordings/player/VideoPlayer";
 import { TranscriptSection } from "@/components/recordings/transcript/TranscriptSection";
 import { VideoHeader } from "./VideoHeader";
-import { useVideoMedia } from "@/hooks/use-video-media";
 import type { EventParticipant } from "@/types/calendar";
 import type { Json } from "@/integrations/supabase/types";
 
@@ -53,8 +52,6 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
     },
   });
 
-  const { refreshMedia } = useVideoMedia(recordingId, recording?.notetaker_id);
-
   const { data: profile } = useQuery({
     queryKey: ['profile'],
     queryFn: async () => {
@@ -71,6 +68,37 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
       return data;
     },
   });
+
+  // Refresh media when component mounts
+  const refreshMedia = async () => {
+    try {
+      console.log('Refreshing media for recording:', recordingId);
+      
+      const { error } = await supabase.functions.invoke('get-recording-media', {
+        body: { 
+          recordingId,
+          notetakerId: recording?.notetaker_id
+        },
+      });
+
+      if (error) {
+        console.error('Error refreshing media:', error);
+        return;
+      }
+
+      // Refetch recording data to get updated URLs
+      queryClient.invalidateQueries({ queryKey: ['recording', recordingId] });
+    } catch (error) {
+      console.error('Error refreshing media:', error);
+    }
+  };
+
+  // Call refreshMedia when component mounts
+  React.useEffect(() => {
+    if (recording?.notetaker_id) {
+      refreshMedia();
+    }
+  }, [recording?.notetaker_id]);
 
   const isInternalMeeting = () => {
     const organizer = recording?.event?.organizer as Organizer | null;
