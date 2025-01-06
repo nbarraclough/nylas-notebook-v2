@@ -59,7 +59,7 @@ export function SharedVideoView() {
           `)
           .eq('external_token', token)
           .eq('share_type', 'external')
-          .maybeSingle();
+          .single();
 
         if (shareError) {
           console.error('Error fetching shared video:', shareError);
@@ -69,7 +69,7 @@ export function SharedVideoView() {
         if (!share?.recording) {
           throw new Error('Recording not found');
         }
-        
+
         // Set event data regardless of recording availability
         if (share.recording.event) {
           const eventInfo = {
