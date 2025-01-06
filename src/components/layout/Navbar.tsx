@@ -6,8 +6,6 @@ import { useEffect, useState } from "react";
 import { 
   Calendar, 
   Settings, 
-  Library,
-  LogOut,
   Menu,
   Repeat,
   NotebookPen,
@@ -66,7 +64,7 @@ export function Navbar() {
         to="/"
         className={cn(
           "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2 rounded-md px-3 py-2",
-          location.pathname === "/" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+          location.pathname === "/" ? "border border-primary bg-transparent" : "hover:bg-accent"
         )}
         onClick={onClick}
       >
@@ -77,7 +75,7 @@ export function Navbar() {
         to="/calendar"
         className={cn(
           "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2 rounded-md px-3 py-2",
-          location.pathname === "/calendar" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+          location.pathname === "/calendar" ? "border border-primary bg-transparent" : "hover:bg-accent"
         )}
         onClick={onClick}
       >
@@ -88,7 +86,7 @@ export function Navbar() {
         to="/recurring-events"
         className={cn(
           "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2 rounded-md px-3 py-2",
-          location.pathname === "/recurring-events" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+          location.pathname === "/recurring-events" ? "border border-primary bg-transparent" : "hover:bg-accent"
         )}
         onClick={onClick}
       >
@@ -99,7 +97,7 @@ export function Navbar() {
         to="/library"
         className={cn(
           "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2 rounded-md px-3 py-2",
-          location.pathname === "/library" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+          location.pathname === "/library" ? "border border-primary bg-transparent" : "hover:bg-accent"
         )}
         onClick={onClick}
       >
@@ -165,7 +163,7 @@ export function Navbar() {
                 size="icon"
                 asChild
                 className={cn(
-                  location.pathname.startsWith("/settings") && "bg-primary text-primary-foreground"
+                  location.pathname.startsWith("/settings") && "border border-primary bg-transparent"
                 )}
               >
                 <Link to="/settings">
