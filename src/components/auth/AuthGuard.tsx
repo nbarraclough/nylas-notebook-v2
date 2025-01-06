@@ -69,7 +69,6 @@ export function AuthGuard({ children }: AuthGuardProps) {
           case 'TOKEN_REFRESHED':
             setIsAuthenticated(true);
             break;
-          case 'USER_DELETED':
           case 'USER_UPDATED':
             // Refresh the session to get updated user data
             await supabase.auth.getSession();
