@@ -57,13 +57,21 @@ export function VideoPlayer({
       <video
         src={finalVideoUrl}
         controls
-        autoPlay={isLoaded}
+        autoPlay
+        muted={!isLoaded} // Initially muted to allow autoplay
         className="w-full h-full"
         playsInline
-        preload="metadata"
+        preload="auto"
         controlsList="nodownload"
         onPlay={handlePlay}
         onLoadedData={handleLoadedData}
+        onCanPlay={() => {
+          const video = document.querySelector('video');
+          if (video) {
+            video.muted = false; // Unmute once can play
+            video.play().catch(e => console.log('Autoplay prevented:', e));
+          }
+        }}
       >
         <source src={finalVideoUrl} type="video/webm" />
         Your browser does not support the video tag.
