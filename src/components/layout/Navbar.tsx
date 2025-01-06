@@ -103,7 +103,7 @@ export function Navbar() {
         onClick={onClick}
       >
         <NotebookPen className="h-4 w-4" />
-        Notebook
+        Library
       </Link>
       <div className="lg:hidden">
         <SendNotetaker />
@@ -118,7 +118,7 @@ export function Navbar() {
           <div className="mr-6 flex items-center space-x-2">
             <NotebookPen className="h-5 w-5" />
             <span className="font-bold text-lg">
-              Notebook
+              Library
             </span>
           </div>
           
@@ -142,7 +142,7 @@ export function Navbar() {
                     <div className="flex flex-col h-full">
                       <div className="flex items-center space-x-2 mb-6">
                         <NotebookPen className="h-5 w-5" />
-                        <span className="font-bold text-lg">Notebook</span>
+                        <span className="font-bold text-lg">Library</span>
                       </div>
                       <NavLinks onClick={() => setIsOpen(false)} />
                     </div>
