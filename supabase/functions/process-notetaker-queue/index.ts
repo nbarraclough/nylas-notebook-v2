@@ -1,5 +1,11 @@
+// Follow this setup to create Supabase client in Edge Functions
+// https://supabase.com/docs/guides/functions/connect-to-supabase
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
-import { corsHeaders } from '../_shared/cors.ts'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -16,37 +22,31 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get all pending queue items that don't have a notetaker_id
+    // Get all pending queue items - removed INNER JOIN to prevent filtering
     const { data: queueItems, error: queueError } = await supabaseClient
       .from('notetaker_queue')
       .select(`
-        id,
-        user_id,
-        event_id,
-        scheduled_for,
-        attempts,
-        error,
-        events!inner (
+        *,
+        events (
           conference_url,
           title,
           start_time,
           end_time
         ),
-        profiles!inner (
-          notetaker_name,
-          nylas_grant_id
+        profiles (
+          nylas_grant_id,
+          notetaker_name
         )
       `)
       .eq('status', 'pending')
       .is('notetaker_id', null)
-      .order('scheduled_for', { ascending: true })
 
     if (queueError) {
       console.error('Error fetching queue items:', queueError)
       throw queueError
     }
 
-    console.log(`Found ${queueItems?.length || 0} pending queue items without notetaker_id`)
+    console.log(`Found ${queueItems?.length || 0} pending queue items`)
 
     if (!queueItems?.length) {
       return new Response(
@@ -58,13 +58,19 @@ Deno.serve(async (req) => {
     // Process each queue item
     const results = await Promise.all(
       queueItems.map(async (item) => {
-        console.log(`Processing queue item ${item.id} for event: ${item.events.title}`)
+        console.log(`Processing queue item ${item.id} for event:`, item.events?.title)
         
         try {
-          if (!item.profiles.nylas_grant_id) {
+          if (!item.events?.conference_url) {
+            throw new Error('Conference URL not found for event')
+          }
+
+          if (!item.profiles?.nylas_grant_id) {
             throw new Error('Nylas grant ID not found for user')
           }
 
+          console.log('Sending notetaker request to Nylas for event:', item.events.title)
+          
           // Send notetaker request to Nylas
           const response = await fetch(
             `https://api-staging.us.nylas.com/v3/grants/${item.profiles.nylas_grant_id}/notetakers`,
@@ -96,7 +102,8 @@ Deno.serve(async (req) => {
               status: 'success',
               notetaker_id: responseData.data.notetaker_id,
               attempts: (item.attempts || 0) + 1,
-              last_attempt: new Date().toISOString()
+              last_attempt: new Date().toISOString(),
+              error: null // Clear any previous errors
             })
             .eq('id', item.id)
 
