@@ -27,21 +27,21 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
-        <AuthGuard>
-          <Routes>
-            <Route path="/" element={<Marketing />} />
-            <Route path="/auth" element={<Auth />} />
+        <Routes>
+          <Route path="/" element={<Marketing />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/shared/*" element={<Shared />} />
+          <Route element={<AuthGuard>}>
             <Route path="/dashboard" element={<Index />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/library" element={<Library />} />
             <Route path="/queue" element={<Queue />} />
             <Route path="/recordings" element={<Recordings />} />
             <Route path="/settings/*" element={<Settings />} />
-            <Route path="/shared/*" element={<Shared />} />
             <Route path="/recurring-events" element={<RecurringEvents />} />
             <Route path="/recurring-events/:masterEventId" element={<RecurringEventSeries />} />
-          </Routes>
-        </AuthGuard>
+          </Route>
+        </Routes>
         <Toaster />
       </Router>
     </QueryClientProvider>

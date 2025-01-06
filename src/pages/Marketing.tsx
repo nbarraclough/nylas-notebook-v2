@@ -13,7 +13,9 @@ export default function Marketing() {
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center space-x-2">
               <NotebookPen className="h-5 w-5" />
-              <span className="font-bold text-lg">Notebook</span>
+              <span className="font-bold text-lg">
+                Notebook
+              </span>
             </div>
             <div className="flex items-center space-x-4">
               <Button
