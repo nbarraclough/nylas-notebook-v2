@@ -4,8 +4,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { VideoPlayer } from "@/components/recordings/player/VideoPlayer";
 import { TranscriptSection } from "@/components/recordings/transcript/TranscriptSection";
 import { VideoHeader } from "./VideoHeader";
+import { useRecordingMedia } from "@/hooks/use-recording-media";
 import type { EventParticipant } from "@/types/calendar";
 import type { Json } from "@/integrations/supabase/types";
+import { useEffect } from "react";
 
 interface VideoPlayerViewProps {
   recordingId: string;
@@ -19,6 +21,7 @@ interface Organizer {
 
 export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) {
   const queryClient = useQueryClient();
+  const { refreshMedia } = useRecordingMedia();
 
   const { data: recording, isLoading } = useQuery({
     queryKey: ['recording', recordingId],
@@ -69,6 +72,18 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
     },
   });
 
+  // Refresh media URL when component mounts
+  useEffect(() => {
+    const refreshVideoUrl = async () => {
+      if (recording?.notetaker_id) {
+        console.log('Refreshing media URL for recording:', recordingId);
+        await refreshMedia(recordingId, recording.notetaker_id);
+      }
+    };
+    
+    refreshVideoUrl();
+  }, [recordingId, recording?.notetaker_id, refreshMedia]);
+
   const isInternalMeeting = () => {
     const organizer = recording?.event?.organizer as Organizer | null;
     const organizerEmail = organizer?.email || profile?.email;
@@ -93,7 +108,6 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   };
 
   const handleShareUpdate = () => {
-    // Refetch the recording data to get updated shares
     queryClient.invalidateQueries({ queryKey: ['recording', recordingId] });
   };
 
