@@ -10,13 +10,15 @@ interface VideoPlayerProps {
   participants: EventParticipant[];
   grantId: string | null;
   notetakerId?: string | null;
+  onRefreshMedia?: () => Promise<void>;
 }
 
 export function VideoPlayer({ 
   recordingId,
   videoUrl: initialVideoUrl,
   recordingUrl,
-  notetakerId
+  notetakerId,
+  onRefreshMedia
 }: VideoPlayerProps) {
   const [videoUrl, setVideoUrl] = useState<string | null>(initialVideoUrl);
   const { refreshMedia } = useRecordingMedia();
@@ -25,20 +27,10 @@ export function VideoPlayer({
     setVideoUrl(initialVideoUrl);
   }, [initialVideoUrl]);
 
-  // Check for missing media content on mount
-  useEffect(() => {
-    const checkAndRefreshMedia = async () => {
-      if (notetakerId && !initialVideoUrl) {
-        console.log('Missing video URL, attempting to refresh media...');
-        await refreshMedia(recordingId, notetakerId);
-      }
-    };
-    
-    checkAndRefreshMedia();
-  }, [recordingId, notetakerId, initialVideoUrl, refreshMedia]);
-
   const handlePlay = async () => {
-    if (notetakerId) {
+    if (onRefreshMedia) {
+      await onRefreshMedia();
+    } else if (notetakerId) {
       await refreshMedia(recordingId, notetakerId);
     }
   };

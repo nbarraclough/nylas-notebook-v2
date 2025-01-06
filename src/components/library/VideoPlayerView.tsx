@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { VideoPlayer } from "@/components/recordings/player/VideoPlayer";
 import { TranscriptSection } from "@/components/recordings/transcript/TranscriptSection";
 import { VideoHeader } from "./VideoHeader";
+import { useToast } from "@/hooks/use-toast";
 import type { EventParticipant } from "@/types/calendar";
 import type { Json } from "@/integrations/supabase/types";
 
@@ -19,6 +20,42 @@ interface Organizer {
 
 export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  // Function to refresh media
+  const refreshMedia = async () => {
+    try {
+      console.log('Refreshing media for recording:', recordingId);
+      const { data, error } = await supabase.functions.invoke('get-recording-media', {
+        body: { 
+          recordingId,
+          notetakerId: recording?.notetaker_id 
+        },
+      });
+
+      if (error) {
+        const errorBody = JSON.parse(error.message);
+        if (errorBody?.error === 'MEDIA_NOT_READY') {
+          toast({
+            title: "Media Not Ready",
+            description: "The recording is still being processed. Please try again in a few moments.",
+          });
+          return;
+        }
+        throw error;
+      }
+
+      // Refetch recording data to get updated URLs
+      queryClient.invalidateQueries({ queryKey: ['recording', recordingId] });
+    } catch (error) {
+      console.error('Error refreshing media:', error);
+      toast({
+        title: "Error",
+        description: "Failed to refresh media. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const { data: recording, isLoading } = useQuery({
     queryKey: ['recording', recordingId],
@@ -51,6 +88,11 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
       return data;
     },
   });
+
+  // Refresh media when component mounts
+  useEffect(() => {
+    refreshMedia();
+  }, [recordingId]);
 
   const { data: profile } = useQuery({
     queryKey: ['profile'],
@@ -173,6 +215,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
                 participants={participants}
                 grantId={profile?.nylas_grant_id}
                 notetakerId={recording.notetaker_id}
+                onRefreshMedia={refreshMedia}
               />
             </div>
             
