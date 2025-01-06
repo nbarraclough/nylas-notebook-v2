@@ -1,13 +1,21 @@
-import { useEffect } from 'react';
+import { useState } from 'react';
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export function useVideoRefresh(recordingId: string, notetakerId: string | null | undefined) {
   const queryClient = useQueryClient();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const refreshMedia = async () => {
+    if (!recordingId || !notetakerId) {
+      console.error('Missing required parameters for refreshMedia:', { recordingId, notetakerId });
+      toast.error("Could not refresh video: missing required information");
+      return;
+    }
+
     try {
+      setIsRefreshing(true);
       console.log('Refreshing media for recording:', recordingId);
       
       const { error } = await supabase.functions.invoke('get-recording-media', {
@@ -29,13 +37,10 @@ export function useVideoRefresh(recordingId: string, notetakerId: string | null 
     } catch (error) {
       console.error('Error refreshing media:', error);
       toast.error("Failed to refresh video. Please try again.");
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
-  // Call refreshMedia when component mounts
-  useEffect(() => {
-    refreshMedia();
-  }, [recordingId, notetakerId]);
-
-  return { refreshMedia };
+  return { refreshMedia, isRefreshing };
 }

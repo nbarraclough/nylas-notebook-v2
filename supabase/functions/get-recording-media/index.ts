@@ -14,7 +14,18 @@ Deno.serve(async (req) => {
     console.log('Processing request for recording:', recordingId, 'notetaker:', notetakerId)
 
     if (!recordingId || !notetakerId) {
-      throw new Error('Missing required parameters')
+      console.error('Missing required parameters:', { recordingId, notetakerId });
+      return new Response(
+        JSON.stringify({ 
+          error: 'Missing required parameters',
+          details: { recordingId, notetakerId },
+          type: 'VALIDATION_ERROR'
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     // Initialize Supabase client
@@ -32,12 +43,31 @@ Deno.serve(async (req) => {
 
     if (recordingError || !recording) {
       console.error('Error fetching recording:', recordingError)
-      throw new Error('Recording not found')
+      return new Response(
+        JSON.stringify({ 
+          error: 'Recording not found',
+          details: recordingError,
+          type: 'NOT_FOUND'
+        }),
+        { 
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     const grantId = recording.profiles?.nylas_grant_id
     if (!grantId) {
-      throw new Error('Nylas grant ID not found')
+      return new Response(
+        JSON.stringify({ 
+          error: 'Nylas grant ID not found',
+          type: 'CONFIGURATION_ERROR'
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     console.log('Fetching media from Nylas for grant:', grantId)
@@ -70,7 +100,18 @@ Deno.serve(async (req) => {
           }
         )
       }
-      throw new Error(`Failed to fetch media: ${response.statusText}`)
+
+      return new Response(
+        JSON.stringify({ 
+          error: 'Failed to fetch media from Nylas',
+          status: response.status,
+          type: 'NYLAS_API_ERROR'
+        }),
+        { 
+          status: 502,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     const mediaData = await response.json()
@@ -88,7 +129,17 @@ Deno.serve(async (req) => {
 
     if (updateError) {
       console.error('Error updating recording:', updateError)
-      throw new Error('Failed to update recording with media data')
+      return new Response(
+        JSON.stringify({ 
+          error: 'Failed to update recording with media data',
+          details: updateError,
+          type: 'DATABASE_ERROR'
+        }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     // If there's a transcript URL, fetch and store its content

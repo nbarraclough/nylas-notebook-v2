@@ -8,6 +8,7 @@ import { useProfileData } from "./video/useProfileData";
 import { useVideoRefresh } from "./video/useVideoRefresh";
 import type { EventParticipant } from "@/types/calendar";
 import type { Json } from "@/integrations/supabase/types";
+import { Loader2 } from "lucide-react";
 
 interface VideoPlayerViewProps {
   recordingId: string;
@@ -21,9 +22,9 @@ interface Organizer {
 
 export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) {
   const queryClient = useQueryClient();
-  const { recording, isLoading } = useRecordingData(recordingId);
+  const { recording, isLoading: isRecordingLoading } = useRecordingData(recordingId);
   const { data: profile } = useProfileData();
-  const { refreshMedia } = useVideoRefresh(recordingId, recording?.notetaker_id);
+  const { refreshMedia, isRefreshing } = useVideoRefresh(recordingId, recording?.notetaker_id);
 
   const isInternalMeeting = () => {
     const organizer = recording?.event?.organizer as Organizer | null;
@@ -52,7 +53,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
     queryClient.invalidateQueries({ queryKey: ['recording', recordingId] });
   };
 
-  if (isLoading) {
+  if (isRecordingLoading) {
     return (
       <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
         <Card className="w-full max-w-6xl mx-4">
@@ -119,7 +120,15 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="aspect-video bg-muted rounded-lg overflow-hidden">
+            <div className="aspect-video bg-muted rounded-lg overflow-hidden relative">
+              {isRefreshing ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+                  <div className="flex flex-col items-center gap-2">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="text-sm text-muted-foreground">Refreshing video...</p>
+                  </div>
+                </div>
+              ) : null}
               <VideoPlayer
                 recordingId={recordingId}
                 videoUrl={recording.video_url}
