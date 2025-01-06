@@ -3,14 +3,16 @@ import { ThemeSupa } from "@supabase/auth-ui-shared";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 export function LoginForm() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);
   
   // Get the current site URL for redirect
   const siteUrl = window.location.origin;
+  const returnTo = location.state?.returnTo || "/calendar";
 
   useEffect(() => {
     // Check if user is already logged in
@@ -18,7 +20,7 @@ export function LoginForm() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          navigate("/calendar");
+          navigate(returnTo);
         }
       } catch (error) {
         console.error("Error checking session:", error);
@@ -32,14 +34,14 @@ export function LoginForm() {
     // Subscribe to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        navigate("/calendar");
+        navigate(returnTo);
       }
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, returnTo]);
 
   if (isLoading) {
     return null; // Or a loading spinner if you prefer
