@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Recipients } from "./Recipients";
 import { EmailForm } from "./EmailForm";
+import { useProfileData } from "@/components/library/video/useProfileData";
 
 interface Recipient {
   name: string;
@@ -28,7 +29,6 @@ export function EmailComposerDialog({
   eventTitle,
   recipients: initialRecipients,
   shareUrl,
-  grantId,
   recordingId
 }: EmailComposerDialogProps) {
   const { toast } = useToast();
@@ -37,6 +37,9 @@ export function EmailComposerDialog({
   const [body, setBody] = useState('');
   const [recipients, setRecipients] = useState<Recipient[]>(initialRecipients);
   const [newEmail, setNewEmail] = useState("");
+  
+  // Use the useProfileData hook to get the user's Nylas grant ID
+  const { data: profile, isLoading: profileLoading } = useProfileData();
 
   const handleAddRecipient = () => {
     if (!newEmail) {
@@ -87,8 +90,8 @@ export function EmailComposerDialog({
       return;
     }
 
-    if (!grantId) {
-      console.log('No Nylas grant ID found');
+    if (!profile?.nylas_grant_id) {
+      console.log('No Nylas grant ID found in profile:', profile);
       toast({
         title: "Error",
         description: "Nylas connection not found. Please connect your calendar first.",
@@ -111,7 +114,7 @@ export function EmailComposerDialog({
     try {
       const emailBody = body.replace('{RECORDING_LINK}', shareUrl);
       console.log('Preparing email request:', {
-        grantId,
+        grantId: profile.nylas_grant_id,
         subject,
         body: emailBody,
         recipients,
@@ -120,7 +123,7 @@ export function EmailComposerDialog({
 
       const { data, error } = await supabase.functions.invoke('send-recording-email', {
         body: {
-          grantId,
+          grantId: profile.nylas_grant_id,
           subject,
           body: emailBody,
           recipients,
@@ -185,7 +188,7 @@ export function EmailComposerDialog({
           </Button>
           <Button 
             onClick={handleSend} 
-            disabled={isSending || recipients.length === 0}
+            disabled={isSending || recipients.length === 0 || profileLoading}
           >
             {isSending ? (
               <>
