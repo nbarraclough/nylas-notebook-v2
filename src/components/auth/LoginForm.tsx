@@ -54,7 +54,7 @@ export function LoginForm() {
                   borderRadius: '0.5rem',
                   height: '2.75rem',
                   color: 'white',
-                  ':hover': {
+                  hover: {
                     backgroundColor: 'hsl(var(--primary) / 0.9)',
                   },
                 },
