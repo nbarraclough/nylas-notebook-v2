@@ -59,8 +59,8 @@ serve(async (req) => {
     }
 
     console.log('Getting user info from Nylas...')
-    // Get user info from Nylas
-    const userInfoResponse = await fetch(`https://api-staging.us.nylas.com/v3/grants/${grant_id}/user`, {
+    // Get user info from Nylas - Fixed URL to use /users endpoint
+    const userInfoResponse = await fetch(`https://api-staging.us.nylas.com/v3/grants/${grant_id}/users`, {
       headers: {
         'Authorization': `Bearer ${clientId}:${clientSecret}`,
       },
