@@ -72,11 +72,15 @@ export function useSharedVideo() {
 
   const fetchSharedVideo = async () => {
     try {
-      if (!token) throw new Error('No share token provided');
+      if (!token) {
+        console.log('No share token provided');
+        throw new Error('No share token provided');
+      }
 
-      console.log('Fetching shared video with token:', token);
+      console.log('Starting fetch for shared video with token:', token);
 
       // First get the recording ID from video_shares
+      console.log('Querying video_shares table...');
       const { data: share, error: shareError } = await supabase
         .from('video_shares')
         .select('recording_id')
@@ -84,7 +88,10 @@ export function useSharedVideo() {
         .eq('share_type', 'external')
         .maybeSingle();
 
-      if (shareError) throw shareError;
+      if (shareError) {
+        console.error('Error fetching share:', shareError);
+        throw shareError;
+      }
 
       if (!share) {
         console.log('No share found for token:', token);
@@ -96,6 +103,7 @@ export function useSharedVideo() {
       console.log('Found share with recording ID:', share.recording_id);
 
       // Then fetch the recording with its event data
+      console.log('Querying recordings table...');
       const { data: recordingData, error: recordingError } = await supabase
         .from('recordings')
         .select(`
@@ -120,6 +128,8 @@ export function useSharedVideo() {
         throw recordingError;
       }
 
+      console.log('Raw recording data:', recordingData);
+
       if (!recordingData || !recordingData.event) {
         console.log('No recording or event data found for ID:', share.recording_id);
         setEventData(null);
@@ -133,6 +143,8 @@ export function useSharedVideo() {
         ...recordingData.event,
         participants: transformParticipants(recordingData.event.participants || [])
       };
+      console.log('Transformed event info:', eventInfo);
+      
       setEventData(eventInfo);
 
       const transformedRecording: SharedRecording = {
@@ -144,7 +156,10 @@ export function useSharedVideo() {
         event: eventInfo
       };
 
+      console.log('Setting transformed recording:', transformedRecording);
       setRecording(transformedRecording);
+      
+      console.log('Tracking view for recording:', recordingData.id);
       await trackView(recordingData.id);
     } catch (error) {
       console.error('Error fetching shared video:', error);
