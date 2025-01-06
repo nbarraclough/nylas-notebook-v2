@@ -218,9 +218,7 @@ export type Database = {
         ]
       }
     };
-    Views: {
-      [_ in never]: never
-    };
+    Views: Record<string, never>;
     Functions: {
       should_record_event: {
         Args: {
@@ -241,11 +239,8 @@ export type Database = {
     };
     Enums: {
       audit_action: AuditAction;
-      [_ in never]: never
     };
-    CompositeTypes: {
-      [_ in never]: never
-    };
+    CompositeTypes: Record<string, never>;
   };
 };
 
