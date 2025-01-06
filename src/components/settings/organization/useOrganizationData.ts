@@ -36,15 +36,13 @@ export function useOrganizationData(userId: string) {
         throw orgError;
       }
 
-      // Get organization members using the foreign key reference syntax
+      // Get organization members using the correct foreign key reference
       const { data: membersData, error: membersError } = await supabase
         .from('organization_members')
         .select(`
           user_id,
           role,
-          profiles:user_id(
-            email
-          )
+          profiles:user_id(*)
         `)
         .eq('organization_id', profile.organization_id);
 
