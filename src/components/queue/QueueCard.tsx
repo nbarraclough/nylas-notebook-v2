@@ -69,10 +69,10 @@ export const QueueCard = ({ queueItem }: QueueCardProps) => {
 
   return (
     <Card>
-      <CardContent className="p-4">
-        <div className="flex flex-col space-y-4">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
+      <CardContent className="p-3 sm:p-4">
+        <div className="flex flex-col space-y-3 sm:space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1 flex-1">
               <h3 className="font-medium line-clamp-2">{queueItem.event.title}</h3>
               <p className="text-sm text-muted-foreground">
                 {formatTimeRange(queueItem.event.start_time, queueItem.event.end_time)}
@@ -81,7 +81,7 @@ export const QueueCard = ({ queueItem }: QueueCardProps) => {
                 Notetaker will join {timeUntilStart}
               </p>
             </div>
-            <div className="flex items-center space-x-2 ml-4">
+            <div className="flex items-center space-x-2 shrink-0">
               {getStatusIcon()}
               <span className="text-sm capitalize hidden sm:inline">{queueItem.status}</span>
             </div>
@@ -96,13 +96,13 @@ export const QueueCard = ({ queueItem }: QueueCardProps) => {
           <div className="space-y-2">
             <div className="text-sm">
               <span className="font-medium">Organizer:</span>{' '}
-              <span className="text-muted-foreground">
+              <span className="text-muted-foreground break-all">
                 {organizer?.name || organizer?.email || 'Unknown'}
               </span>
             </div>
             <div className="text-sm">
               <span className="font-medium">Participants:</span>{' '}
-              <span className="text-muted-foreground line-clamp-2">
+              <span className="text-muted-foreground line-clamp-2 break-all">
                 {participants.length > 0
                   ? participants.map(p => p.name || p.email).join(', ')
                   : 'No participants'}

@@ -19,9 +19,9 @@ export const RecordingStatus = ({ status }: RecordingStatusProps) => {
   };
 
   return (
-    <div className="flex items-center space-x-2">
+    <div className="flex items-center space-x-2 whitespace-nowrap">
       {getStatusIcon()}
-      <span className="text-sm capitalize">{status}</span>
+      <span className="text-sm capitalize hidden sm:inline-block">{status}</span>
     </div>
   );
 };

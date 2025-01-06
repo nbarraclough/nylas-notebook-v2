@@ -41,11 +41,11 @@ export const VideoPlayerDialog = ({ videoUrl, title, children, onRetrieveMedia }
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="w-[95vw] max-w-4xl mx-auto">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle className="text-base sm:text-lg line-clamp-2">{title}</DialogTitle>
         </DialogHeader>
-        <div className="aspect-video w-full">
+        <div className="aspect-video w-full relative">
           <video 
             src={videoUrl} 
             controls 
@@ -60,7 +60,7 @@ export const VideoPlayerDialog = ({ videoUrl, title, children, onRetrieveMedia }
           </video>
           {isRefreshing && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
-              <div className="text-white">Refreshing video URL...</div>
+              <div className="text-white text-sm sm:text-base">Refreshing video URL...</div>
             </div>
           )}
         </div>
