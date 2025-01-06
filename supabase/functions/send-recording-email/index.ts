@@ -15,6 +15,7 @@ interface EmailRequest {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -61,10 +62,6 @@ serve(async (req) => {
     console.log('📤 Sending request to Nylas API:', {
       url: `https://api-staging.us.nylas.com/v3/grants/${grantId}/messages/send`,
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify(requestBody, null, 2),
     });
 
@@ -90,7 +87,7 @@ serve(async (req) => {
     const responseData = await response.json();
     console.log('📨 Nylas API response:', responseData);
 
-    // Store email data in the database
+    // Store email data in the database with a timeout of 10 seconds
     const { data: emailShare, error: dbError } = await supabaseAdmin
       .from('email_shares')
       .insert({
