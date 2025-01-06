@@ -36,13 +36,13 @@ export function useOrganizationData(userId: string) {
         throw orgError;
       }
 
-      // Get organization members with a simplified query
+      // Get organization members with a proper join
       const { data: membersData, error: membersError } = await supabase
         .from('organization_members')
         .select(`
           user_id,
           role,
-          profiles:user_id (
+          profiles (
             email
           )
         `)
@@ -53,14 +53,23 @@ export function useOrganizationData(userId: string) {
         throw membersError;
       }
 
+      // Transform the data to match the expected format
+      const members = membersData?.map(member => ({
+        user_id: member.user_id,
+        role: member.role,
+        profiles: {
+          email: member.profiles?.email
+        }
+      }));
+
       console.log('Successfully fetched organization data:', {
         organizationId: profile.organization_id,
-        memberCount: membersData?.length
+        memberCount: members?.length
       });
 
       return {
         organization,
-        members: membersData
+        members
       };
     },
     enabled: !!userId,
