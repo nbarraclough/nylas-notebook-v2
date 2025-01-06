@@ -11,7 +11,11 @@ import {
 import {
   handleEventCreated,
   handleEventUpdated,
-  handleEventDeleted
+  handleEventDeleted,
+  handleGrantCreated,
+  handleGrantUpdated,
+  handleGrantDeleted,
+  handleGrantExpired
 } from '../_shared/webhook-handlers.ts'
 
 serve(async (req) => {
@@ -87,6 +91,35 @@ serve(async (req) => {
           const deleteResult = await handleEventDeleted(webhookData.data.object, grantId);
           logWebhookSuccess(webhookData.type);
           return new Response(JSON.stringify(deleteResult), { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+
+        // Handle grant webhooks
+        case 'grant.created':
+          const grantCreateResult = await handleGrantCreated(webhookData.data);
+          logWebhookSuccess(webhookData.type);
+          return new Response(JSON.stringify(grantCreateResult), { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+
+        case 'grant.updated':
+          const grantUpdateResult = await handleGrantUpdated(webhookData.data);
+          logWebhookSuccess(webhookData.type);
+          return new Response(JSON.stringify(grantUpdateResult), { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+
+        case 'grant.deleted':
+          const grantDeleteResult = await handleGrantDeleted(webhookData.data);
+          logWebhookSuccess(webhookData.type);
+          return new Response(JSON.stringify(grantDeleteResult), { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+
+        case 'grant.expired':
+          const grantExpireResult = await handleGrantExpired(webhookData.data);
+          logWebhookSuccess(webhookData.type);
+          return new Response(JSON.stringify(grantExpireResult), { 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
 
