@@ -18,7 +18,14 @@ export function useRecordings({ isAuthenticated, recordingId, filters }: UseReco
   return useQuery({
     queryKey: ['library-recordings', filters, isAuthenticated, recordingId],
     queryFn: async () => {
-      console.log('Fetching recordings...');
+      console.log('Fetching recordings with auth status:', isAuthenticated);
+      
+      // Check authentication status
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session && !recordingId) {
+        console.error('No active session found');
+        throw new Error('Authentication required');
+      }
       
       let query = supabase
         .from('recordings')
@@ -53,10 +60,15 @@ export function useRecordings({ isAuthenticated, recordingId, filters }: UseReco
 
         if (filters.hasPublicLink) {
           // First get the recording IDs that have external video shares
-          const { data: shareData } = await supabase
+          const { data: shareData, error: shareError } = await supabase
             .from('video_shares')
             .select('recording_id')
             .eq('share_type', 'external');
+
+          if (shareError) {
+            console.error('Error fetching video shares:', shareError);
+            throw shareError;
+          }
 
           // If we have recording IDs with public links, filter the main query
           if (shareData && shareData.length > 0) {
