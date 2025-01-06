@@ -72,14 +72,23 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
 
   const sortedGroupedEvents = (() => {
     const grouped = groupEventsByDate(events);
-    const sortedDates = Object.keys(grouped).sort((a, b) => 
-      new Date(a).getTime() - new Date(b).getTime()
-    );
+    const sortedDates = Object.keys(grouped).sort((a, b) => {
+      const dateA = new Date(a).getTime();
+      const dateB = new Date(b).getTime();
+      // Sort in descending order for past events, ascending for upcoming
+      return filter === "past" 
+        ? dateB - dateA  // Descending for past events
+        : dateA - dateB; // Ascending for upcoming events
+    });
+    
     return sortedDates.map(date => ({
       date: new Date(date),
-      events: grouped[date].sort((a, b) => 
-        new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
-      )
+      events: grouped[date].sort((a, b) => {
+        const timeA = new Date(a.start_time).getTime();
+        const timeB = new Date(b.start_time).getTime();
+        // Sort events within the same day in the same order as the dates
+        return filter === "past" ? timeB - timeA : timeA - timeB;
+      })
     }));
   })();
 
