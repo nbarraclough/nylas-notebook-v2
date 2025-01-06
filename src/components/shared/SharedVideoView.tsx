@@ -48,6 +48,7 @@ export function SharedVideoView() {
               id,
               video_url,
               recording_url,
+              notetaker_id,
               transcript_content,
               event:events!inner (
                 title,
@@ -85,6 +86,7 @@ export function SharedVideoView() {
           id: share.recording.id,
           video_url: share.recording.video_url,
           recording_url: share.recording.recording_url,
+          notetaker_id: share.recording.notetaker_id,
           transcript_content: share.recording.transcript_content,
           event: {
             ...share.recording.event,
