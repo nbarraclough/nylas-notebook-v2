@@ -24,7 +24,7 @@ export function useNotetakers(userId: string) {
           )
         `)
         .eq('user_id', userId)
-        .not('notetaker_id', 'is', null);  // Only get recordings with notetaker_id
+        .not('notetaker_id', 'is', null);
 
       console.log('Recordings query result:', { recordingsData, recordingsError });
       
@@ -66,11 +66,22 @@ export function useNotetakers(userId: string) {
 
       console.log('Combined records before deduplication:', allRecords);
 
-      // Remove duplicates based on notetaker_id
+      // Remove duplicates based on notetaker_id and ensure correct typing
       const uniqueRecords = Array.from(
-        new Map(allRecords.map(record => [record.notetaker_id, record]))
+        new Map(allRecords.map(record => [record.notetaker_id, {
+          id: record.id,
+          notetaker_id: record.notetaker_id,
+          event: {
+            title: record.event?.title || '',
+            start_time: record.event?.start_time || '',
+            manual_meeting: record.event?.manual_meeting ? {
+              title: record.event.manual_meeting.title,
+              meeting_url: record.event.manual_meeting.meeting_url
+            } : undefined
+          }
+        } as NotetakerRecord]))
         .values()
-      ) as NotetakerRecord[];
+      );
 
       console.log('Final unique records:', uniqueRecords);
       return uniqueRecords;

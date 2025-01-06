@@ -21,13 +21,21 @@ interface SharedRecording {
   };
 }
 
+interface EventData {
+  title: string;
+  description: string | null;
+  start_time: string;
+  end_time: string;
+  participants: EventParticipant[];
+}
+
 export function useSharedVideo() {
   const { token } = useParams();
   const { toast } = useToast();
   const { trackView } = useVideoViews();
   const [recording, setRecording] = useState<SharedRecording | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [eventData, setEventData] = useState<SharedRecording['event'] | null>(null);
+  const [eventData, setEventData] = useState<EventData | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const transformParticipants = (participants: Json): EventParticipant[] => {
@@ -84,7 +92,6 @@ export function useSharedVideo() {
 
       console.log('Fetching shared video with token:', token);
 
-      // First get the recording ID from video_shares
       const { data: shares, error: sharesError } = await supabase
         .from('video_shares')
         .select('recording_id')
@@ -104,7 +111,6 @@ export function useSharedVideo() {
         return;
       }
 
-      // Then fetch the recording with its event data
       const { data: recordingData, error: recordingError } = await supabase
         .from('recordings')
         .select(`
@@ -136,11 +142,15 @@ export function useSharedVideo() {
         return;
       }
 
-      const eventInfo = {
-        ...recordingData.event,
+      const transformedEventData: EventData = {
+        title: recordingData.event.title || '',
+        description: recordingData.event.description,
+        start_time: recordingData.event.start_time,
+        end_time: recordingData.event.end_time,
         participants: transformParticipants(recordingData.event.participants || [])
       };
-      setEventData(eventInfo);
+
+      setEventData(transformedEventData);
 
       const transformedRecording: SharedRecording = {
         id: recordingData.id,
@@ -148,7 +158,7 @@ export function useSharedVideo() {
         recording_url: recordingData.recording_url,
         notetaker_id: recordingData.notetaker_id,
         transcript_content: recordingData.transcript_content,
-        event: eventInfo
+        event: transformedEventData
       };
 
       setRecording(transformedRecording);
