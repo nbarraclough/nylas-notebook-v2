@@ -357,6 +357,7 @@ export type Database = {
           first_name: string | null
           grant_status: string | null
           id: string
+          job_title: string | null
           last_name: string | null
           notetaker_name: string | null
           nylas_grant_id: string | null
@@ -373,6 +374,7 @@ export type Database = {
           first_name?: string | null
           grant_status?: string | null
           id: string
+          job_title?: string | null
           last_name?: string | null
           notetaker_name?: string | null
           nylas_grant_id?: string | null
@@ -389,6 +391,7 @@ export type Database = {
           first_name?: string | null
           grant_status?: string | null
           id?: string
+          job_title?: string | null
           last_name?: string | null
           notetaker_name?: string | null
           nylas_grant_id?: string | null

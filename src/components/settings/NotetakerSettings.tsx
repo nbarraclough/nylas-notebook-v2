@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -20,6 +19,7 @@ export const NotetakerSettings = ({
   const [name, setName] = useState(notetakerName);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
 
   // Query to fetch the profile data
   const { data: profile } = useQuery({
@@ -27,7 +27,7 @@ export const NotetakerSettings = ({
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('notetaker_name, first_name, last_name')
+        .select('notetaker_name, first_name, last_name, job_title')
         .eq('id', userId)
         .single();
 
@@ -45,14 +45,16 @@ export const NotetakerSettings = ({
       }
       if (profile.first_name) setFirstName(profile.first_name);
       if (profile.last_name) setLastName(profile.last_name);
+      if (profile.job_title) setJobTitle(profile.job_title);
     }
   }, [profile, onNotetakerNameChange]);
 
   const updateProfile = useMutation({
-    mutationFn: async ({ notetakerName, firstName, lastName }: { 
+    mutationFn: async ({ notetakerName, firstName, lastName, jobTitle }: { 
       notetakerName: string;
       firstName: string;
       lastName: string;
+      jobTitle: string;
     }) => {
       if (!userId) throw new Error('No user ID');
       
@@ -61,7 +63,8 @@ export const NotetakerSettings = ({
         .update({ 
           notetaker_name: notetakerName,
           first_name: firstName,
-          last_name: lastName
+          last_name: lastName,
+          job_title: jobTitle
         })
         .eq('id', userId);
 
@@ -88,7 +91,8 @@ export const NotetakerSettings = ({
     updateProfile.mutate({ 
       notetakerName: name,
       firstName,
-      lastName
+      lastName,
+      jobTitle
     });
   };
 
@@ -113,6 +117,15 @@ export const NotetakerSettings = ({
             onChange={(e) => setLastName(e.target.value)}
           />
         </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="job-title">Job Title</Label>
+        <Input 
+          id="job-title" 
+          placeholder="Enter your job title" 
+          value={jobTitle}
+          onChange={(e) => setJobTitle(e.target.value)}
+        />
       </div>
       <div className="flex items-end gap-4">
         <div className="flex-1 space-y-2">
