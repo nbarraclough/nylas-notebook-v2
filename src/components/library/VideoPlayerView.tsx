@@ -36,7 +36,9 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   }, [recording?.notetaker_id]);
 
   const handleClose = () => {
-    videoPlayerRef.current?.pause();
+    if (videoPlayerRef.current) {
+      videoPlayerRef.current.pause();
+    }
     onClose();
   };
 

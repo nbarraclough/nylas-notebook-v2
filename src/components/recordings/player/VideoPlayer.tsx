@@ -33,6 +33,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
     pause: () => {
       if (videoElement) {
         videoElement.pause();
+        videoElement.currentTime = 0; // Reset to beginning
       }
     }
   }));
