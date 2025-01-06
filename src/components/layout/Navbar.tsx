@@ -11,6 +11,7 @@ import {
   Menu,
   Repeat,
   NotebookPen,
+  Home,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -64,19 +65,19 @@ export function Navbar() {
       <Link
         to="/"
         className={cn(
-          "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2 border-b-2 border-transparent hover:border-primary pb-1",
-          location.pathname === "/" && "text-primary border-primary"
+          "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2 rounded-md px-3 py-2",
+          location.pathname === "/" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
         )}
         onClick={onClick}
       >
-        <NotebookPen className="h-4 w-4" />
+        <Home className="h-4 w-4" />
         Dashboard
       </Link>
       <Link
         to="/calendar"
         className={cn(
-          "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2 border-b-2 border-transparent hover:border-primary pb-1",
-          location.pathname === "/calendar" && "text-primary border-primary"
+          "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2 rounded-md px-3 py-2",
+          location.pathname === "/calendar" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
         )}
         onClick={onClick}
       >
@@ -86,8 +87,8 @@ export function Navbar() {
       <Link
         to="/recurring-events"
         className={cn(
-          "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2 border-b-2 border-transparent hover:border-primary pb-1",
-          location.pathname === "/recurring-events" && "text-primary border-primary"
+          "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2 rounded-md px-3 py-2",
+          location.pathname === "/recurring-events" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
         )}
         onClick={onClick}
       >
@@ -97,13 +98,13 @@ export function Navbar() {
       <Link
         to="/library"
         className={cn(
-          "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2 border-b-2 border-transparent hover:border-primary pb-1",
-          location.pathname === "/library" && "text-primary border-primary"
+          "text-sm font-medium transition-colors hover:text-primary inline-flex items-center gap-2 rounded-md px-3 py-2",
+          location.pathname === "/library" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
         )}
         onClick={onClick}
       >
-        <Library className="h-4 w-4" />
-        Library
+        <NotebookPen className="h-4 w-4" />
+        Notebook
       </Link>
       <div className="lg:hidden">
         <SendNotetaker />
@@ -164,7 +165,7 @@ export function Navbar() {
                 size="icon"
                 asChild
                 className={cn(
-                  location.pathname.startsWith("/settings") && "text-primary border-primary"
+                  location.pathname.startsWith("/settings") && "bg-primary text-primary-foreground"
                 )}
               >
                 <Link to="/settings">
