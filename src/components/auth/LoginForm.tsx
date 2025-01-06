@@ -73,7 +73,7 @@ export function LoginForm() {
             }}
             theme="light"
             providers={[]}
-            redirectTo={`${siteUrl}/auth/callback`}
+            redirectTo={`${siteUrl}/calendar`}
           />
         </CardContent>
       </Card>
