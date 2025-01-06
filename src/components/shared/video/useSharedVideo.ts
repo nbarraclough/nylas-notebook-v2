@@ -77,33 +77,16 @@ export function useSharedVideo() {
         throw new Error('No share token provided');
       }
 
+      // Configure Supabase client with the token in headers
+      const supabaseWithToken = supabase.headers({
+        'external-token': token
+      });
+
       console.log('Starting fetch for shared video with token:', token);
 
-      // First get the recording ID from video_shares
-      console.log('Querying video_shares table...');
-      const { data: share, error: shareError } = await supabase
-        .from('video_shares')
-        .select('recording_id')
-        .eq('external_token', token)
-        .single();
-
-      if (shareError) {
-        console.error('Error fetching share:', shareError);
-        throw shareError;
-      }
-
-      if (!share) {
-        console.log('No share found for token:', token);
-        setEventData(null);
-        setRecording(null);
-        return;
-      }
-
-      console.log('Found share with recording ID:', share.recording_id);
-
-      // Then fetch the recording with its event data
+      // Fetch the recording directly with the token in headers
       console.log('Querying recordings table...');
-      const { data: recordingData, error: recordingError } = await supabase
+      const { data: recordingData, error: recordingError } = await supabaseWithToken
         .from('recordings')
         .select(`
           id,
@@ -119,7 +102,14 @@ export function useSharedVideo() {
             participants
           )
         `)
-        .eq('id', share.recording_id)
+        .eq('id', (
+          await supabaseWithToken
+            .from('video_shares')
+            .select('recording_id')
+            .eq('external_token', token)
+            .eq('share_type', 'external')
+            .single()
+        ).data.recording_id)
         .single();
 
       if (recordingError) {
@@ -130,7 +120,7 @@ export function useSharedVideo() {
       console.log('Raw recording data:', recordingData);
 
       if (!recordingData) {
-        console.log('No recording or event data found for ID:', share.recording_id);
+        console.log('No recording or event data found');
         setEventData(null);
         setRecording(null);
         return;
