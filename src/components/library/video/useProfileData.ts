@@ -5,16 +5,32 @@ export function useProfileData() {
   return useQuery({
     queryKey: ['profile'],
     queryFn: async () => {
+      console.log('Fetching profile data');
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('nylas_grant_id, email')
+        .select(`
+          nylas_grant_id,
+          email,
+          first_name,
+          last_name,
+          job_title,
+          organization_id,
+          organizations (
+            name
+          )
+        `)
         .eq('id', user.id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching profile:', error);
+        throw error;
+      }
+      
+      console.log('Profile data:', data);
       return data;
     },
   });
