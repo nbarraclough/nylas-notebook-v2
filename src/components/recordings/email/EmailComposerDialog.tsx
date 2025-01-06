@@ -33,7 +33,7 @@ export function EmailComposerDialog({
 }: EmailComposerDialogProps) {
   const { toast } = useToast();
   const [isSending, setIsSending] = useState(false);
-  const [subject, setSubject] = useState(`${eventTitle} - my Notetaker recording`);
+  const [subject, setSubject] = useState(`${eventTitle} - Recording`);
   const [body, setBody] = useState(
     `Hi everyone,\n\nI wanted to share the recording from our meeting "${eventTitle}".\n\nYou can watch it here: ${shareUrl}\n\nBest regards`
   );

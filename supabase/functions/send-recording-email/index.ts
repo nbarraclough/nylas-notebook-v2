@@ -15,7 +15,6 @@ interface EmailRequest {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -23,12 +22,6 @@ serve(async (req) => {
   try {
     const { grantId, subject, body, recipients, recordingId } = await req.json() as EmailRequest;
     console.log('📧 Received email request:', { grantId, subject, recipients, recordingId });
-
-    // Format the body text into HTML, preserving newlines
-    const formattedHtml = body
-      .split('\n')
-      .map(line => `<p style="margin: 0 0 10px 0;">${line}</p>`)
-      .join('');
 
     // Initialize Supabase client
     const supabaseAdmin = createClient(
@@ -48,19 +41,25 @@ serve(async (req) => {
       throw new Error('Authentication failed');
     }
 
+    // Format the body text into HTML, preserving newlines
+    const formattedHtml = body
+      .split('\n')
+      .map(line => `<p style="margin: 0 0 10px 0;">${line}</p>`)
+      .join('');
+
     const requestBody = {
       subject,
       body: formattedHtml,
       to: recipients.map(r => ({ email: r.email, name: r.name })),
-      tracking: {
+      tracking_options: {
         opens: true,
         links: true,
-        thread: true,
+        thread_replies: true,
       },
     };
 
     console.log('📤 Sending request to Nylas API:', {
-      url: `https://api-staging.us.nylas.com/v3/grants/${grantId}/send`,
+      url: `https://api-staging.us.nylas.com/v3/grants/${grantId}/messages/send`,
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
@@ -69,7 +68,7 @@ serve(async (req) => {
       body: JSON.stringify(requestBody, null, 2),
     });
 
-    const response = await fetch(`https://api-staging.us.nylas.com/v3/grants/${grantId}/send`, {
+    const response = await fetch(`https://api-staging.us.nylas.com/v3/grants/${grantId}/messages/send`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
