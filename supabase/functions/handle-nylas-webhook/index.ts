@@ -5,24 +5,14 @@ import {
   logWebhookRequest, 
   logRawBody, 
   logParsedWebhook, 
-  logWebhookError,
-  logWebhookSuccess
+  logWebhookError 
 } from '../_shared/webhook-logger.ts'
-import {
-  handleEventCreated,
-  handleEventUpdated,
-  handleEventDeleted,
-  handleGrantCreated,
-  handleGrantUpdated,
-  handleGrantDeleted,
-  handleGrantExpired
-} from '../_shared/webhook-handlers.ts'
+import { handleWebhookType } from '../_shared/webhook-type-handlers.ts'
 
 serve(async (req) => {
   const requestId = crypto.randomUUID();
   console.log(`⚡ [${requestId}] Webhook handler started`);
   
-  // Log request details
   logWebhookRequest(req);
 
   try {
@@ -61,7 +51,7 @@ serve(async (req) => {
             status: 'acknowledged'
           }),
           { 
-            status: 200, // Always return 200 even for configuration errors
+            status: 200,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         );
@@ -77,7 +67,7 @@ serve(async (req) => {
             status: 'acknowledged'
           }),
           { 
-            status: 200, // Always return 200 even for invalid signatures
+            status: 200,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         );
@@ -98,120 +88,25 @@ serve(async (req) => {
             status: 'acknowledged'
           }),
           { 
-            status: 200, // Always return 200 even when grant ID is missing
+            status: 200,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         );
       }
 
-      try {
-        // Handle different webhook types
-        switch (webhookData.type) {
-          case 'event.created':
-            const createResult = await handleEventCreated(webhookData.data.object, grantId);
-            logWebhookSuccess(webhookData.type);
-            return new Response(JSON.stringify(createResult), { 
-              status: 200,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
-
-          case 'event.updated':
-            const updateResult = await handleEventUpdated(webhookData.data.object, grantId);
-            logWebhookSuccess(webhookData.type);
-            return new Response(JSON.stringify(updateResult), { 
-              status: 200,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
-
-          case 'event.deleted':
-            const deleteResult = await handleEventDeleted(webhookData.data.object, grantId);
-            logWebhookSuccess(webhookData.type);
-            return new Response(JSON.stringify(deleteResult), { 
-              status: 200,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
-
-          // Handle grant webhooks
-          case 'grant.created':
-            const grantCreateResult = await handleGrantCreated(webhookData.data);
-            logWebhookSuccess(webhookData.type);
-            return new Response(JSON.stringify(grantCreateResult), { 
-              status: 200,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
-
-          case 'grant.updated':
-            const grantUpdateResult = await handleGrantUpdated(webhookData.data);
-            logWebhookSuccess(webhookData.type);
-            return new Response(JSON.stringify(grantUpdateResult), { 
-              status: 200,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
-
-          case 'grant.deleted':
-            const grantDeleteResult = await handleGrantDeleted(webhookData.data);
-            logWebhookSuccess(webhookData.type);
-            return new Response(JSON.stringify(grantDeleteResult), { 
-              status: 200,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
-
-          case 'grant.expired':
-            const grantExpireResult = await handleGrantExpired(webhookData.data);
-            logWebhookSuccess(webhookData.type);
-            return new Response(JSON.stringify(grantExpireResult), { 
-              status: 200,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
-
-          // Handle notetaker webhooks
-          default:
-            if (webhookData.type.startsWith('notetaker.')) {
-              console.log(`📝 [${requestId}] Processing ${webhookData.type} webhook`);
-              logWebhookSuccess(webhookData.type);
-              
-              return new Response(
-                JSON.stringify({
-                  success: true,
-                  message: `Successfully processed ${webhookData.type} webhook`,
-                  status: 'acknowledged'
-                }),
-                { 
-                  status: 200,
-                  headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-                }
-              );
-            }
-
-            // Unhandled webhook type
-            console.log(`⚠️ [${requestId}] Unhandled webhook type: ${webhookData.type}`);
-            return new Response(
-              JSON.stringify({
-                success: false,
-                message: `Unhandled webhook type: ${webhookData.type}`,
-                status: 'acknowledged'
-              }),
-              { 
-                status: 200, // Always return 200 even for unhandled webhook types
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-              }
-            );
+      // Handle webhook by type
+      const result = await handleWebhookType(webhookData, grantId, requestId);
+      
+      return new Response(
+        JSON.stringify({
+          ...result,
+          status: 'acknowledged'
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
-      } catch (processingError) {
-        // Log the error but still return 200
-        logWebhookError('webhook processing', processingError);
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: `Error processing webhook: ${processingError.message}`,
-            status: 'acknowledged'
-          }),
-          { 
-            status: 200, // Always return 200 even when processing fails
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
-      }
+      );
     }
 
     // Invalid method
@@ -222,7 +117,7 @@ serve(async (req) => {
         status: 'acknowledged'
       }),
       { 
-        status: 200, // Always return 200 even for invalid methods
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
@@ -236,7 +131,7 @@ serve(async (req) => {
         status: 'error'
       }),
       { 
-        status: 200, // Always return 200 even for unexpected errors
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
