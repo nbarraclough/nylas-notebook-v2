@@ -19,7 +19,6 @@ interface EmailComposerDialogProps {
   eventTitle: string;
   recipients: Recipient[];
   shareUrl: string;
-  grantId: string | null;
   recordingId: string;
 }
 
@@ -38,7 +37,6 @@ export function EmailComposerDialog({
   const [recipients, setRecipients] = useState<Recipient[]>(initialRecipients);
   const [newEmail, setNewEmail] = useState("");
   
-  // Use the useProfileData hook to get the user's Nylas grant ID
   const { data: profile, isLoading: profileLoading } = useProfileData();
 
   const handleAddRecipient = () => {
@@ -79,6 +77,7 @@ export function EmailComposerDialog({
 
   const handleSend = async () => {
     console.log('Send button clicked');
+    console.log('Full profile data:', profile);
     
     if (recipients.length === 0) {
       console.log('No recipients added');
