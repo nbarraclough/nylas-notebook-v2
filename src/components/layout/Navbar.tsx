@@ -103,7 +103,7 @@ export function Navbar() {
         onClick={onClick}
       >
         <NotebookPen className="h-4 w-4" />
-        Notebook
+        Library
       </Link>
       <div className="lg:hidden">
         <SendNotetaker />
