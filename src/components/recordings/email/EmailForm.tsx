@@ -1,9 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { useProfileData } from "@/components/library/video/useProfileData";
 
 interface EmailFormProps {
   subject: string;
@@ -20,45 +18,7 @@ export function EmailForm({
   onBodyChange,
   shareUrl,
 }: EmailFormProps) {
-  const { toast } = useToast();
-
-  const { data: profile } = useQuery({
-    queryKey: ['profile'],
-    queryFn: async () => {
-      console.log('Fetching profile data for email form');
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        console.error('No session found');
-        throw new Error('Authentication required');
-      }
-
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select(`
-          first_name,
-          last_name,
-          job_title,
-          organization_id,
-          organizations (
-            name
-          )
-        `)
-        .eq('id', session.user.id)
-        .single();
-
-      if (error) {
-        console.error('Error fetching profile:', error);
-        throw error;
-      }
-      
-      console.log('Profile data fetched:', profile);
-      return profile;
-    },
-    meta: {
-      errorMessage: "Failed to load profile information. Please try again.",
-    },
-  });
+  const { data: profile } = useProfileData();
 
   useEffect(() => {
     if (profile && body === '') {

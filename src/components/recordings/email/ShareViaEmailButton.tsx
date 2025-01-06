@@ -9,7 +9,6 @@ interface ShareViaEmailButtonProps {
   shareUrl: string;
   eventTitle: string;
   participants: EventParticipant[];
-  grantId: string | null;
   recordingId: string;
 }
 
@@ -17,7 +16,6 @@ export function ShareViaEmailButton({
   shareUrl, 
   eventTitle, 
   participants,
-  grantId,
   recordingId
 }: ShareViaEmailButtonProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -53,7 +51,6 @@ export function ShareViaEmailButton({
         eventTitle={eventTitle}
         recipients={participants}
         shareUrl={shareUrl}
-        grantId={grantId}
         recordingId={recordingId}
       />
     </>
