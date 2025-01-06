@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
@@ -131,6 +131,9 @@ export function EmailComposerDialog({
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Share Recording via Email</DialogTitle>
+          <DialogDescription>
+            Send this recording to participants or other team members.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <Recipients
