@@ -143,13 +143,13 @@ export function useSharedVideo() {
         description: null,
         start_time: new Date().toISOString(),
         end_time: new Date().toISOString(),
-        participants: [] as EventParticipant[]
+        participants: [] as Json[]
       };
 
       // Transform participants regardless of whether we're using default or actual event data
       const transformedEventInfo = {
         ...eventInfo,
-        participants: transformParticipants(eventInfo.participants || [])
+        participants: transformParticipants(eventInfo.participants)
       };
 
       console.log('Setting event info:', transformedEventInfo);
