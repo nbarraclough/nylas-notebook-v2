@@ -19,6 +19,7 @@ export function RecentRecordings() {
           *,
           event:events (
             title,
+            description,
             start_time
           ),
           video_url
@@ -39,7 +40,7 @@ export function RecentRecordings() {
           variant="ghost" 
           size="sm"
           className="text-sm"
-          onClick={() => navigate('/recordings')}
+          onClick={() => navigate('/library')}
         >
           View more
           <ArrowRight className="ml-2 h-4 w-4" />
