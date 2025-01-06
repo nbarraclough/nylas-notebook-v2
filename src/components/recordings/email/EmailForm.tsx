@@ -45,13 +45,23 @@ export function EmailForm({
     if (profile && body === '') {
       const signature = [
         '',
+        'Best regards,',
         '',
         profile.first_name ? `${profile.first_name}${profile.last_name ? ` ${profile.last_name}` : ''}` : '',
         profile.job_title || '',
         profile.organizations?.name || '',
       ].filter(Boolean).join('\n');
 
-      onBodyChange(signature);
+      const defaultTemplate = [
+        'Hi everyone,',
+        '',
+        'I wanted to share the recording from our meeting "Manual Meeting".',
+        '',
+        'You can watch it here: {RECORDING_LINK}',
+        signature
+      ].join('\n');
+
+      onBodyChange(defaultTemplate);
     }
   }, [profile, body, onBodyChange]);
 
