@@ -1,38 +1,75 @@
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SharedVideoPlayerProps {
   videoUrl: string | null;
   recordingUrl: string | null;
-  onRetrieveMedia?: () => Promise<void>;
+  recordingId: string;
+  notetakerId?: string | null;
 }
 
-export function SharedVideoPlayer({ videoUrl, recordingUrl, onRetrieveMedia }: SharedVideoPlayerProps) {
+export function SharedVideoPlayer({ videoUrl, recordingUrl, recordingId, notetakerId }: SharedVideoPlayerProps) {
   const { toast } = useToast();
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Use video_url if available, fall back to recording_url
   const finalVideoUrl = videoUrl || recordingUrl;
 
-  const handleError = async (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
-    if (onRetrieveMedia) {
+  const refreshMedia = async () => {
+    if (!recordingId) {
+      console.error('Missing recordingId for refreshMedia');
+      toast({
+        title: "Error",
+        description: "Could not refresh video: missing recording ID",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
       setIsRefreshing(true);
-      try {
-        await onRetrieveMedia();
+      console.log('Refreshing media for recording:', recordingId, 'notetakerId:', notetakerId);
+      
+      const { error } = await supabase.functions.invoke('get-recording-media', {
+        body: { 
+          recordingId,
+          notetakerId: notetakerId || undefined
+        },
+      });
+
+      if (error) {
+        console.error('Error refreshing media:', error);
         toast({
-          title: "Video URL refreshed",
-          description: "Please try playing the video again.",
-        });
-      } catch (error) {
-        toast({
-          title: "Error refreshing video",
-          description: "Could not refresh the video URL. Please try again later.",
+          title: "Error",
+          description: "Failed to refresh video. Please try again.",
           variant: "destructive",
         });
-      } finally {
-        setIsRefreshing(false);
+        return;
       }
+
+      // Reload the page to get the updated URLs
+      window.location.reload();
+      
+      toast({
+        title: "Success",
+        description: "Video refreshed successfully",
+      });
+    } catch (error) {
+      console.error('Error refreshing media:', error);
+      toast({
+        title: "Error",
+        description: "Failed to refresh video. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
     }
+  };
+
+  const handleError = async (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
+    await refreshMedia();
   };
 
   if (!finalVideoUrl) {
@@ -58,8 +95,11 @@ export function SharedVideoPlayer({ videoUrl, recordingUrl, onRetrieveMedia }: S
         Your browser does not support the video tag.
       </video>
       {isRefreshing && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
-          <div className="text-white">Refreshing video URL...</div>
+        <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+          <div className="flex flex-col items-center gap-2">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Refreshing video...</p>
+          </div>
         </div>
       )}
     </div>

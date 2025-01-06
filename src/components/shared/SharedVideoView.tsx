@@ -15,6 +15,7 @@ interface SharedRecording {
   id: string;
   video_url: string | null;
   recording_url: string | null;
+  notetaker_id: string | null;
   transcript_content: Json | null;
   event: {
     title: string;
@@ -149,6 +150,8 @@ export function SharedVideoView() {
                 <SharedVideoPlayer
                   videoUrl={recording?.video_url}
                   recordingUrl={recording?.recording_url}
+                  recordingId={recording?.id || ''}
+                  notetakerId={recording?.notetaker_id}
                 />
               </div>
               
