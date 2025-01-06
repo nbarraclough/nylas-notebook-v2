@@ -10,7 +10,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get all users with pending queue items
+    // Get all users with pending queue items that don't have a notetaker_id
     const { data: queueItems, error: queueError } = await supabaseClient
       .from('notetaker_queue')
       .select(`
@@ -30,6 +30,7 @@ Deno.serve(async (req) => {
         )
       `)
       .eq('status', 'pending')
+      .is('notetaker_id', null)
       .lt('scheduled_for', new Date().toISOString())
       .order('scheduled_for', { ascending: true })
 
@@ -38,7 +39,7 @@ Deno.serve(async (req) => {
       throw queueError
     }
 
-    console.log(`Found ${queueItems?.length || 0} pending queue items`)
+    console.log(`Found ${queueItems?.length || 0} pending queue items without notetaker_id`)
 
     if (!queueItems?.length) {
       return new Response(
@@ -82,20 +83,19 @@ Deno.serve(async (req) => {
             })
           })
 
+          const responseData = await response.json()
+          console.log(`Notetaker API response for queue item ${item.id}:`, responseData)
+
           if (!response.ok) {
-            const errorData = await response.json()
-            throw new Error(`Nylas API error: ${JSON.stringify(errorData)}`)
+            throw new Error(`Nylas API error: ${JSON.stringify(responseData)}`)
           }
 
-          const notetakerData = await response.json()
-          console.log(`Successfully sent notetaker for queue item ${item.id}:`, notetakerData)
-
-          // Update queue item status to success
+          // Update queue item with notetaker_id and status
           const { error: successError } = await supabaseClient
             .from('notetaker_queue')
             .update({
               status: 'success',
-              notetaker_id: notetakerData.data.id
+              notetaker_id: responseData.data.id
             })
             .eq('id', item.id)
 
@@ -104,10 +104,27 @@ Deno.serve(async (req) => {
             throw successError
           }
 
+          // Create or update recording entry with notetaker_id
+          const { error: recordingError } = await supabaseClient
+            .from('recordings')
+            .upsert({
+              user_id: item.user_id,
+              event_id: item.event_id,
+              notetaker_id: responseData.data.id,
+              status: 'processing',
+              recording_url: responseData.data.recording_url || '',
+              updated_at: new Date().toISOString()
+            })
+
+          if (recordingError) {
+            console.error(`Error updating recording for queue item ${item.id}:`, recordingError)
+            throw recordingError
+          }
+
           return {
             queueId: item.id,
             status: 'success',
-            notetakerId: notetakerData.data.id
+            notetakerId: responseData.data.id
           }
 
         } catch (error) {
