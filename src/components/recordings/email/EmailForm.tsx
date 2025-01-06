@@ -3,6 +3,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { useAuthRedirect } from "@/hooks/useAuthRedirect";
 
 interface EmailFormProps {
   subject: string;
@@ -17,11 +19,19 @@ export function EmailForm({
   body,
   onBodyChange,
 }: EmailFormProps) {
-  const { data: profile } = useQuery({
+  const { toast } = useToast();
+  const { redirectToAuth } = useAuthRedirect();
+
+  const { data: profile, error: profileError } = useQuery({
     queryKey: ['profile'],
     queryFn: async () => {
+      console.log('Fetching profile data for email form');
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('No session');
+      
+      if (!session) {
+        console.error('No session found');
+        throw new Error('Authentication required');
+      }
 
       const { data: profile, error } = await supabase
         .from('profiles')
@@ -41,12 +51,29 @@ export function EmailForm({
         console.error('Error fetching profile:', error);
         throw error;
       }
+      
+      console.log('Profile data fetched:', profile);
       return profile;
     },
+    retry: false,
+    onError: (error) => {
+      console.error('Profile query error:', error);
+      if (error.message === 'Authentication required') {
+        redirectToAuth('Please sign in to send emails');
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to load profile information. Please try again.",
+          variant: "destructive",
+        });
+      }
+    }
   });
 
   useEffect(() => {
     if (profile && body === '') {
+      console.log('Constructing email template with profile:', profile);
+      
       // Construct signature parts, filtering out any undefined/null values
       const signatureParts = [
         '',
@@ -71,7 +98,7 @@ export function EmailForm({
         signature
       ].join('\n');
 
-      console.log('Setting email template with signature:', defaultTemplate); // Debug log
+      console.log('Setting email template with signature:', defaultTemplate);
       onBodyChange(defaultTemplate);
     }
   }, [profile, body, onBodyChange]);
