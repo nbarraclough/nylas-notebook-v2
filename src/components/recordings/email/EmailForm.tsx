@@ -88,7 +88,7 @@ export function EmailForm({
       const defaultTemplate = [
         'Hi everyone,',
         '',
-        'I wanted to share the recording from our meeting.',
+        'I wanted to share the recording from our meeting "Manual Meeting".',
         '',
         'You can watch it here: {RECORDING_LINK}',
         signature

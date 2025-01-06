@@ -7,7 +7,7 @@ export interface NotetakerRecord {
     manual_meeting?: {
       title: string;
       meeting_url: string;
-    };
+    } | null;
   };
 }
 

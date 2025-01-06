@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -8,19 +8,17 @@ import type { Json } from "@/integrations/supabase/types";
 
 interface SharedRecording {
   id: string;
-  video_url: string;
-  recording_url: string;
+  video_url: string | null;
+  recording_url: string | null;
   notetaker_id: string | null;
   transcript_content: Json | null;
-  event: EventData;
-}
-
-interface EventData {
-  title: string;
-  description: string | null;
-  start_time: string;
-  end_time: string;
-  participants: EventParticipant[];
+  event: {
+    title: string;
+    description: string | null;
+    start_time: string;
+    end_time: string;
+    participants: EventParticipant[];
+  };
 }
 
 export function useSharedVideo() {
@@ -29,53 +27,50 @@ export function useSharedVideo() {
   const { trackView } = useVideoViews();
   const [recording, setRecording] = useState<SharedRecording | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [eventData, setEventData] = useState<EventData | null>(null);
+  const [eventData, setEventData] = useState<SharedRecording['event'] | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const transformParticipants = (participants: Json): EventParticipant[] => {
     if (!Array.isArray(participants)) return [];
-    
-    return participants.map(p => {
-      if (typeof p === 'string') {
-        return {
-          email: p,
-          name: p.split('@')[0]
-        };
-      }
-      if (typeof p === 'object' && p !== null) {
-        return {
-          email: (p as any).email || '',
-          name: (p as any).name || (p as any).email?.split('@')[0] || ''
-        };
-      }
-      return {
-        email: '',
-        name: ''
-      };
-    });
+    return participants.map(p => ({
+      name: (p as any)?.name || 'Unknown',
+      email: (p as any)?.email || ''
+    }));
   };
 
-  const refreshMedia = async () => {
-    if (!recording?.id || !recording.notetaker_id) return;
-
-    setIsRefreshing(true);
+  const refreshMedia = async (recordingId: string, notetakerId: string | null) => {
     try {
+      setIsRefreshing(true);
+      console.log('Refreshing media for recording:', recordingId, 'notetakerId:', notetakerId);
+      
       const { error } = await supabase.functions.invoke('get-recording-media', {
         body: { 
-          recordingId: recording.id,
-          notetakerId: recording.notetaker_id
+          recordingId,
+          notetakerId: notetakerId || undefined
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error refreshing media:', error);
+        toast({
+          title: "Error",
+          description: "Failed to refresh video. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-      // Refetch recording data
-      await fetchRecording();
-    } catch (error: any) {
+      await fetchSharedVideo();
+      
+      toast({
+        title: "Success",
+        description: "Video refreshed successfully",
+      });
+    } catch (error) {
       console.error('Error refreshing media:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to refresh media",
+        description: "Failed to refresh video. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -83,31 +78,33 @@ export function useSharedVideo() {
     }
   };
 
-  const fetchRecording = async () => {
+  const fetchSharedVideo = async () => {
     try {
-      if (!token) {
-        throw new Error('No token provided');
-      }
+      if (!token) throw new Error('No share token provided');
 
       console.log('Fetching shared video with token:', token);
 
+      // First get the recording ID from video_shares
       const { data: shares, error: sharesError } = await supabase
         .from('video_shares')
         .select('recording_id')
         .eq('external_token', token)
         .eq('share_type', 'external')
-        .maybeSingle();
+        .single();
 
       if (sharesError) {
-        console.error('Error fetching video share:', sharesError);
+        console.error('Error fetching video shares:', sharesError);
         throw sharesError;
       }
 
       if (!shares) {
-        console.error('No share found for token:', token);
-        throw new Error('Recording not found');
+        console.log('No shares found for token:', token);
+        setEventData(null);
+        setRecording(null);
+        return;
       }
 
+      // Then fetch the recording with its event data
       const { data: recordingData, error: recordingError } = await supabase
         .from('recordings')
         .select(`
@@ -125,7 +122,7 @@ export function useSharedVideo() {
           )
         `)
         .eq('id', shares.recording_id)
-        .maybeSingle();
+        .single();
 
       if (recordingError) {
         console.error('Error fetching recording:', recordingError);
@@ -133,36 +130,34 @@ export function useSharedVideo() {
       }
 
       if (!recordingData || !recordingData.event) {
-        console.error('No recording found:', recordingData);
-        throw new Error('Recording not found');
+        console.log('No recording or event data found');
+        setEventData(null);
+        setRecording(null);
+        return;
       }
 
-      const transformedEventData: EventData = {
-        title: recordingData.event.title || '',
-        description: recordingData.event.description || null,
-        start_time: recordingData.event.start_time || '',
-        end_time: recordingData.event.end_time || '',
+      const eventInfo = {
+        ...recordingData.event,
         participants: transformParticipants(recordingData.event.participants || [])
       };
-
-      setEventData(transformedEventData);
+      setEventData(eventInfo);
 
       const transformedRecording: SharedRecording = {
         id: recordingData.id,
-        video_url: recordingData.video_url || '',
-        recording_url: recordingData.recording_url || '',
+        video_url: recordingData.video_url,
+        recording_url: recordingData.recording_url,
         notetaker_id: recordingData.notetaker_id,
         transcript_content: recordingData.transcript_content,
-        event: transformedEventData
+        event: eventInfo
       };
 
       setRecording(transformedRecording);
-      trackView(transformedRecording.id);
-    } catch (error: any) {
-      console.error('Error in fetchRecording:', error);
+      await trackView(recordingData.id);
+    } catch (error) {
+      console.error('Error fetching shared video:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to load recording",
+        description: "Failed to load the shared video.",
         variant: "destructive",
       });
     } finally {
@@ -170,12 +165,15 @@ export function useSharedVideo() {
     }
   };
 
+  useEffect(() => {
+    fetchSharedVideo();
+  }, [token, toast, trackView]);
+
   return {
     recording,
-    eventData,
     isLoading,
+    eventData,
     isRefreshing,
-    refreshMedia,
-    fetchRecording
+    refreshMedia
   };
 }
