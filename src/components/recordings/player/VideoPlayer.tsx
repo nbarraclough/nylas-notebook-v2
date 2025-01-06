@@ -58,7 +58,6 @@ export function VideoPlayer({
         src={finalVideoUrl}
         controls
         autoPlay
-        muted={!isLoaded} // Initially muted to allow autoplay
         className="w-full h-full"
         playsInline
         preload="auto"
@@ -68,7 +67,6 @@ export function VideoPlayer({
         onCanPlay={() => {
           const video = document.querySelector('video');
           if (video) {
-            video.muted = false; // Unmute once can play
             video.play().catch(e => console.log('Autoplay prevented:', e));
           }
         }}
