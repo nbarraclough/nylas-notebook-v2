@@ -19,43 +19,74 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const isPublicRoute = location.pathname === '/auth' || location.pathname.startsWith('/shared/');
 
   useEffect(() => {
+    let mounted = true;
+
     const checkSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
+        if (sessionError) {
+          console.error('Session error:', sessionError);
+          throw sessionError;
+        }
+
         if (!session && !isPublicRoute) {
           await clearAuthStorage();
           navigate('/auth', { state: { returnTo: location.pathname } });
         }
-      } catch (error) {
-        console.error('Session check error:', error);
+
+        if (mounted) {
+          setIsLoading(false);
+        }
+      } catch (error: any) {
+        console.error('Auth check error:', error);
         await clearAuthStorage();
         
         if (!isPublicRoute) {
+          let errorMessage = "Please sign in again.";
+          
+          if (error.message?.includes('invalid_credentials')) {
+            errorMessage = "Invalid login credentials. Please try again.";
+          } else if (error.message?.includes('session_not_found')) {
+            errorMessage = "Your session has expired. Please sign in again.";
+          }
+          
           toast({
             title: "Authentication Error",
-            description: "Please sign in again.",
+            description: errorMessage,
             variant: "destructive",
           });
           navigate('/auth', { state: { returnTo: location.pathname } });
         }
-      } finally {
-        setIsLoading(false);
+        
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!session && !isPublicRoute) {
+      console.log('Auth state changed:', event, !!session);
+      
+      if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
         await clearAuthStorage();
-        navigate('/auth', { state: { returnTo: location.pathname } });
+        if (!isPublicRoute) {
+          navigate('/auth', { state: { returnTo: location.pathname } });
+        }
+      } else if (event === 'TOKEN_REFRESHED') {
+        console.log('Token refreshed successfully');
       }
-      setIsLoading(false);
+
+      if (mounted) {
+        setIsLoading(false);
+      }
     });
 
     checkSession();
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, [navigate, location.pathname, isPublicRoute, toast]);
