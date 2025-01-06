@@ -84,7 +84,7 @@ export function useSharedVideo() {
         .select('recording_id')
         .eq('external_token', token)
         .eq('share_type', 'external')
-        .single({
+        .maybeSingle({
           headers: requestHeaders
         });
 
@@ -115,7 +115,7 @@ export function useSharedVideo() {
           )
         `)
         .eq('id', share.recording_id)
-        .single({
+        .maybeSingle({
           headers: requestHeaders
         });
 
