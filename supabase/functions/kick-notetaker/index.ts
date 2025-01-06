@@ -68,6 +68,18 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to kick notetaker: ${errorText}`)
     }
 
+    // Try to parse as JSON first, if it fails, use text response
+    let responseData;
+    const responseText = await response.text();
+    try {
+      responseData = JSON.parse(responseText);
+      console.log('Parsed JSON response:', responseData);
+    } catch (e) {
+      // If not JSON, use text response
+      console.log('Using text response:', responseText);
+      responseData = { message: responseText };
+    }
+
     console.log('Successfully kicked notetaker')
 
     // Update recording status if it exists
@@ -100,7 +112,8 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true,
-        message: 'Notetaker kicked successfully'
+        message: 'Notetaker kicked successfully',
+        response: responseData
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
