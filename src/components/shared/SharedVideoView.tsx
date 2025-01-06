@@ -83,66 +83,83 @@ export function SharedVideoView() {
 
       console.log('Fetching shared video with token:', token);
 
-      const { data: share, error } = await supabase
+      const { data: shares, error: sharesError } = await supabase
         .from('video_shares')
-        .select(`
-          recording:recordings!inner (
-            id,
-            video_url,
-            recording_url,
-            notetaker_id,
-            transcript_content,
-            event:events!inner (
-              title,
-              description,
-              start_time,
-              end_time,
-              participants
-            )
-          )
-        `)
+        .select('recording_id')
         .eq('external_token', token)
-        .eq('share_type', 'external')
-        .maybeSingle();
+        .eq('share_type', 'external');
 
-      if (error) {
-        console.error('Error fetching shared video:', error);
-        throw error;
+      if (sharesError) {
+        console.error('Error fetching video shares:', sharesError);
+        throw sharesError;
       }
 
-      if (!share?.recording) {
-        console.log('No recording found for token:', token);
+      if (!shares || shares.length === 0) {
+        console.log('No shares found for token:', token);
+        setEventData(null);
+        setRecording(null);
+        return;
+      }
+
+      const recordingId = shares[0].recording_id;
+      
+      const { data: recordingData, error: recordingError } = await supabase
+        .from('recordings')
+        .select(`
+          id,
+          video_url,
+          recording_url,
+          notetaker_id,
+          transcript_content,
+          event:events (
+            title,
+            description,
+            start_time,
+            end_time,
+            participants
+          )
+        `)
+        .eq('id', recordingId)
+        .maybeSingle();
+
+      if (recordingError) {
+        console.error('Error fetching recording:', recordingError);
+        throw recordingError;
+      }
+
+      if (!recordingData) {
+        console.log('No recording found for ID:', recordingId);
         setEventData(null);
         setRecording(null);
         return;
       }
 
       // Set event data regardless of recording availability
-      if (share.recording.event) {
+      if (recordingData.event) {
         const eventInfo = {
-          ...share.recording.event,
-          participants: transformParticipants(share.recording.event.participants)
+          ...recordingData.event,
+          participants: transformParticipants(recordingData.event.participants)
         };
         setEventData(eventInfo);
       }
 
       // Transform the data to match SharedRecording type
       const transformedRecording: SharedRecording = {
-        id: share.recording.id,
-        video_url: share.recording.video_url,
-        recording_url: share.recording.recording_url,
-        notetaker_id: share.recording.notetaker_id,
-        transcript_content: share.recording.transcript_content,
+        id: recordingData.id,
+        video_url: recordingData.video_url,
+        recording_url: recordingData.recording_url,
+        notetaker_id: recordingData.notetaker_id,
+        transcript_content: recordingData.transcript_content,
         event: {
-          ...share.recording.event,
-          participants: transformParticipants(share.recording.event.participants)
+          ...recordingData.event,
+          participants: transformParticipants(recordingData.event.participants)
         }
       };
 
       setRecording(transformedRecording);
 
       // Track view
-      await trackView(share.recording.id);
+      await trackView(recordingData.id);
     } catch (error) {
       console.error('Error fetching shared video:', error);
       toast({
@@ -185,10 +202,10 @@ export function SharedVideoView() {
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         <SharedEventHeader
-          title={eventData.title}
-          startTime={eventData.start_time}
-          endTime={eventData.end_time}
-          participants={eventData.participants}
+          title={eventData?.title || ''}
+          startTime={eventData?.start_time || ''}
+          endTime={eventData?.end_time || ''}
+          participants={eventData?.participants || []}
         />
 
         <Card>
@@ -218,7 +235,7 @@ export function SharedVideoView() {
               )}
             </div>
 
-            <SharedContentTabs description={eventData.description} />
+            <SharedContentTabs description={eventData?.description} />
           </CardContent>
         </Card>
       </div>
