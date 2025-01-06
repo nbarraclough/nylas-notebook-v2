@@ -1,6 +1,7 @@
-import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
+import { forwardRef } from "react";
 import { useRecordingMedia } from "@/hooks/use-recording-media";
 import type { EventParticipant } from "@/types/calendar";
+import { BaseVideoPlayer, type BaseVideoPlayerRef } from "./BaseVideoPlayer";
 
 interface VideoPlayerProps {
   recordingId: string;
@@ -13,37 +14,18 @@ interface VideoPlayerProps {
   onRefreshMedia?: () => Promise<void>;
 }
 
-export interface VideoPlayerRef {
-  pause: () => void;
-}
+export type VideoPlayerRef = BaseVideoPlayerRef;
 
 export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ 
   recordingId,
-  videoUrl: initialVideoUrl,
+  videoUrl,
   recordingUrl,
   notetakerId,
   onRefreshMedia
 }, ref) => {
-  const [videoUrl, setVideoUrl] = useState<string | null>(initialVideoUrl);
   const { refreshMedia } = useRecordingMedia();
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
 
-  useImperativeHandle(ref, () => ({
-    pause: () => {
-      if (videoElement) {
-        videoElement.pause();
-        videoElement.currentTime = 0; // Reset to beginning
-      }
-    }
-  }));
-
-  useEffect(() => {
-    setVideoUrl(initialVideoUrl);
-    setIsLoaded(false);
-  }, [initialVideoUrl]);
-
-  const handlePlay = async () => {
+  const handleRefreshMedia = async () => {
     if (onRefreshMedia) {
       await onRefreshMedia();
     } else if (notetakerId) {
@@ -51,45 +33,13 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
     }
   };
 
-  const handleLoadedData = () => {
-    setIsLoaded(true);
-  };
-
-  // Use video_url if available, fall back to recording_url
-  const finalVideoUrl = videoUrl || recordingUrl;
-
-  if (!finalVideoUrl) {
-    return (
-      <div className="aspect-video bg-muted flex items-center justify-center">
-        <p className="text-muted-foreground">This video is no longer available or has been removed.</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="aspect-video">
-      <video
-        ref={setVideoElement}
-        src={finalVideoUrl}
-        controls
-        autoPlay
-        className="w-full h-full"
-        playsInline
-        preload="auto"
-        controlsList="nodownload"
-        onPlay={handlePlay}
-        onLoadedData={handleLoadedData}
-        onCanPlay={() => {
-          const video = document.querySelector('video');
-          if (video) {
-            video.play().catch(e => console.log('Autoplay prevented:', e));
-          }
-        }}
-      >
-        <source src={finalVideoUrl} type="video/webm" />
-        Your browser does not support the video tag.
-      </video>
-    </div>
+    <BaseVideoPlayer
+      ref={ref}
+      videoUrl={videoUrl}
+      recordingUrl={recordingUrl}
+      onRefreshMedia={handleRefreshMedia}
+    />
   );
 });
 
