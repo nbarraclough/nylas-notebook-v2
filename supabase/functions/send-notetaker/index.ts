@@ -11,10 +11,10 @@ Deno.serve(async (req) => {
 
   try {
     const { meetingUrl, grantId, meetingId } = await req.json()
-    console.log('Received request with:', { meetingUrl, grantId, meetingId })
+    console.log('Processing notetaker request...');
 
     if (!meetingUrl || !grantId || !meetingId) {
-      console.error('Missing required parameters:', { meetingUrl, grantId, meetingId })
+      console.error('Missing required parameters');
       throw new Error('Missing required parameters')
     }
 
@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    console.log('Fetching event details...')
+    console.log('Fetching event details...');
     // Get user's profile for notetaker name
     const { data: event, error: eventError } = await supabaseClient
       .from('events')
@@ -38,17 +38,16 @@ Deno.serve(async (req) => {
       .maybeSingle()
 
     if (eventError) {
-      console.error('Error fetching event:', eventError)
+      console.error('Error fetching event');
       throw new Error('Failed to fetch event details')
     }
 
     if (!event) {
-      console.error('Event not found:', meetingId)
+      console.error('Event not found');
       throw new Error('Event not found')
     }
 
-    console.log('Event data:', event)
-    console.log('Sending notetaker to meeting...')
+    console.log('Sending notetaker to meeting...');
 
     // Send notetaker to the meeting
     const response = await fetch(
@@ -69,12 +68,12 @@ Deno.serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('Nylas API error:', errorText)
-      throw new Error(`Failed to send notetaker: ${errorText}`)
+      console.error('Failed to send notetaker');
+      throw new Error(`Failed to send notetaker`)
     }
 
     const data = await response.json()
-    console.log('Nylas API response:', data)
+    console.log('Notetaker sent successfully');
 
     // Update the notetaker queue with the notetaker_id
     const { error: queueError } = await supabaseClient
@@ -86,7 +85,7 @@ Deno.serve(async (req) => {
       .eq('event_id', meetingId)
 
     if (queueError) {
-      console.error('Error updating notetaker queue:', queueError)
+      console.error('Error updating notetaker queue');
       throw new Error('Failed to update notetaker queue')
     }
 
@@ -101,11 +100,11 @@ Deno.serve(async (req) => {
       }
     )
   } catch (error) {
-    console.error('Error in send-notetaker:', error)
+    console.error('Error in send-notetaker');
     return new Response(
       JSON.stringify({ 
-        error: error.message,
-        details: error.toString()
+        error: 'Failed to process request',
+        details: 'An error occurred while processing the request'
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

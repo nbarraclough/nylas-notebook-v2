@@ -56,7 +56,7 @@ export function useSharedVideo() {
   const refreshMedia = async (recordingId: string, notetakerId: string | null) => {
     try {
       setIsRefreshing(true);
-      console.log('Refreshing media for recording:', recordingId, 'notetakerId:', notetakerId);
+      console.log('Refreshing media for recording:', recordingId);
       
       const { error } = await supabase.functions.invoke('get-recording-media', {
         body: { 
@@ -92,7 +92,7 @@ export function useSharedVideo() {
         throw new Error('No share token provided');
       }
 
-      console.log('Starting fetch for shared video with token:', token);
+      console.log('Fetching shared video data...');
 
       const { data: recordingData, error: recordingError } = await supabase
         .rpc('get_shared_recording', {
@@ -104,8 +104,6 @@ export function useSharedVideo() {
         console.error('Error fetching recording:', recordingError);
         throw recordingError;
       }
-
-      console.log('Raw recording data:', recordingData);
 
       if (!recordingData || recordingData.length === 0) {
         console.log('No recording or event data found');
@@ -125,7 +123,7 @@ export function useSharedVideo() {
         participants: transformParticipants(sharedRecording.event.participants)
       } : null;
 
-      console.log('Setting event info:', eventInfo);
+      console.log('Setting event info');
       setEventData(eventInfo);
 
       const transformedRecording: SharedRecording = {
@@ -137,10 +135,10 @@ export function useSharedVideo() {
         event: eventInfo
       };
 
-      console.log('Setting transformed recording:', transformedRecording);
+      console.log('Setting recording data');
       setRecording(transformedRecording);
       
-      console.log('Tracking view for recording:', sharedRecording.id);
+      console.log('Tracking view');
       await trackView(sharedRecording.id);
     } catch (error) {
       console.error('Error fetching shared video:', error);

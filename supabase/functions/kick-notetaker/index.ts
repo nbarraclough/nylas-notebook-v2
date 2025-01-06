@@ -6,18 +6,16 @@ const corsHeaders = {
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
     const requestBody = await req.json()
-    console.log('📥 Request payload:', JSON.stringify(requestBody, null, 2))
+    console.log('Processing kick request...')
     
     const { notetakerId } = requestBody
-    console.log('🎯 Received kick request for notetaker:', notetakerId)
-
+    
     if (!notetakerId) {
       throw new Error('No notetaker ID provided')
     }
@@ -36,11 +34,11 @@ Deno.serve(async (req) => {
 
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser(authHeader)
     if (authError || !user) {
-      console.error('❌ Authentication error:', JSON.stringify(authError, null, 2))
+      console.error('Authentication error');
       throw new Error('Unauthorized')
     }
 
-    console.log('👤 Authenticated user:', user.id)
+    console.log('Authenticated user verified');
 
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
@@ -49,21 +47,13 @@ Deno.serve(async (req) => {
       .single()
 
     if (profileError || !profile?.nylas_grant_id) {
-      console.error('❌ Profile error:', JSON.stringify(profileError, null, 2))
+      console.error('Profile error');
       throw new Error('Nylas grant ID not found')
     }
 
-    console.log('🔑 Found Nylas grant ID:', profile.nylas_grant_id)
+    console.log('Found Nylas grant, sending kick request...')
     
     const nylasApiUrl = `https://api-staging.us.nylas.com/v3/grants/${profile.nylas_grant_id}/notetakers/${notetakerId}`
-    console.log('🚀 Making request to Nylas API:', {
-      url: nylasApiUrl,
-      method: 'DELETE',
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer [REDACTED]'
-      }
-    })
 
     // Make the request to Nylas API
     const response = await fetch(
@@ -77,26 +67,16 @@ Deno.serve(async (req) => {
       }
     )
 
-    console.log('📡 Nylas API Response:', {
-      status: response.status,
-      statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries())
-    })
-
     const responseText = await response.text()
-    console.log('📦 Raw response body:', responseText)
 
     if (!response.ok) {
-      console.error('❌ Nylas API error:', responseText)
-      throw new Error(`Failed to kick notetaker: ${response.status} - ${responseText}`)
+      console.error('Nylas API error');
+      throw new Error(`Failed to kick notetaker`)
     }
 
     // If the response is "notetaker is leaving meeting", consider it a success
     if (responseText === 'notetaker is leaving meeting') {
-      console.log('✅ Successfully kicked notetaker:', {
-        notetakerId,
-        response: responseText
-      })
+      console.log('Successfully kicked notetaker');
 
       return new Response(
         JSON.stringify({ 
@@ -115,9 +95,9 @@ Deno.serve(async (req) => {
     let responseBody = {}
     try {
       responseBody = JSON.parse(responseText)
-      console.log('✨ Parsed response body:', JSON.stringify(responseBody, null, 2))
+      console.log('Kick request processed successfully');
     } catch (e) {
-      console.error('❌ Error parsing response JSON:', e)
+      console.error('Error parsing response');
       // If we can't parse JSON but the request was successful, return the text response
       if (response.ok) {
         responseBody = { message: responseText }
@@ -139,10 +119,10 @@ Deno.serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('❌ Error in kick-notetaker function:', error)
+    console.error('Error in kick-notetaker function');
     return new Response(
       JSON.stringify({ 
-        error: error.message,
+        error: 'Failed to process request',
         success: false 
       }),
       {
