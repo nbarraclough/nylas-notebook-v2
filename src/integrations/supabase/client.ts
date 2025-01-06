@@ -1,18 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl) {
-  console.error('Missing VITE_SUPABASE_URL environment variable');
-  throw new Error('VITE_SUPABASE_URL is required');
-}
-
-if (!supabaseAnonKey) {
-  console.error('Missing VITE_SUPABASE_ANON_KEY environment variable');
-  throw new Error('VITE_SUPABASE_ANON_KEY is required');
-}
+// Use the secrets from Supabase
+const supabaseUrl = 'https://xqzlejcvvtjdrabofrxs.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxemxlamN2dnRqZHJhYm9mcnhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDQ1MjY0MDAsImV4cCI6MjAyMDEwMjQwMH0.aqMKvgQQk6XvHDgv-HwLDUOPQzQ4hcJxYVXE-LyZqL4';
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   global: {
