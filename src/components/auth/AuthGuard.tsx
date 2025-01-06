@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { LoadingScreen } from "@/components/LoadingScreen";
-import { useToast } from "@/hooks/use-toast";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -13,7 +12,6 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { toast } = useToast();
 
   // Define public routes that don't require authentication
   const isPublicRoute = location.pathname === '/auth' || location.pathname.startsWith('/shared');
@@ -25,15 +23,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
     const checkSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) {
-          console.error('Session error:', error);
-          // If there's a token error, clear storage and redirect
-          if (error.message?.includes('token') || error.message?.includes('JWT')) {
-            localStorage.clear();
-            sessionStorage.clear();
-          }
-          throw error;
-        }
+        if (error) throw error;
         
         if (mounted) {
           setIsAuthenticated(!!session);
@@ -48,11 +38,6 @@ export function AuthGuard({ children }: AuthGuardProps) {
         if (mounted) {
           setIsAuthenticated(false);
           if (!isPublicRoute) {
-            toast({
-              title: "Authentication Error",
-              description: "Please sign in again",
-              variant: "destructive",
-            });
             navigate('/auth', { state: { returnTo: location.pathname } });
           }
         }
@@ -74,7 +59,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
         switch (event) {
           case 'SIGNED_IN':
             // Refresh the session
-            await checkSession();
+            await supabase.auth.getSession();
             break;
           case 'SIGNED_OUT':
             if (!isPublicRoute) {
@@ -86,7 +71,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
             break;
           case 'USER_UPDATED':
             // Refresh the session to get updated user data
-            await checkSession();
+            await supabase.auth.getSession();
             break;
         }
         
@@ -102,7 +87,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [navigate, location.pathname, isPublicRoute, toast]);
+  }, [navigate, location.pathname, isPublicRoute]);
 
   // Show loading screen only for protected routes during initial load
   if (isLoading && !isPublicRoute) {

@@ -4,12 +4,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { VideoPlayer } from "@/components/recordings/player/VideoPlayer";
 import { TranscriptSection } from "@/components/recordings/transcript/TranscriptSection";
 import { VideoHeader } from "./VideoHeader";
-import { LoadingVideoPlayer } from "./LoadingVideoPlayer";
-import { ErrorVideoPlayer } from "./ErrorVideoPlayer";
-import { VideoDescription } from "./VideoDescription";
 import { useRecordingMedia } from "@/hooks/use-recording-media";
 import type { EventParticipant } from "@/types/calendar";
 import type { Json } from "@/integrations/supabase/types";
+import { useEffect } from "react";
 
 interface VideoPlayerViewProps {
   recordingId: string;
@@ -28,19 +26,6 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   const { data: recording, isLoading } = useQuery({
     queryKey: ['recording', recordingId],
     queryFn: async () => {
-      // First refresh the media URL
-      const { data: existingRecording } = await supabase
-        .from('recordings')
-        .select('notetaker_id')
-        .eq('id', recordingId)
-        .single();
-
-      if (existingRecording?.notetaker_id) {
-        console.log('Refreshing media URL for recording:', recordingId);
-        await refreshMedia(recordingId, existingRecording.notetaker_id);
-      }
-
-      // Then fetch the full recording data
       const { data, error } = await supabase
         .from('recordings')
         .select(`
@@ -87,6 +72,18 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
     },
   });
 
+  // Refresh media URL when component mounts
+  useEffect(() => {
+    const refreshVideoUrl = async () => {
+      if (recording?.notetaker_id) {
+        console.log('Refreshing media URL for recording:', recordingId);
+        await refreshMedia(recordingId, recording.notetaker_id);
+      }
+    };
+    
+    refreshVideoUrl();
+  }, [recordingId, recording?.notetaker_id, refreshMedia]);
+
   const isInternalMeeting = () => {
     const organizer = recording?.event?.organizer as Organizer | null;
     const organizerEmail = organizer?.email || profile?.email;
@@ -114,8 +111,32 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
     queryClient.invalidateQueries({ queryKey: ['recording', recordingId] });
   };
 
-  if (isLoading) return <LoadingVideoPlayer />;
-  if (!recording) return <ErrorVideoPlayer />;
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+        <Card className="w-full max-w-6xl mx-4">
+          <CardContent className="p-6">
+            <div className="animate-pulse space-y-4">
+              <div className="h-8 bg-muted rounded w-1/3" />
+              <div className="aspect-video bg-muted rounded" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!recording) {
+    return (
+      <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+        <Card className="w-full max-w-6xl mx-4">
+          <CardContent className="p-6">
+            <p className="text-center text-muted-foreground">Recording not found</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const participants: EventParticipant[] = recording.event?.manual_meeting
     ? [{ name: profile?.email?.split('@')[0] || '', email: profile?.email || '' }]
@@ -174,7 +195,12 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
             )}
           </div>
 
-          <VideoDescription description={recording.event?.description} />
+          {recording.event?.description && (
+            <div className="prose prose-sm max-w-none">
+              <h3 className="text-lg font-medium">Description</h3>
+              <p className="whitespace-pre-line">{recording.event.description}</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
