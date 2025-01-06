@@ -75,7 +75,10 @@ export function EmailComposerDialog({
   };
 
   const handleSend = async () => {
+    console.log('Send button clicked');
+    
     if (recipients.length === 0) {
+      console.log('No recipients added');
       toast({
         title: "Error",
         description: "Please add at least one recipient.",
@@ -85,6 +88,7 @@ export function EmailComposerDialog({
     }
 
     if (!grantId) {
+      console.log('No Nylas grant ID found');
       toast({
         title: "Error",
         description: "Nylas connection not found. Please connect your calendar first.",
@@ -94,6 +98,7 @@ export function EmailComposerDialog({
     }
 
     if (!shareUrl) {
+      console.log('No share URL found');
       toast({
         title: "Error",
         description: "Share URL not found. Please generate a share link first.",
@@ -104,10 +109,11 @@ export function EmailComposerDialog({
 
     setIsSending(true);
     try {
-      console.log('Sending email request:', {
+      const emailBody = body.replace('{RECORDING_LINK}', shareUrl);
+      console.log('Preparing email request:', {
         grantId,
         subject,
-        body: body.replace('{RECORDING_LINK}', shareUrl),
+        body: emailBody,
         recipients,
         recordingId,
       });
@@ -116,7 +122,7 @@ export function EmailComposerDialog({
         body: {
           grantId,
           subject,
-          body: body.replace('{RECORDING_LINK}', shareUrl),
+          body: emailBody,
           recipients,
           recordingId,
         },
@@ -124,7 +130,10 @@ export function EmailComposerDialog({
 
       console.log('Email response:', { data, error });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error from edge function:', error);
+        throw error;
+      }
 
       toast({
         title: "Email sent",
