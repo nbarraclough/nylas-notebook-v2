@@ -15,20 +15,91 @@ function App() {
   return (
     <Router>
       <Routes>
+        {/* Public routes */}
         <Route path="/shared/:token" element={<Shared />} />
-        <AuthGuard>
-          <NylasAuthGuard>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/calendar" element={<Calendar />} />
-            <Route path="/library" element={<Library />} />
-            <Route path="/library/:recordingId" element={<Library />} />
-            <Route path="/recordings" element={<Recordings />} />
-            <Route path="/settings/*" element={<Settings />} />
-            <Route path="/recurring-events" element={<RecurringEvents />} />
-            <Route path="/recurring-events/:masterId" element={<RecurringEventSeries />} />
-          </NylasAuthGuard>
-        </AuthGuard>
+        <Route path="/auth" element={<Auth />} />
+
+        {/* Protected routes */}
+        <Route
+          path="/"
+          element={
+            <AuthGuard>
+              <NylasAuthGuard>
+                <Index />
+              </NylasAuthGuard>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/calendar"
+          element={
+            <AuthGuard>
+              <NylasAuthGuard>
+                <Calendar />
+              </NylasAuthGuard>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/library"
+          element={
+            <AuthGuard>
+              <NylasAuthGuard>
+                <Library />
+              </NylasAuthGuard>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/library/:recordingId"
+          element={
+            <AuthGuard>
+              <NylasAuthGuard>
+                <Library />
+              </NylasAuthGuard>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/recordings"
+          element={
+            <AuthGuard>
+              <NylasAuthGuard>
+                <Recordings />
+              </NylasAuthGuard>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/settings/*"
+          element={
+            <AuthGuard>
+              <NylasAuthGuard>
+                <Settings />
+              </NylasAuthGuard>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/recurring-events"
+          element={
+            <AuthGuard>
+              <NylasAuthGuard>
+                <RecurringEvents />
+              </NylasAuthGuard>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/recurring-events/:masterId"
+          element={
+            <AuthGuard>
+              <NylasAuthGuard>
+                <RecurringEventSeries />
+              </NylasAuthGuard>
+            </AuthGuard>
+          }
+        />
       </Routes>
     </Router>
   );
