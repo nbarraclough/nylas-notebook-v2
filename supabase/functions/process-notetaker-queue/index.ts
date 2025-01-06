@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get all pending queue items - removed INNER JOIN to prevent filtering
+    // Get all pending queue items without notetaker_id
     const { data: queueItems, error: queueError } = await supabaseClient
       .from('notetaker_queue')
       .select(`
@@ -40,17 +40,20 @@ Deno.serve(async (req) => {
       `)
       .eq('status', 'pending')
       .is('notetaker_id', null)
+      .lt('attempts', 3) // Only process items that haven't failed too many times
+      .gt('scheduled_for', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // Only process items scheduled within last 24 hours
+      .lt('scheduled_for', new Date().toISOString()) // Only process items scheduled for now or the past
 
     if (queueError) {
       console.error('Error fetching queue items:', queueError)
       throw queueError
     }
 
-    console.log(`Found ${queueItems?.length || 0} pending queue items`)
+    console.log(`Found ${queueItems?.length || 0} pending queue items to process`)
 
     if (!queueItems?.length) {
       return new Response(
-        JSON.stringify({ message: 'No pending queue items found' }),
+        JSON.stringify({ message: 'No pending queue items found to process' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -88,8 +91,16 @@ Deno.serve(async (req) => {
             }
           )
 
-          const responseData = await response.json()
-          console.log(`Notetaker API response for queue item ${item.id}:`, responseData)
+          const responseText = await response.text();
+          console.log(`Raw Nylas API response for queue item ${item.id}:`, responseText);
+
+          let responseData;
+          try {
+            responseData = JSON.parse(responseText);
+          } catch (e) {
+            console.error('Error parsing Nylas response:', e);
+            throw new Error(`Invalid JSON response from Nylas: ${responseText}`);
+          }
 
           if (!response.ok) {
             throw new Error(`Nylas API error: ${JSON.stringify(responseData)}`)
@@ -144,7 +155,8 @@ Deno.serve(async (req) => {
             .update({
               attempts: (item.attempts || 0) + 1,
               last_attempt: new Date().toISOString(),
-              error: error.message
+              error: error.message,
+              status: (item.attempts || 0) >= 2 ? 'failed' : 'pending' // Mark as failed after 3 attempts
             })
             .eq('id', item.id)
 
