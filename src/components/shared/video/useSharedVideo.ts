@@ -85,8 +85,7 @@ export function useSharedVideo() {
         .from('video_shares')
         .select('recording_id')
         .eq('external_token', token)
-        .eq('share_type', 'external')
-        .maybeSingle();
+        .single();
 
       if (shareError) {
         console.error('Error fetching share:', shareError);
@@ -121,7 +120,7 @@ export function useSharedVideo() {
           )
         `)
         .eq('id', share.recording_id)
-        .maybeSingle();
+        .single();
 
       if (recordingError) {
         console.error('Error fetching recording:', recordingError);
