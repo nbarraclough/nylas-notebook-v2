@@ -17,65 +17,28 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const isPublicRoute = location.pathname === '/auth' || location.pathname.startsWith('/shared');
 
   useEffect(() => {
-    let mounted = true;
-
     // Initial session check
     const checkSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) throw error;
-        
-        if (mounted) {
-          setIsAuthenticated(!!session);
-          
-          // If no session and not on public route, redirect to auth
-          if (!session && !isPublicRoute) {
-            navigate('/auth', { state: { returnTo: location.pathname } });
-          }
-        }
+        const { data: { session } } = await supabase.auth.getSession();
+        setIsAuthenticated(!!session);
       } catch (error) {
         console.error('Session check error:', error);
-        if (mounted) {
-          setIsAuthenticated(false);
-          if (!isPublicRoute) {
-            navigate('/auth', { state: { returnTo: location.pathname } });
-          }
-        }
+        setIsAuthenticated(false);
       } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
       }
     };
 
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event);
-      
-      if (mounted) {
-        setIsAuthenticated(!!session);
-        
-        // Handle various auth events
-        switch (event) {
-          case 'SIGNED_IN':
-            // Refresh the session
-            await supabase.auth.getSession();
-            break;
-          case 'SIGNED_OUT':
-            if (!isPublicRoute) {
-              navigate('/auth', { state: { returnTo: location.pathname } });
-            }
-            break;
-          case 'TOKEN_REFRESHED':
-            setIsAuthenticated(true);
-            break;
-          case 'USER_UPDATED':
-            // Refresh the session to get updated user data
-            await supabase.auth.getSession();
-            break;
-        }
-        
-        setIsLoading(false);
+      setIsAuthenticated(!!session);
+      setIsLoading(false);
+
+      // If user signs out and isn't on a public route, redirect to auth
+      if (!session && !isPublicRoute) {
+        navigate('/auth', { state: { returnTo: location.pathname } });
       }
     });
 
@@ -84,7 +47,6 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
     // Cleanup
     return () => {
-      mounted = false;
       subscription.unsubscribe();
     };
   }, [navigate, location.pathname, isPublicRoute]);
