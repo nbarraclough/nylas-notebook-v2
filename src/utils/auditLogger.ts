@@ -1,11 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 
-export enum AuditAction {
-  VIDEO_SHARE = 'video_share',
-  PASSWORD_ATTEMPT = 'password_attempt',
-  ORGANIZATION_UPDATE = 'organization_update',
-  SETTINGS_UPDATE = 'settings_update'
-}
+type AuditAction = Database['public']['Enums']['audit_action'];
 
 interface AuditLogEntry {
   action: AuditAction;
@@ -25,7 +21,7 @@ export const logAuditEvent = async ({ action, userId, details }: AuditLogEntry) 
       .from('audit_logs')
       .insert({
         user_id: userId,
-        action: action,
+        action,
         details: sanitizedDetails
       });
 
@@ -42,3 +38,10 @@ export const logAuditEvent = async ({ action, userId, details }: AuditLogEntry) 
     });
   }
 };
+
+export const AuditAction = {
+  VIDEO_SHARE: 'video_share' as const,
+  PASSWORD_ATTEMPT: 'password_attempt' as const,
+  ORGANIZATION_UPDATE: 'organization_update' as const,
+  SETTINGS_UPDATE: 'settings_update' as const
+} as const;
