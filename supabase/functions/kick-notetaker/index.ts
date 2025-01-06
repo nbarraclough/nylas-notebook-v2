@@ -1,23 +1,18 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+import { corsHeaders } from '../_shared/cors.ts'
 
 Deno.serve(async (req) => {
+  // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const requestBody = await req.json()
-    console.log('Processing kick request...')
-    
-    const { notetakerId } = requestBody
-    
+    const { notetakerId } = await req.json()
+    console.log('Processing kick request for notetaker:', notetakerId)
+
     if (!notetakerId) {
-      throw new Error('No notetaker ID provided')
+      throw new Error('notetakerId is required')
     }
 
     // Initialize Supabase client
@@ -26,108 +21,101 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get the user's session from the request
-    const authHeader = req.headers.get('Authorization')?.split('Bearer ')[1]
-    if (!authHeader) {
-      throw new Error('No authorization header')
-    }
-
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(authHeader)
-    if (authError || !user) {
-      console.error('Authentication error');
-      throw new Error('Unauthorized')
-    }
-
-    console.log('Authenticated user verified');
-
-    const { data: profile, error: profileError } = await supabaseClient
-      .from('profiles')
-      .select('nylas_grant_id')
-      .eq('id', user.id)
+    // First get the queue entry and recording that have this notetaker
+    const { data: queueData, error: queueError } = await supabaseClient
+      .from('notetaker_queue')
+      .select('id, event_id, user_id')
+      .eq('notetaker_id', notetakerId)
       .single()
 
-    if (profileError || !profile?.nylas_grant_id) {
-      console.error('Profile error');
-      throw new Error('Nylas grant ID not found')
+    if (queueError) {
+      console.error('Error fetching queue entry:', queueError)
+      throw new Error('Failed to fetch queue entry')
     }
 
-    console.log('Found Nylas grant, sending kick request...')
-    
-    const nylasApiUrl = `https://api-staging.us.nylas.com/v3/grants/${profile.nylas_grant_id}/notetakers/${notetakerId}`
+    console.log('Found queue entry:', queueData)
 
-    // Make the request to Nylas API
+    // Get the recording entry
+    const { data: recordingData, error: recordingError } = await supabaseClient
+      .from('recordings')
+      .select('id')
+      .eq('notetaker_id', notetakerId)
+      .single()
+
+    if (recordingError && recordingError.code !== 'PGRST116') { // Ignore not found error
+      console.error('Error fetching recording:', recordingError)
+      throw new Error('Failed to fetch recording')
+    }
+
+    console.log('Found recording:', recordingData)
+
+    // Send kick request to Nylas
     const response = await fetch(
-      nylasApiUrl,
+      `https://api-staging.us.nylas.com/v3/notetakers/${notetakerId}/kick`,
       {
-        method: 'DELETE',
+        method: 'POST',
         headers: {
-          'Accept': 'application/json',
           'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
-        },
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
       }
     )
 
-    const responseText = await response.text()
-
     if (!response.ok) {
-      console.error('Nylas API error');
-      throw new Error(`Failed to kick notetaker`)
+      const errorText = await response.text()
+      console.error('Failed to kick notetaker:', errorText)
+      throw new Error(`Failed to kick notetaker: ${errorText}`)
     }
 
-    // If the response is "notetaker is leaving meeting", consider it a success
-    if (responseText === 'notetaker is leaving meeting') {
-      console.log('Successfully kicked notetaker');
+    console.log('Successfully kicked notetaker')
 
-      return new Response(
-        JSON.stringify({ 
-          success: true,
-          status: response.status,
-          message: responseText
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        }
-      )
-    }
+    // Update recording status if it exists
+    if (recordingData) {
+      const { error: updateError } = await supabaseClient
+        .from('recordings')
+        .update({ 
+          status: 'failed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', recordingData.id)
 
-    // Try to parse JSON response if it's not the text message
-    let responseBody = {}
-    try {
-      responseBody = JSON.parse(responseText)
-      console.log('Kick request processed successfully');
-    } catch (e) {
-      console.error('Error parsing response');
-      // If we can't parse JSON but the request was successful, return the text response
-      if (response.ok) {
-        responseBody = { message: responseText }
-      } else {
-        throw new Error('Invalid response from Nylas API')
+      if (updateError) {
+        console.error('Error updating recording:', updateError)
+        throw new Error('Failed to update recording status')
       }
+    }
+
+    // Remove from queue
+    const { error: deleteError } = await supabaseClient
+      .from('notetaker_queue')
+      .delete()
+      .eq('id', queueData.id)
+
+    if (deleteError) {
+      console.error('Error removing from queue:', deleteError)
+      throw new Error('Failed to remove from queue')
     }
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        status: response.status,
-        data: responseBody 
+        message: 'Notetaker kicked successfully'
       }),
-      {
+      { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
+        status: 200 
       }
     )
-
   } catch (error) {
-    console.error('Error in kick-notetaker function');
+    console.error('Error in kick-notetaker:', error)
     return new Response(
       JSON.stringify({ 
-        error: 'Failed to process request',
-        success: false 
+        error: error.message || 'Failed to kick notetaker'
       }),
-      {
+      { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
+        status: 500 
       }
     )
   }
