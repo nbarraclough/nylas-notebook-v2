@@ -68,7 +68,7 @@ export const QueueCard = ({ queueItem }: QueueCardProps) => {
   };
 
   return (
-    <Card>
+    <Card className="card-hover-effect">
       <CardContent className="p-3 sm:p-4">
         <div className="flex flex-col space-y-3 sm:space-y-4">
           <div className="flex items-start justify-between gap-3">

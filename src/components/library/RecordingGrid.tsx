@@ -59,7 +59,7 @@ export function RecordingGrid({
           return (
             <Card
               key={recording.id}
-              className="cursor-pointer hover:shadow-lg transition-shadow"
+              className="cursor-pointer card-hover-effect"
               onClick={() => onRecordingSelect(recording.id)}
             >
               <div className="aspect-video bg-muted relative">

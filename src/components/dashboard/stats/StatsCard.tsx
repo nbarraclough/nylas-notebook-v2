@@ -27,7 +27,7 @@ export function StatsCard({ publicShares }: StatsCardProps) {
         {publicShares?.map((share) => (
           <div 
             key={share.id} 
-            className="p-4 rounded-lg border border-gray-100 bg-white/50 backdrop-blur-sm hover:bg-white/80 transition-all duration-200"
+            className="p-4 rounded-lg border border-gray-100 bg-white/50 backdrop-blur-sm card-hover-effect"
           >
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-medium line-clamp-1 flex-1 mr-2">
