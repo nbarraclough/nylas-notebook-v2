@@ -83,7 +83,7 @@ export function SharedVideoView() {
 
       console.log('Fetching shared video with token:', token);
 
-      const { data: share, error: shareError } = await supabase
+      const { data: share, error } = await supabase
         .from('video_shares')
         .select(`
           recording:recordings!inner (
@@ -103,15 +103,18 @@ export function SharedVideoView() {
         `)
         .eq('external_token', token)
         .eq('share_type', 'external')
-        .single();
+        .maybeSingle();
 
-      if (shareError) {
-        console.error('Error fetching shared video:', shareError);
-        throw shareError;
+      if (error) {
+        console.error('Error fetching shared video:', error);
+        throw error;
       }
 
       if (!share?.recording) {
-        throw new Error('Recording not found');
+        console.log('No recording found for token:', token);
+        setEventData(null);
+        setRecording(null);
+        return;
       }
 
       // Set event data regardless of recording availability
