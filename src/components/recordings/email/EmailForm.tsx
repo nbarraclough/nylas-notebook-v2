@@ -22,7 +22,7 @@ export function EmailForm({
   const { toast } = useToast();
   const { redirectToAuth } = useAuthRedirect();
 
-  const { data: profile, error: profileError } = useQuery({
+  const { data: profile } = useQuery({
     queryKey: ['profile'],
     queryFn: async () => {
       console.log('Fetching profile data for email form');
@@ -55,36 +55,32 @@ export function EmailForm({
       console.log('Profile data fetched:', profile);
       return profile;
     },
-    retry: false,
-    onError: (error) => {
-      console.error('Profile query error:', error);
-      if (error.message === 'Authentication required') {
-        redirectToAuth('Please sign in to send emails');
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to load profile information. Please try again.",
-          variant: "destructive",
-        });
-      }
-    }
+    meta: {
+      errorMessage: "Failed to load profile information. Please try again.",
+    },
   });
 
   useEffect(() => {
     if (profile && body === '') {
       console.log('Constructing email template with profile:', profile);
       
-      // Construct signature parts, filtering out any undefined/null values
+      // Construct name part
+      const fullName = [profile.first_name, profile.last_name]
+        .filter(Boolean)
+        .join(' ');
+      
+      // Construct organization part
+      const organizationName = profile.organizations?.name || '';
+      
+      // Construct signature parts, filtering out empty values
       const signatureParts = [
         '',
         'Best regards,',
         '',
-        profile.first_name && profile.last_name 
-          ? `${profile.first_name} ${profile.last_name}`
-          : profile.first_name || '',
+        fullName || 'Me',
         profile.job_title || '',
-        profile.organizations?.name || ''
-      ].filter(Boolean); // Remove empty strings
+        organizationName
+      ].filter(Boolean);
 
       // Join signature parts with newlines
       const signature = signatureParts.join('\n');
