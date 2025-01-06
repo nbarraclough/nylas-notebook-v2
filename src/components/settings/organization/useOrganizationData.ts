@@ -36,7 +36,7 @@ export function useOrganizationData(userId: string) {
         throw orgError;
       }
 
-      // Get organization members separately
+      // Get organization members with a simplified query
       const { data: membersData, error: membersError } = await supabase
         .from('organization_members')
         .select(`
@@ -53,20 +53,14 @@ export function useOrganizationData(userId: string) {
         throw membersError;
       }
 
-      const members = membersData.map(member => ({
-        user_id: member.user_id,
-        role: member.role,
-        profiles: { email: member.profiles?.email }
-      }));
-
       console.log('Successfully fetched organization data:', {
         organizationId: profile.organization_id,
-        memberCount: members.length
+        memberCount: membersData?.length
       });
 
       return {
         organization,
-        members
+        members: membersData
       };
     },
     enabled: !!userId,
