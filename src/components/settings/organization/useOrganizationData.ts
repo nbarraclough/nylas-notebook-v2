@@ -26,13 +26,13 @@ export function useOrganizationData(userId: string) {
 
       if (orgError) throw orgError;
 
-      // Get members separately
+      // Get members with a left join instead of inner join
       const { data: membersData, error: membersError } = await supabase
         .from('profiles')
         .select(`
           id,
           email,
-          organization_members!inner (
+          organization_members (
             role
           )
         `)
