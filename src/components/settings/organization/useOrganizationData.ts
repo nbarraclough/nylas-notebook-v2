@@ -36,34 +36,22 @@ export function useOrganizationData(userId: string) {
         throw orgError;
       }
 
-      // Get all profiles that belong to this organization
-      const { data: orgProfiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, email')
-        .eq('organization_id', profile.organization_id);
-
-      if (profilesError) {
-        console.error('Profiles fetch error:', profilesError);
-        throw profilesError;
-      }
-
-      // Get member roles for these profiles
-      const { data: memberRoles, error: rolesError } = await supabase
+      // Get member roles and profiles in a single query
+      const { data: members, error: membersError } = await supabase
         .from('organization_members')
-        .select('user_id, role')
+        .select(`
+          user_id,
+          role,
+          profiles:user_id (
+            email
+          )
+        `)
         .eq('organization_id', profile.organization_id);
 
-      if (rolesError) {
-        console.error('Member roles fetch error:', rolesError);
-        throw rolesError;
+      if (membersError) {
+        console.error('Members fetch error:', membersError);
+        throw membersError;
       }
-
-      // Combine the data
-      const members = orgProfiles.map(profile => ({
-        user_id: profile.id,
-        profiles: profile,
-        role: memberRoles.find(m => m.user_id === profile.id)?.role || 'user'
-      }));
 
       console.log('Successfully fetched organization data:', {
         organizationId: profile.organization_id,
@@ -72,7 +60,7 @@ export function useOrganizationData(userId: string) {
 
       return {
         organization,
-        members
+        members: members || []
       };
     },
     enabled: !!userId,
