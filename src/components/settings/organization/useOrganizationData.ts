@@ -43,33 +43,39 @@ export const useOrganizationData = (userId: string) => {
         throw orgError;
       }
 
-      // Get members with a left join
-      console.log('Fetching members for organization:', profile.organization_id);
-      const { data: membersData, error: membersError } = await supabase
+      // First get all profiles in the organization
+      const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select(`
-          id,
-          email,
-          organization_members (
-            role
-          )
-        `)
+        .select('id, email')
+        .eq('organization_id', profile.organization_id);
+
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        throw profilesError;
+      }
+
+      // Then get their roles from organization_members separately
+      const { data: membersData, error: membersError } = await supabase
+        .from('organization_members')
+        .select('user_id, role')
         .eq('organization_id', profile.organization_id);
 
       if (membersError) {
-        console.error('Error fetching members:', membersError);
+        console.error('Error fetching member roles:', membersError);
         throw membersError;
       }
 
-      // Transform members data to include role
-      const members = membersData.map(member => ({
-        user_id: member.id,
-        email: member.email,
-        role: member.organization_members?.[0]?.role || 'user',
-        profiles: {
-          email: member.email
-        }
-      }));
+      // Combine the data
+      const members = profilesData.map(profile => {
+        const memberData = membersData?.find(m => m.user_id === profile.id);
+        return {
+          user_id: profile.id,
+          role: memberData?.role || 'user',
+          profiles: {
+            email: profile.email
+          }
+        };
+      });
 
       console.log('Successfully fetched organization data:', {
         orgId: org.id,
