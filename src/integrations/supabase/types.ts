@@ -9,30 +9,6 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      audit_logs: {
-        Row: {
-          action: Database["public"]["Enums"]["audit_action"]
-          created_at: string
-          details: Json
-          id: string
-          user_id: string
-        }
-        Insert: {
-          action: Database["public"]["Enums"]["audit_action"]
-          created_at?: string
-          details?: Json
-          id?: string
-          user_id: string
-        }
-        Update: {
-          action?: Database["public"]["Enums"]["audit_action"]
-          created_at?: string
-          details?: Json
-          id?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       cron_job_logs: {
         Row: {
           error: string | null
@@ -714,11 +690,6 @@ export type Database = {
       }
     }
     Enums: {
-      audit_action:
-        | "video_share"
-        | "password_attempt"
-        | "organization_update"
-        | "settings_update"
       org_role: "admin" | "user"
     }
     CompositeTypes: {

@@ -1,17 +1,10 @@
 import type { Json } from './json';
-import type { AuditLog, AuditLogInsert, AuditLogUpdate, AuditAction } from './audit';
 import type { ManualMeeting, ManualMeetingInsert, ManualMeetingUpdate } from './manual-meetings';
 import type { NotetakerQueue, NotetakerQueueInsert, NotetakerQueueUpdate } from './notetaker-queue';
 
 export type Database = {
   public: {
     Tables: {
-      audit_logs: {
-        Row: AuditLog;
-        Insert: AuditLogInsert;
-        Update: AuditLogUpdate;
-        Relationships: []
-      };
       events: {
         Row: {
           busy: boolean | null
@@ -217,8 +210,10 @@ export type Database = {
           }
         ]
       }
-    };
-    Views: Record<string, never>;
+    }
+    Views: {
+      [_ in never]: never
+    }
     Functions: {
       should_record_event: {
         Args: {
@@ -236,13 +231,15 @@ export type Database = {
         }
         Returns: Json
       }
-    };
+    }
     Enums: {
-      audit_action: AuditAction;
-    };
-    CompositeTypes: Record<string, never>;
-  };
-};
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
 
 type PublicSchema = Database[Extract<keyof Database, "public">]
 

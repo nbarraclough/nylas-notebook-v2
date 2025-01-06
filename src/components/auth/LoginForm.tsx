@@ -3,42 +3,46 @@ import { ThemeSupa } from "@supabase/auth-ui-shared";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 export function LoginForm() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   
   // Get the current site URL for redirect
   const siteUrl = window.location.origin;
-  const returnTo = location.state?.returnTo || "/calendar";
 
   useEffect(() => {
     // Check if user is already logged in
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        navigate(returnTo, { replace: true });
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          navigate("/calendar");
+        }
+      } catch (error) {
+        console.error("Error checking session:", error);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
-    });
+    };
+
+    checkSession();
 
     // Subscribe to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        navigate(returnTo, { replace: true });
+        navigate("/calendar");
       }
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate, returnTo]);
+  }, [navigate]);
 
   if (isLoading) {
-    return null;
+    return null; // Or a loading spinner if you prefer
   }
 
   return (

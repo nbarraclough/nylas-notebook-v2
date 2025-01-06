@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { checkRateLimit } from "@/utils/rateLimit";
-import { logAuditEvent, AuditAction } from "@/utils/auditLogger";
 
 interface UseShareHandlingProps {
   recordingId: string;
@@ -30,23 +28,10 @@ export function useShareHandling({
   onSuccess,
 }: UseShareHandlingProps) {
   const { toast } = useToast();
-  const [shareAttempts, setShareAttempts] = useState(0);
 
   const handleShare = async () => {
     try {
-      // Rate limiting check
-      const identifier = `share_${recordingId}`;
-      if (!checkRateLimit(identifier)) {
-        toast({
-          title: "Too many attempts",
-          description: "Please wait a moment before trying again.",
-          variant: "destructive"
-        });
-        return;
-      }
-
       setIsLoading(true);
-      setShareAttempts(prev => prev + 1);
 
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
@@ -67,25 +52,13 @@ export function useShareHandling({
 
       if (profileError) throw profileError;
 
-      // Remove existing shares
+      // Remove existing shares that are no longer enabled
       const { error: deleteError } = await supabase
         .from('video_shares')
         .delete()
         .eq('recording_id', recordingId);
 
       if (deleteError) throw deleteError;
-
-      // Log the share attempt
-      await logAuditEvent({
-        action: AuditAction.VIDEO_SHARE,
-        userId: session.user.id,
-        details: {
-          recordingId,
-          isInternal: isInternalEnabled,
-          isExternal: isExternalEnabled,
-          hasPassword: isPasswordEnabled
-        }
-      });
 
       if (isInternalEnabled && profile?.organization_id) {
         const { error: internalError } = await supabase
@@ -134,10 +107,7 @@ export function useShareHandling({
 
       onSuccess();
     } catch (error) {
-      console.error('Error sharing video:', {
-        type: 'share_error',
-        recordingId
-      });
+      console.error('Error sharing video:', error);
       toast({
         title: "Error sharing video",
         description: "There was a problem sharing the video. Please try again.",
