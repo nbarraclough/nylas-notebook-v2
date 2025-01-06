@@ -34,7 +34,8 @@ export function LoginForm() {
           return;
         }
 
-        if (session && mounted) {
+        // Only redirect if we have a valid session and are still mounted
+        if (session?.user && mounted) {
           console.log("User is already logged in, redirecting to:", returnTo);
           navigate(returnTo, { replace: true });
         }
@@ -55,10 +56,14 @@ export function LoginForm() {
     checkSession();
 
     // Subscribe to auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Auth state changed:", event, session?.user?.id);
-      if (event === 'SIGNED_IN' && session && mounted) {
+      
+      // Only handle sign in event when we have both session and user
+      if (event === 'SIGNED_IN' && session?.user && mounted) {
         console.log("User signed in, redirecting to:", returnTo);
+        // Add a small delay to ensure auth state is fully updated
+        await new Promise(resolve => setTimeout(resolve, 100));
         navigate(returnTo, { replace: true });
       }
     });
