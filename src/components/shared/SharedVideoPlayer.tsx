@@ -1,80 +1,53 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 
 interface SharedVideoPlayerProps {
   videoUrl: string | null;
   recordingUrl: string | null;
   recordingId: string;
   notetakerId?: string | null;
+  onRefreshMedia?: (recordingId: string, notetakerId: string | null) => Promise<void>;
+  isRefreshing?: boolean;
 }
 
-export function SharedVideoPlayer({ videoUrl, recordingUrl, recordingId, notetakerId }: SharedVideoPlayerProps) {
+export function SharedVideoPlayer({ 
+  videoUrl, 
+  recordingUrl, 
+  recordingId, 
+  notetakerId,
+  onRefreshMedia,
+  isRefreshing 
+}: SharedVideoPlayerProps) {
   const { toast } = useToast();
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   
   // Use video_url if available, fall back to recording_url
   const finalVideoUrl = videoUrl || recordingUrl;
 
-  const refreshMedia = async () => {
-    if (!recordingId) {
-      console.error('Missing recordingId for refreshMedia');
-      toast({
-        title: "Error",
-        description: "Could not refresh video: missing recording ID",
-        variant: "destructive",
+  useEffect(() => {
+    // When the video URL changes and isn't refreshing, attempt to play
+    if (finalVideoUrl && !isRefreshing && videoRef.current) {
+      videoRef.current.play().catch(e => {
+        console.log('Autoplay prevented:', e);
       });
-      return;
     }
+  }, [finalVideoUrl, isRefreshing]);
 
-    try {
-      setIsRefreshing(true);
-      console.log('Refreshing media for recording:', recordingId, 'notetakerId:', notetakerId);
-      
-      const { error } = await supabase.functions.invoke('get-recording-media', {
-        body: { 
-          recordingId,
-          notetakerId: notetakerId || undefined
-        },
-      });
-
-      if (error) {
-        console.error('Error refreshing media:', error);
-        toast({
-          title: "Error",
-          description: "Failed to refresh video. Please try again.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Reload the page to get the updated URLs
-      window.location.reload();
-      
-      toast({
-        title: "Success",
-        description: "Video refreshed successfully",
-      });
-    } catch (error) {
-      console.error('Error refreshing media:', error);
-      toast({
-        title: "Error",
-        description: "Failed to refresh video. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsRefreshing(false);
+  const handleError = async () => {
+    if (onRefreshMedia) {
+      await onRefreshMedia(recordingId, notetakerId);
     }
-  };
-
-  const handleError = async (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
-    await refreshMedia();
   };
 
   const handleLoadedData = () => {
     setIsLoaded(true);
+    // Attempt autoplay when video is loaded
+    if (videoRef.current) {
+      videoRef.current.play().catch(e => {
+        console.log('Autoplay prevented:', e);
+      });
+    }
   };
 
   if (!finalVideoUrl) {
@@ -86,8 +59,9 @@ export function SharedVideoPlayer({ videoUrl, recordingUrl, recordingId, notetak
   }
 
   return (
-    <div className="relative">
+    <div className="relative w-full h-full">
       <video
+        ref={videoRef}
         src={finalVideoUrl}
         controls
         autoPlay
@@ -97,24 +71,10 @@ export function SharedVideoPlayer({ videoUrl, recordingUrl, recordingId, notetak
         controlsList="nodownload"
         onError={handleError}
         onLoadedData={handleLoadedData}
-        onCanPlay={() => {
-          const video = document.querySelector('video');
-          if (video) {
-            video.play().catch(e => console.log('Autoplay prevented:', e));
-          }
-        }}
       >
         <source src={finalVideoUrl} type="video/webm" />
         Your browser does not support the video tag.
       </video>
-      {isRefreshing && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/50">
-          <div className="flex flex-col items-center gap-2">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Refreshing video...</p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
