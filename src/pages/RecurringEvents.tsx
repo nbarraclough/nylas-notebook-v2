@@ -31,7 +31,9 @@ export default function RecurringEvents() {
             created_at
           )
         `)
-        .not('master_event_id', 'in', ['', null, 'undefined'])  // Single condition to filter out non-recurring events
+        .not('master_event_id', 'is', null)  // Must have a master_event_id
+        .neq('master_event_id', '')          // Must not be empty string
+        .neq('master_event_id', 'undefined') // Must not be 'undefined' string
         .order('start_time', { ascending: false });
 
       if (masterEventsError) {
