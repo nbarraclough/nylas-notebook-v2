@@ -77,40 +77,34 @@ export function useSharedVideo() {
         throw new Error('No share token provided');
       }
 
-      // Configure Supabase client with the token in headers
-      const supabaseWithToken = supabase.headers({
-        'external-token': token
-      });
-
       console.log('Starting fetch for shared video with token:', token);
 
-      // Fetch the recording directly with the token in headers
-      console.log('Querying recordings table...');
-      const { data: recordingData, error: recordingError } = await supabaseWithToken
-        .from('recordings')
-        .select(`
-          id,
-          video_url,
-          recording_url,
-          notetaker_id,
-          transcript_content,
-          event:events (
-            title,
-            description,
-            start_time,
-            end_time,
-            participants
-          )
-        `)
-        .eq('id', (
-          await supabaseWithToken
-            .from('video_shares')
-            .select('recording_id')
-            .eq('external_token', token)
-            .eq('share_type', 'external')
-            .single()
-        ).data.recording_id)
+      // First, get the recording ID from the shares table
+      const { data: shareData, error: shareError } = await supabase
+        .from('video_shares')
+        .select('recording_id')
+        .eq('external_token', token)
+        .eq('share_type', 'external')
         .single();
+
+      if (shareError) {
+        console.error('Error fetching share:', shareError);
+        throw shareError;
+      }
+
+      if (!shareData) {
+        console.log('No share found for token:', token);
+        setEventData(null);
+        setRecording(null);
+        return;
+      }
+
+      // Then fetch the recording with the recording ID and token
+      const { data: recordingData, error: recordingError } = await supabase
+        .rpc('get_shared_recording', {
+          p_recording_id: shareData.recording_id,
+          p_token: token
+        });
 
       if (recordingError) {
         console.error('Error fetching recording:', recordingError);
