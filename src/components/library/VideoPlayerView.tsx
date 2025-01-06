@@ -1,9 +1,11 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { VideoPlayer } from "@/components/recordings/player/VideoPlayer";
 import { TranscriptSection } from "@/components/recordings/transcript/TranscriptSection";
 import { VideoHeader } from "./VideoHeader";
+import { useRecordingData } from "./video/useRecordingData";
+import { useProfileData } from "./video/useProfileData";
+import { useVideoRefresh } from "./video/useVideoRefresh";
 import type { EventParticipant } from "@/types/calendar";
 import type { Json } from "@/integrations/supabase/types";
 
@@ -19,86 +21,9 @@ interface Organizer {
 
 export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) {
   const queryClient = useQueryClient();
-  
-  const { data: recording, isLoading } = useQuery({
-    queryKey: ['recording', recordingId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('recordings')
-        .select(`
-          *,
-          event:events (
-            title,
-            description,
-            start_time,
-            end_time,
-            participants,
-            organizer,
-            manual_meeting:manual_meetings (
-              user_id
-            )
-          ),
-          video_shares (
-            id,
-            share_type,
-            external_token
-          )
-        `)
-        .eq('id', recordingId)
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: profile } = useQuery({
-    queryKey: ['profile'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No user found');
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('nylas_grant_id, email')
-        .eq('id', user.id)
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Refresh media when component mounts
-  const refreshMedia = async () => {
-    try {
-      console.log('Refreshing media for recording:', recordingId);
-      
-      const { error } = await supabase.functions.invoke('get-recording-media', {
-        body: { 
-          recordingId,
-          notetakerId: recording?.notetaker_id
-        },
-      });
-
-      if (error) {
-        console.error('Error refreshing media:', error);
-        return;
-      }
-
-      // Refetch recording data to get updated URLs
-      queryClient.invalidateQueries({ queryKey: ['recording', recordingId] });
-    } catch (error) {
-      console.error('Error refreshing media:', error);
-    }
-  };
-
-  // Call refreshMedia when component mounts
-  React.useEffect(() => {
-    if (recording?.notetaker_id) {
-      refreshMedia();
-    }
-  }, [recording?.notetaker_id]);
+  const { recording, isLoading } = useRecordingData(recordingId);
+  const { data: profile } = useProfileData();
+  const { refreshMedia } = useVideoRefresh(recordingId, recording?.notetaker_id);
 
   const isInternalMeeting = () => {
     const organizer = recording?.event?.organizer as Organizer | null;
@@ -124,7 +49,6 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   };
 
   const handleShareUpdate = () => {
-    // Refetch the recording data to get updated shares
     queryClient.invalidateQueries({ queryKey: ['recording', recordingId] });
   };
 
