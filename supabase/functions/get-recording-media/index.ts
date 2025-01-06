@@ -11,6 +11,11 @@ Deno.serve(async (req) => {
 
   try {
     const { recordingId, notetakerId } = await req.json()
+    console.log('Processing request for recording:', recordingId, 'notetaker:', notetakerId)
+
+    if (!recordingId || !notetakerId) {
+      throw new Error('Missing required parameters')
+    }
 
     // Initialize Supabase client
     const supabaseClient = createClient(
@@ -35,6 +40,8 @@ Deno.serve(async (req) => {
       throw new Error('Nylas grant ID not found')
     }
 
+    console.log('Fetching media from Nylas for grant:', grantId)
+
     // Fetch media from Nylas
     const response = await fetch(
       `${NYLAS_API_URL}/v3/grants/${grantId}/notetakers/${notetakerId}/media`,
@@ -48,6 +55,8 @@ Deno.serve(async (req) => {
     )
 
     if (!response.ok) {
+      console.error('Nylas API error:', response.status, await response.text())
+      
       // If media is not available yet, return a structured error response
       if (response.status === 404) {
         return new Response(
@@ -56,7 +65,7 @@ Deno.serve(async (req) => {
             message: 'Media is not available yet'
           }),
           { 
-            status: 202, // Using 202 Accepted to indicate the request is valid but processing
+            status: 202,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
@@ -67,7 +76,7 @@ Deno.serve(async (req) => {
     const mediaData = await response.json()
     console.log('Media data received:', mediaData)
 
-    // Update the recording with the media URLs and transcript
+    // Always update the recording with the latest media URLs
     const { error: updateError } = await supabaseClient
       .from('recordings')
       .update({
@@ -89,7 +98,6 @@ Deno.serve(async (req) => {
         if (transcriptResponse.ok) {
           const transcriptContent = await transcriptResponse.json()
           
-          // Store transcript content
           await supabaseClient
             .from('recordings')
             .update({
