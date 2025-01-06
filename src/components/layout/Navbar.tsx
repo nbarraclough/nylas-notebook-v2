@@ -8,9 +8,10 @@ import {
   Settings, 
   Menu,
   Repeat,
-  NotebookPen,
+  Book,
   Home,
   LogOut,
+  NotebookPen,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -102,7 +103,7 @@ export function Navbar() {
         )}
         onClick={onClick}
       >
-        <NotebookPen className="h-4 w-4" />
+        <Book className="h-4 w-4" />
         Library
       </Link>
       <div className="lg:hidden">
