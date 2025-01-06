@@ -20,10 +20,22 @@ interface Event {
 }
 
 export function WelcomeCard({ email }: WelcomeCardProps) {
-  const firstName = email.split('@')[0]
-    .split(/[._-]/)
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join('');
+  const { data: profile } = useQuery({
+    queryKey: ['profile'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No user found');
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('first_name')
+        .eq('id', user.id)
+        .single();
+
+      if (error) throw error;
+      return data;
+    }
+  });
 
   const { data: todaysMeetings } = useQuery({
     queryKey: ['today-meetings'],
@@ -58,7 +70,7 @@ export function WelcomeCard({ email }: WelcomeCardProps) {
   return (
     <div className="space-y-4">
       <h2 className="text-2xl font-bold tracking-tight">
-        Welcome back, {firstName}!
+        {profile?.first_name ? `Welcome back, ${profile.first_name}!` : 'Welcome back!'}
       </h2>
       <div className="space-y-3">
         <p className="text-muted-foreground">
