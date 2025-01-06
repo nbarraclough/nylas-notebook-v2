@@ -84,7 +84,7 @@ export default function Index() {
   if (profileLoading || eventsLoading) {
     return (
       <PageLayout>
-        <div className="animate-pulse space-y-8">
+        <div className="animate-pulse space-y-4 px-4 sm:px-0">
           <div className="h-40 bg-gray-200 rounded-lg" />
           <div className="h-60 bg-gray-200 rounded-lg" />
         </div>
@@ -94,29 +94,31 @@ export default function Index() {
 
   return (
     <PageLayout>
-      <div className="space-y-8">
-        {/* Top row */}
+      <div className="space-y-6 px-4 sm:px-0">
+        {/* Top row - Responsive grid */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <Card className="col-span-2 card-hover-effect">
-            <CardContent className="pt-6">
+          <Card className="col-span-1 md:col-span-2 card-hover-effect">
+            <CardContent className="p-4 sm:p-6">
               <WelcomeCard email={userEmail} />
             </CardContent>
           </Card>
           
           <Card className="card-hover-effect">
-            <CardContent className="pt-6">
+            <CardContent className="p-4 sm:p-6">
               <StatsCard publicShares={[]} />
             </CardContent>
           </Card>
         </div>
 
-        {/* Bottom row */}
+        {/* Bottom row - Responsive grid */}
         <div className="grid gap-4 md:grid-cols-2">
           <Card className="card-hover-effect">
-            <RecentRecordings />
+            <CardContent className="p-4 sm:p-6">
+              <RecentRecordings />
+            </CardContent>
           </Card>
           <Card className="card-hover-effect">
-            <CardContent className="pt-6">
+            <CardContent className="p-4 sm:p-6">
               <h3 className="text-lg font-semibold mb-4">Upcoming Meetings</h3>
               <div className="space-y-4">
                 {upcomingEvents?.map((event) => (
