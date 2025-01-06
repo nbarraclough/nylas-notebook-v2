@@ -9,7 +9,6 @@ interface VideoPlayerHeaderProps {
   title: string;
   shareUrl: string | null;
   participants: EventParticipant[];
-  grantId: string | null;
 }
 
 export function VideoPlayerHeader({ 
@@ -17,7 +16,6 @@ export function VideoPlayerHeader({
   title,
   shareUrl,
   participants,
-  grantId
 }: VideoPlayerHeaderProps) {
   return (
     <div className="flex items-center justify-between p-4 border-b">
@@ -29,7 +27,6 @@ export function VideoPlayerHeader({
             shareUrl={shareUrl}
             eventTitle={title}
             participants={participants}
-            grantId={grantId}
             recordingId={recordingId}
           />
         )}

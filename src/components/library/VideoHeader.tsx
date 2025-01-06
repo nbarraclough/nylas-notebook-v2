@@ -92,7 +92,6 @@ export function VideoHeader({
             shareUrl={shareUrl}
             eventTitle={title}
             participants={participants}
-            grantId={grantId}
             recordingId={recordingId}
           />
         )}
