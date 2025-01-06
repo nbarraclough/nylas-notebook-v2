@@ -18,7 +18,7 @@ interface SharedRecording {
     start_time: string;
     end_time: string;
     participants: EventParticipant[];
-  };
+  } | null;
 }
 
 export function useSharedVideo() {
@@ -130,21 +130,23 @@ export function useSharedVideo() {
 
       console.log('Raw recording data:', recordingData);
 
-      if (!recordingData || !recordingData.event) {
+      if (!recordingData) {
         console.log('No recording or event data found for ID:', share.recording_id);
         setEventData(null);
         setRecording(null);
         return;
       }
 
-      console.log('Found recording data:', recordingData);
-
-      const eventInfo = {
-        ...recordingData.event,
-        participants: transformParticipants(recordingData.event.participants || [])
+      // Create a default event data if none exists
+      const eventInfo = recordingData.event || {
+        title: 'Recorded Meeting',
+        description: null,
+        start_time: new Date().toISOString(),
+        end_time: new Date().toISOString(),
+        participants: []
       };
-      console.log('Transformed event info:', eventInfo);
-      
+
+      console.log('Setting event info:', eventInfo);
       setEventData(eventInfo);
 
       const transformedRecording: SharedRecording = {
