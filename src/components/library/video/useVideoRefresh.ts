@@ -8,20 +8,20 @@ export function useVideoRefresh(recordingId: string, notetakerId: string | null 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const refreshMedia = async () => {
-    if (!recordingId || !notetakerId) {
-      console.error('Missing required parameters for refreshMedia:', { recordingId, notetakerId });
-      toast.error("Could not refresh video: missing required information");
+    if (!recordingId) {
+      console.error('Missing recordingId for refreshMedia');
+      toast.error("Could not refresh video: missing recording ID");
       return;
     }
 
     try {
       setIsRefreshing(true);
-      console.log('Refreshing media for recording:', recordingId);
+      console.log('Refreshing media for recording:', recordingId, 'notetakerId:', notetakerId);
       
       const { error } = await supabase.functions.invoke('get-recording-media', {
         body: { 
           recordingId,
-          notetakerId
+          notetakerId: notetakerId || undefined // Only pass if it exists
         },
       });
 

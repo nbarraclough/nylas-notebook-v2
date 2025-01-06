@@ -22,9 +22,11 @@ export function VideoPlayer({
 }: VideoPlayerProps) {
   const [videoUrl, setVideoUrl] = useState<string | null>(initialVideoUrl);
   const { refreshMedia } = useRecordingMedia();
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     setVideoUrl(initialVideoUrl);
+    setIsLoaded(false);
   }, [initialVideoUrl]);
 
   const handlePlay = async () => {
@@ -33,6 +35,10 @@ export function VideoPlayer({
     } else if (notetakerId) {
       await refreshMedia(recordingId, notetakerId);
     }
+  };
+
+  const handleLoadedData = () => {
+    setIsLoaded(true);
   };
 
   // Use video_url if available, fall back to recording_url
@@ -51,11 +57,13 @@ export function VideoPlayer({
       <video
         src={finalVideoUrl}
         controls
+        autoPlay={isLoaded}
         className="w-full h-full"
         playsInline
         preload="metadata"
         controlsList="nodownload"
         onPlay={handlePlay}
+        onLoadedData={handleLoadedData}
       >
         <source src={finalVideoUrl} type="video/webm" />
         Your browser does not support the video tag.
