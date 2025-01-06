@@ -23,18 +23,20 @@ export function RecurringRecordingToggle({
   useEffect(() => {
     const fetchRecordingSettings = async () => {
       try {
-        const { data, error } = await supabase
+        // First try to get existing setting
+        const { data: existingSetting, error: fetchError } = await supabase
           .from('recurring_recording_settings')
           .select('id, enabled')
           .eq('master_event_id', masterId)
+          .eq('user_id', events[0].user_id)
           .maybeSingle();
 
-        if (error) throw error;
+        if (fetchError) throw fetchError;
         
         // If we have a setting, use it. Otherwise, check if any events are queued
-        if (data) {
-          setIsEnabled(data.enabled);
-          setSettingId(data.id);
+        if (existingSetting) {
+          setIsEnabled(existingSetting.enabled);
+          setSettingId(existingSetting.id);
         } else {
           // Fall back to checking queue state
           const hasQueuedEvents = events.some(event => 
@@ -76,14 +78,16 @@ export function RecurringRecordingToggle({
           if (error) throw error;
         }
 
-        // Update recurring recording settings
+        // Update or create recurring recording settings
         const { error: settingsError } = await supabase
           .from('recurring_recording_settings')
           .upsert({
-            ...(settingId && { id: settingId }),
+            id: settingId || undefined, // Only include id if it exists
             master_event_id: masterId,
             enabled: true,
             user_id: events[0].user_id
+          }, {
+            onConflict: 'user_id,master_event_id'
           });
 
         if (settingsError) throw settingsError;
@@ -105,10 +109,12 @@ export function RecurringRecordingToggle({
         const { error: settingsError } = await supabase
           .from('recurring_recording_settings')
           .upsert({
-            ...(settingId && { id: settingId }),
+            id: settingId || undefined, // Only include id if it exists
             master_event_id: masterId,
             enabled: false,
             user_id: events[0].user_id
+          }, {
+            onConflict: 'user_id,master_event_id'
           });
 
         if (settingsError) throw settingsError;
