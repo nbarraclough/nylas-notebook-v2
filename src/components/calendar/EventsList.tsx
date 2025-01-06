@@ -125,41 +125,47 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
         </div>
       )}
 
-      <Card>
-        <CardContent className="p-4 sm:p-6">
-          {isLoadingEvents ? (
+      {isLoadingEvents ? (
+        <Card>
+          <CardContent className="p-4 sm:p-6">
             <div className="animate-pulse space-y-4">
               {[1, 2, 3].map((n) => (
                 <div key={n} className="h-24 bg-muted rounded-lg" />
               ))}
             </div>
-          ) : sortedGroupedEvents.length > 0 ? (
-            <div className="space-y-6 sm:space-y-8">
-              {sortedGroupedEvents.map(({ date, events }) => (
-                <div key={date.toISOString()} className="space-y-3 sm:space-y-4">
-                  <h2 className="text-base sm:text-lg font-semibold text-[#333333] px-2 sm:px-0">
-                    {format(date, "EEEE, MMMM d")}
-                  </h2>
-                  <div className="space-y-3 sm:space-y-4">
-                    {events.map((event) => (
-                      <EventCard 
-                        key={event.id} 
-                        event={event}
-                        userId={userId}
-                        isPast={isPast(new Date(event.end_time))}
-                      />
-                    ))}
-                  </div>
+          </CardContent>
+        </Card>
+      ) : sortedGroupedEvents.length > 0 ? (
+        <div className="space-y-6">
+          {sortedGroupedEvents.map(({ date, events }) => (
+            <Card key={date.toISOString()} className="card-hover-effect">
+              <CardContent className="p-4 sm:p-6">
+                <h2 className="text-base sm:text-lg font-semibold text-[#333333] mb-4">
+                  {format(date, "EEEE, MMMM d")}
+                </h2>
+                <div className="space-y-3 sm:space-y-4">
+                  {events.map((event) => (
+                    <EventCard 
+                      key={event.id} 
+                      event={event}
+                      userId={userId}
+                      isPast={isPast(new Date(event.end_time))}
+                    />
+                  ))}
                 </div>
-              ))}
-            </div>
-          ) : (
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="p-4 sm:p-6">
             <div className="text-center py-6 sm:py-8 text-[#555555]">
-              No upcoming events found for this week. Go relax & have fun!.
+              No upcoming events found for this week. Go relax & have fun!
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
