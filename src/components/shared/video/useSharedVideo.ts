@@ -50,15 +50,7 @@ export function useSharedVideo() {
         },
       });
 
-      if (error) {
-        console.error('Error refreshing media:', error);
-        toast({
-          title: "Error",
-          description: "Failed to refresh video. Please try again.",
-          variant: "destructive",
-        });
-        return;
-      }
+      if (error) throw error;
 
       await fetchSharedVideo();
       
@@ -84,21 +76,21 @@ export function useSharedVideo() {
 
       console.log('Fetching shared video with token:', token);
 
+      // Configure headers for the entire client instance
+      supabase.headers['external-token'] = token;
+
       // First get the recording ID from video_shares
-      const { data: shares, error: sharesError } = await supabase
+      const { data: share, error: shareError } = await supabase
         .from('video_shares')
         .select('recording_id')
         .eq('external_token', token)
         .eq('share_type', 'external')
-        .single();
+        .maybeSingle();
 
-      if (sharesError) {
-        console.error('Error fetching video shares:', sharesError);
-        throw sharesError;
-      }
+      if (shareError) throw shareError;
 
-      if (!shares) {
-        console.log('No shares found for token:', token);
+      if (!share) {
+        console.log('No share found for token:', token);
         setEventData(null);
         setRecording(null);
         return;
@@ -121,13 +113,10 @@ export function useSharedVideo() {
             participants
           )
         `)
-        .eq('id', shares.recording_id)
-        .single();
+        .eq('id', share.recording_id)
+        .maybeSingle();
 
-      if (recordingError) {
-        console.error('Error fetching recording:', recordingError);
-        throw recordingError;
-      }
+      if (recordingError) throw recordingError;
 
       if (!recordingData || !recordingData.event) {
         console.log('No recording or event data found');
@@ -140,6 +129,7 @@ export function useSharedVideo() {
         ...recordingData.event,
         participants: transformParticipants(recordingData.event.participants || [])
       };
+
       setEventData(eventInfo);
 
       const transformedRecording: SharedRecording = {
@@ -167,7 +157,11 @@ export function useSharedVideo() {
 
   useEffect(() => {
     fetchSharedVideo();
-  }, [token, toast, trackView]);
+    // Cleanup function to remove the header when component unmounts
+    return () => {
+      delete supabase.headers['external-token'];
+    };
+  }, [token]);
 
   return {
     recording,
