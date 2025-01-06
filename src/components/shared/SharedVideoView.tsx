@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { useVideoViews } from "@/hooks/use-video-views";
 import type { EventParticipant } from "@/types/calendar";
 import type { Json } from "@/integrations/supabase/types";
 import { SharedEventHeader } from "./SharedEventHeader";
@@ -11,9 +12,9 @@ import { SharedContentTabs } from "./SharedContentTabs";
 import { TranscriptSection } from "@/components/recordings/transcript/TranscriptSection";
 
 interface SharedRecording {
+  id: string;
   video_url: string | null;
   recording_url: string | null;
-  id: string;
   transcript_content: Json | null;
   event: {
     title: string;
@@ -27,6 +28,7 @@ interface SharedRecording {
 export function SharedVideoView() {
   const { token } = useParams();
   const { toast } = useToast();
+  const { trackView } = useVideoViews();
   const [recording, setRecording] = useState<SharedRecording | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [eventData, setEventData] = useState<SharedRecording['event'] | null>(null);
@@ -56,15 +58,20 @@ export function SharedVideoView() {
             )
           `)
           .eq('external_token', token)
+          .eq('share_type', 'external')
           .maybeSingle();
 
         if (shareError) {
           console.error('Error fetching shared video:', shareError);
           throw shareError;
         }
+
+        if (!share?.recording) {
+          throw new Error('Recording not found');
+        }
         
         // Set event data regardless of recording availability
-        if (share?.recording?.event) {
+        if (share.recording.event) {
           const eventInfo = {
             ...share.recording.event,
             participants: transformParticipants(share.recording.event.participants)
@@ -72,21 +79,22 @@ export function SharedVideoView() {
           setEventData(eventInfo);
         }
 
-        if (share?.recording) {
-          // Transform the data to match SharedRecording type
-          const transformedRecording: SharedRecording = {
-            id: share.recording.id,
-            video_url: share.recording.video_url,
-            recording_url: share.recording.recording_url,
-            transcript_content: share.recording.transcript_content,
-            event: {
-              ...share.recording.event,
-              participants: transformParticipants(share.recording.event.participants)
-            }
-          };
+        // Transform the data to match SharedRecording type
+        const transformedRecording: SharedRecording = {
+          id: share.recording.id,
+          video_url: share.recording.video_url,
+          recording_url: share.recording.recording_url,
+          transcript_content: share.recording.transcript_content,
+          event: {
+            ...share.recording.event,
+            participants: transformParticipants(share.recording.event.participants)
+          }
+        };
 
-          setRecording(transformedRecording);
-        }
+        setRecording(transformedRecording);
+
+        // Track view
+        await trackView(share.recording.id);
       } catch (error) {
         console.error('Error fetching shared video:', error);
         toast({
@@ -100,7 +108,7 @@ export function SharedVideoView() {
     };
 
     fetchSharedVideo();
-  }, [token, toast]);
+  }, [token, toast, trackView]);
 
   if (isLoading) {
     return (
