@@ -36,14 +36,10 @@ export function useOrganizationData(userId: string) {
         throw orgError;
       }
 
-      // Get organization members using the correct foreign key reference
+      // First get member IDs and roles
       const { data: membersData, error: membersError } = await supabase
         .from('organization_members')
-        .select(`
-          user_id,
-          role,
-          profiles:user_id(*)
-        `)
+        .select('user_id, role')
         .eq('organization_id', profile.organization_id);
 
       if (membersError) {
@@ -51,14 +47,32 @@ export function useOrganizationData(userId: string) {
         throw membersError;
       }
 
+      // Then get profiles for those members
+      const memberIds = membersData.map(member => member.user_id);
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .in('id', memberIds);
+
+      if (profilesError) {
+        console.error('Profiles fetch error:', profilesError);
+        throw profilesError;
+      }
+
+      // Combine the data
+      const members = membersData.map(member => ({
+        ...member,
+        profiles: profilesData.find(p => p.id === member.user_id)
+      }));
+
       console.log('Successfully fetched organization data:', {
         organizationId: profile.organization_id,
-        memberCount: membersData?.length
+        memberCount: members?.length
       });
 
       return {
         organization,
-        members: membersData
+        members
       };
     },
     enabled: !!userId,
