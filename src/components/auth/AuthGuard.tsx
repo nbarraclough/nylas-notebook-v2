@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { useToast } from "@/hooks/use-toast";
+import { isTokenError } from "@/utils/authStorage";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -12,6 +14,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   // Define public routes that don't require authentication
   const isPublicRoute = location.pathname === '/auth' || location.pathname.startsWith('/shared');
@@ -23,7 +26,18 @@ export function AuthGuard({ children }: AuthGuardProps) {
     const checkSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) throw error;
+        if (error) {
+          if (isTokenError(error)) {
+            console.error('Token error:', error);
+            // Clear local storage and redirect to auth
+            localStorage.clear();
+            sessionStorage.clear();
+            if (!isPublicRoute) {
+              navigate('/auth', { state: { returnTo: location.pathname } });
+            }
+          }
+          throw error;
+        }
         
         if (mounted) {
           setIsAuthenticated(!!session);
@@ -38,6 +52,11 @@ export function AuthGuard({ children }: AuthGuardProps) {
         if (mounted) {
           setIsAuthenticated(false);
           if (!isPublicRoute) {
+            toast({
+              title: "Authentication Error",
+              description: "Please sign in again",
+              variant: "destructive",
+            });
             navigate('/auth', { state: { returnTo: location.pathname } });
           }
         }
@@ -87,7 +106,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [navigate, location.pathname, isPublicRoute]);
+  }, [navigate, location.pathname, isPublicRoute, toast]);
 
   // Show loading screen only for protected routes during initial load
   if (isLoading && !isPublicRoute) {
