@@ -21,6 +21,15 @@ interface SharedRecording {
   } | null;
 }
 
+interface SharedRecordingResponse {
+  id: string;
+  video_url: string;
+  recording_url: string;
+  notetaker_id: string;
+  transcript_content: Json;
+  event: Json;
+}
+
 export function useSharedVideo() {
   const { token } = useParams();
   const { toast } = useToast();
@@ -79,30 +88,9 @@ export function useSharedVideo() {
 
       console.log('Starting fetch for shared video with token:', token);
 
-      // First, get the recording ID from the shares table
-      const { data: shareData, error: shareError } = await supabase
-        .from('video_shares')
-        .select('recording_id')
-        .eq('external_token', token)
-        .eq('share_type', 'external')
-        .single();
-
-      if (shareError) {
-        console.error('Error fetching share:', shareError);
-        throw shareError;
-      }
-
-      if (!shareData) {
-        console.log('No share found for token:', token);
-        setEventData(null);
-        setRecording(null);
-        return;
-      }
-
-      // Then fetch the recording with the recording ID and token
       const { data: recordingData, error: recordingError } = await supabase
         .rpc('get_shared_recording', {
-          p_recording_id: shareData.recording_id,
+          p_recording_id: token,
           p_token: token
         });
 
@@ -113,45 +101,41 @@ export function useSharedVideo() {
 
       console.log('Raw recording data:', recordingData);
 
-      if (!recordingData) {
+      if (!recordingData || recordingData.length === 0) {
         console.log('No recording or event data found');
         setEventData(null);
         setRecording(null);
         return;
       }
 
-      // Create a default event data if none exists
-      const eventInfo = recordingData.event || {
-        title: 'Recorded Meeting',
-        description: null,
-        start_time: new Date().toISOString(),
-        end_time: new Date().toISOString(),
-        participants: [] as Json[]
-      };
+      const sharedRecording = recordingData[0] as SharedRecordingResponse;
 
-      // Transform participants regardless of whether we're using default or actual event data
-      const transformedEventInfo = {
-        ...eventInfo,
-        participants: transformParticipants(eventInfo.participants)
-      };
+      // Transform event data from the JSON response
+      const eventInfo = sharedRecording.event ? {
+        title: sharedRecording.event.title as string || 'Recorded Meeting',
+        description: sharedRecording.event.description as string | null,
+        start_time: sharedRecording.event.start_time as string,
+        end_time: sharedRecording.event.end_time as string,
+        participants: transformParticipants(sharedRecording.event.participants || [])
+      } : null;
 
-      console.log('Setting event info:', transformedEventInfo);
-      setEventData(transformedEventInfo);
+      console.log('Setting event info:', eventInfo);
+      setEventData(eventInfo);
 
       const transformedRecording: SharedRecording = {
-        id: recordingData.id,
-        video_url: recordingData.video_url,
-        recording_url: recordingData.recording_url,
-        notetaker_id: recordingData.notetaker_id,
-        transcript_content: recordingData.transcript_content,
-        event: transformedEventInfo
+        id: sharedRecording.id,
+        video_url: sharedRecording.video_url,
+        recording_url: sharedRecording.recording_url,
+        notetaker_id: sharedRecording.notetaker_id,
+        transcript_content: sharedRecording.transcript_content,
+        event: eventInfo
       };
 
       console.log('Setting transformed recording:', transformedRecording);
       setRecording(transformedRecording);
       
-      console.log('Tracking view for recording:', recordingData.id);
-      await trackView(recordingData.id);
+      console.log('Tracking view for recording:', sharedRecording.id);
+      await trackView(sharedRecording.id);
     } catch (error) {
       console.error('Error fetching shared video:', error);
       toast({
