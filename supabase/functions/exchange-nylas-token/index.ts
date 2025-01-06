@@ -1,7 +1,7 @@
 // @ts-ignore
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 // @ts-ignore
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -58,23 +58,6 @@ serve(async (req) => {
       throw new Error('No grant_id in Nylas response')
     }
 
-    console.log('Getting grant info from Nylas...')
-    // Get grant info from Nylas using the correct endpoint
-    const grantInfoResponse = await fetch(`https://api-staging.us.nylas.com/v3/grants/${grant_id}`, {
-      headers: {
-        'Authorization': `Bearer ${clientId}:${clientSecret}`,
-        'Accept': 'application/json',
-      },
-    });
-
-    if (!grantInfoResponse.ok) {
-      console.error('Failed to get grant info:', await grantInfoResponse.text())
-      throw new Error('Failed to get grant info from Nylas')
-    }
-
-    const grantInfo = await grantInfoResponse.json();
-    console.log('Grant info received:', grantInfo)
-
     // Get user ID from auth header
     const authHeader = req.headers.get('Authorization')?.split(' ')[1]
     if (!authHeader) {
@@ -98,15 +81,13 @@ serve(async (req) => {
       }
     })
 
-    console.log('Updating profile with new grant info...')
+    console.log('Updating profile with grant info...')
     // Update the profile with new nylas_grant_id and grant status
     const { data: updateData, error: updateError } = await supabase
       .from('profiles')
       .update({
         nylas_grant_id: grant_id,
         grant_status: 'active', // Set status to active on successful authentication
-        first_name: grantInfo.data?.first_name || null,
-        last_name: grantInfo.data?.last_name || null,
         updated_at: new Date().toISOString()
       })
       .eq('id', userId)
@@ -122,7 +103,7 @@ serve(async (req) => {
       throw new Error('Profile update returned no data')
     }
 
-    console.log('Successfully updated profile with new grant info')
+    console.log('Successfully updated profile with grant info')
 
     // Trigger events sync
     const { error: syncError } = await supabase.functions.invoke('sync-nylas-events', {
