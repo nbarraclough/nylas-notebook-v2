@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { useToast } from "@/hooks/use-toast";
+import { clearAuthStorage } from "@/utils/authStorage";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -9,22 +11,34 @@ interface AuthGuardProps {
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   // Define public routes that don't require authentication
   const isPublicRoute = location.pathname === '/auth' || location.pathname.startsWith('/shared');
 
   useEffect(() => {
-    // Initial session check
     const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        setIsAuthenticated(!!session);
+        
+        if (!session && !isPublicRoute) {
+          await clearAuthStorage();
+          navigate('/auth', { state: { returnTo: location.pathname } });
+        }
       } catch (error) {
         console.error('Session check error:', error);
-        setIsAuthenticated(false);
+        await clearAuthStorage();
+        
+        if (!isPublicRoute) {
+          toast({
+            title: "Authentication Error",
+            description: "Please sign in again.",
+            variant: "destructive",
+          });
+          navigate('/auth', { state: { returnTo: location.pathname } });
+        }
       } finally {
         setIsLoading(false);
       }
@@ -32,24 +46,19 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event);
-      setIsAuthenticated(!!session);
-      setIsLoading(false);
-
-      // If user signs out and isn't on a public route, redirect to auth
       if (!session && !isPublicRoute) {
+        await clearAuthStorage();
         navigate('/auth', { state: { returnTo: location.pathname } });
       }
+      setIsLoading(false);
     });
 
-    // Initial check
     checkSession();
 
-    // Cleanup
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate, location.pathname, isPublicRoute]);
+  }, [navigate, location.pathname, isPublicRoute, toast]);
 
   // Show loading screen only for protected routes during initial load
   if (isLoading && !isPublicRoute) {
@@ -61,12 +70,6 @@ export function AuthGuard({ children }: AuthGuardProps) {
     return <>{children}</>;
   }
 
-  // Redirect to auth if not authenticated and trying to access protected route
-  if (!isAuthenticated && !isPublicRoute) {
-    navigate('/auth', { state: { returnTo: location.pathname } });
-    return null;
-  }
-
-  // User is authenticated or accessing public route
+  // Render children (user is either authenticated or on a public route)
   return <>{children}</>;
 }
