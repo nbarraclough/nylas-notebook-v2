@@ -17,6 +17,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { clearAuthStorage } from "@/utils/authStorage";
 
 export function Navbar() {
   const navigate = useNavigate();
@@ -42,12 +43,15 @@ export function Navbar() {
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
+      await clearAuthStorage(); // Clear all auth-related storage
+      setIsLoggedIn(false);
       navigate("/auth");
       toast({
         title: "Logged out successfully",
         description: "You have been logged out of your account.",
       });
     } catch (error) {
+      console.error('Logout error:', error);
       toast({
         title: "Error logging out",
         description: "There was a problem logging out. Please try again.",
