@@ -105,7 +105,11 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ 
+        success: true,
+        videoUrl: mediaData.recording?.url,
+        transcriptUrl: mediaData.transcript?.url
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
