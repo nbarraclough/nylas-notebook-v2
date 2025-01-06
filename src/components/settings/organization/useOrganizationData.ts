@@ -5,6 +5,8 @@ export function useOrganizationData(userId: string) {
   return useQuery({
     queryKey: ['organization_data', userId],
     queryFn: async () => {
+      console.log('Fetching organization data for user:', userId);
+      
       // First get the user's organization ID
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -12,8 +14,13 @@ export function useOrganizationData(userId: string) {
         .eq('id', userId)
         .single();
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Profile fetch error:', profileError);
+        throw profileError;
+      }
+
       if (!profile?.organization_id) {
+        console.log('No organization found for user');
         return { organization: null, members: [] };
       }
 
@@ -24,27 +31,38 @@ export function useOrganizationData(userId: string) {
         .eq('id', profile.organization_id)
         .single();
 
-      if (orgError) throw orgError;
+      if (orgError) {
+        console.error('Organization fetch error:', orgError);
+        throw orgError;
+      }
 
-      // Get members with a left join instead of inner join
+      // Get organization members separately
       const { data: membersData, error: membersError } = await supabase
-        .from('profiles')
+        .from('organization_members')
         .select(`
-          id,
-          email,
-          organization_members (
-            role
+          user_id,
+          role,
+          profiles:user_id (
+            email
           )
         `)
         .eq('organization_id', profile.organization_id);
 
-      if (membersError) throw membersError;
+      if (membersError) {
+        console.error('Members fetch error:', membersError);
+        throw membersError;
+      }
 
       const members = membersData.map(member => ({
-        user_id: member.id,
-        role: member.organization_members[0]?.role || 'user',
-        profiles: { email: member.email }
+        user_id: member.user_id,
+        role: member.role,
+        profiles: { email: member.profiles?.email }
       }));
+
+      console.log('Successfully fetched organization data:', {
+        organizationId: profile.organization_id,
+        memberCount: members.length
+      });
 
       return {
         organization,
@@ -52,5 +70,6 @@ export function useOrganizationData(userId: string) {
       };
     },
     enabled: !!userId,
+    retry: false,
   });
 }
