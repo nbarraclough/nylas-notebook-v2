@@ -24,20 +24,20 @@ export const logAuditEvent = async ({ action, userId, details }: AuditLogEntry) 
     const { error } = await supabase
       .from('audit_logs')
       .insert({
-        action,
         user_id: userId,
+        action: action,
         details: sanitizedDetails
       });
 
     if (error) {
       console.error('Error logging audit event:', {
-        action,
+        eventType: action,
         error: error.message
       });
     }
   } catch (error) {
     console.error('Failed to log audit event:', {
-      action,
+      eventType: action,
       error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
