@@ -21,7 +21,7 @@ export const EventDescription = ({ description }: EventDescriptionProps) => {
                          return `${url}">`;
                        });
 
-    // Convert plain URLs to anchor tags
+    // Convert plain URLs to anchor tags if they aren't already wrapped
     const urlRegex = /(?<!["'])(https?:\/\/[^\s<]+)(?![^<]*>|[^<>]*<\/)/g;
     cleanText = cleanText.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
     
@@ -38,8 +38,9 @@ export const EventDescription = ({ description }: EventDescriptionProps) => {
     });
   };
 
-  const sanitizedDescription = formatDescription(description);
+  if (!description) return null;
 
+  const sanitizedDescription = formatDescription(description);
   if (!sanitizedDescription) return null;
 
   return (
