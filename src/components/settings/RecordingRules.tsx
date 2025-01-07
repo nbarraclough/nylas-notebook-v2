@@ -1,23 +1,16 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const RecordingRules = ({
   userId,
-  recordExternal,
-  recordInternal,
-  shareExternal,
-  shareInternal,
   onRulesChange
 }: {
   userId: string;
-  recordExternal: boolean;
-  recordInternal: boolean;
-  shareExternal: boolean;
-  shareInternal: boolean;
   onRulesChange: (updates: { 
     record_external_meetings?: boolean; 
     record_internal_meetings?: boolean;
@@ -26,6 +19,21 @@ export const RecordingRules = ({
   }) => void;
 }) => {
   const { toast } = useToast();
+
+  // Fetch user's current recording preferences
+  const { data: profile, isLoading } = useQuery({
+    queryKey: ['profile', userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('record_external_meetings, record_internal_meetings, share_external_recordings, share_internal_recordings')
+        .eq('id', userId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const updateProfile = useMutation({
     mutationFn: async (updates: {
@@ -79,28 +87,66 @@ export const RecordingRules = ({
   });
 
   const handleRecordExternalChange = () => {
-    const newValue = !recordExternal;
+    const newValue = !(profile?.record_external_meetings ?? false);
     console.log('Updating record_external_meetings to:', newValue);
     updateProfile.mutate({ record_external_meetings: newValue });
   };
 
   const handleRecordInternalChange = () => {
-    const newValue = !recordInternal;
+    const newValue = !(profile?.record_internal_meetings ?? false);
     console.log('Updating record_internal_meetings to:', newValue);
     updateProfile.mutate({ record_internal_meetings: newValue });
   };
 
   const handleShareExternalChange = () => {
-    const newValue = !shareExternal;
+    const newValue = !(profile?.share_external_recordings ?? false);
     console.log('Updating share_external_recordings to:', newValue);
     updateProfile.mutate({ share_external_recordings: newValue });
   };
 
   const handleShareInternalChange = () => {
-    const newValue = !shareInternal;
+    const newValue = !(profile?.share_internal_recordings ?? false);
     console.log('Updating share_internal_recordings to:', newValue);
     updateProfile.mutate({ share_internal_recordings: newValue });
   };
+
+  if (isLoading) {
+    return (
+      <>
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Recording Rules</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-[200px]" />
+              <Skeleton className="h-6 w-[42px]" />
+            </div>
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-[200px]" />
+              <Skeleton className="h-6 w-[42px]" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Organization Sharing Rules</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-[200px]" />
+              <Skeleton className="h-6 w-[42px]" />
+            </div>
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-[200px]" />
+              <Skeleton className="h-6 w-[42px]" />
+            </div>
+          </CardContent>
+        </Card>
+      </>
+    );
+  }
 
   return (
     <>
@@ -117,8 +163,9 @@ export const RecordingRules = ({
               </p>
             </div>
             <Switch 
-              checked={recordExternal}
+              checked={profile?.record_external_meetings ?? false}
               onCheckedChange={handleRecordExternalChange}
+              disabled={updateProfile.isPending}
             />
           </div>
           <div className="flex items-center justify-between">
@@ -129,8 +176,9 @@ export const RecordingRules = ({
               </p>
             </div>
             <Switch 
-              checked={recordInternal}
+              checked={profile?.record_internal_meetings ?? false}
               onCheckedChange={handleRecordInternalChange}
+              disabled={updateProfile.isPending}
             />
           </div>
         </CardContent>
@@ -149,8 +197,9 @@ export const RecordingRules = ({
               </p>
             </div>
             <Switch 
-              checked={shareInternal}
+              checked={profile?.share_internal_recordings ?? false}
               onCheckedChange={handleShareInternalChange}
+              disabled={updateProfile.isPending}
             />
           </div>
           <div className="flex items-center justify-between">
@@ -161,8 +210,9 @@ export const RecordingRules = ({
               </p>
             </div>
             <Switch 
-              checked={shareExternal}
+              checked={profile?.share_external_recordings ?? false}
               onCheckedChange={handleShareExternalChange}
+              disabled={updateProfile.isPending}
             />
           </div>
         </CardContent>
