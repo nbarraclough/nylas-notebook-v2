@@ -13,6 +13,8 @@ export const EventDescription = ({ description }: EventDescriptionProps) => {
   const formatDescription = (text: string | null) => {
     if (!text) return '';
     
+    console.log('Raw description:', text);
+    
     // First, clean up any malformed URLs or duplicate content
     let cleanText = text.replace(/"\s*target="_blank".*?>/g, '">')
                        .replace(/(?:https?:\/\/[^\s]+)">(?:https?:\/\/[^\s]+)/g, (match) => {
@@ -21,6 +23,11 @@ export const EventDescription = ({ description }: EventDescriptionProps) => {
                          return `${url}">`;
                        });
 
+    // If the text is just a URL and not already wrapped in an anchor tag, wrap it
+    if (/^https?:\/\/[^\s<]+$/.test(cleanText) && !cleanText.includes('<a')) {
+      cleanText = `<a href="${cleanText}" target="_blank" rel="noopener noreferrer">${cleanText}</a>`;
+    }
+    
     // Convert plain URLs to anchor tags if they aren't already wrapped
     const urlRegex = /(?<!["'])(https?:\/\/[^\s<]+)(?![^<]*>|[^<>]*<\/)/g;
     cleanText = cleanText.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
@@ -30,18 +37,29 @@ export const EventDescription = ({ description }: EventDescriptionProps) => {
       .replace(/\n/g, '<br>')
       .replace(/\s{2,}/g, match => '&nbsp;'.repeat(match.length));
 
+    console.log('Formatted description:', textWithBreaks);
+
     // Sanitize the HTML while allowing specific tags and attributes
-    return DOMPurify.sanitize(textWithBreaks, {
+    const sanitized = DOMPurify.sanitize(textWithBreaks, {
       ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'em', 'strong', 'a', 'ul', 'ol', 'li'],
       ALLOWED_ATTR: ['href', 'target', 'rel'],
       ALLOW_DATA_ATTR: false,
     });
+
+    console.log('Sanitized description:', sanitized);
+    return sanitized;
   };
 
-  if (!description) return null;
+  if (!description) {
+    console.log('No description provided');
+    return null;
+  }
 
   const sanitizedDescription = formatDescription(description);
-  if (!sanitizedDescription) return null;
+  if (!sanitizedDescription) {
+    console.log('No sanitized description');
+    return null;
+  }
 
   return (
     <div className="relative">
