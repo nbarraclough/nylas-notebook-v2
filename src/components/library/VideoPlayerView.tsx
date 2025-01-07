@@ -124,15 +124,15 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
       <Card className="w-full max-w-6xl mx-4">
         <CardContent className="p-6 space-y-6">
           <VideoHeader
-            title={recording.event?.title || ''}
+            title={recording?.event?.title || ''}
             isInternal={internal}
             shareUrl={shareUrl}
             participants={participants}
             grantId={profile?.nylas_grant_id}
             recordingId={recordingId}
             onClose={handleClose}
-            startTime={recording.event?.start_time}
-            endTime={recording.event?.end_time}
+            startTime={recording?.event?.start_time}
+            endTime={recording?.event?.end_time}
             onShareUpdate={handleShareUpdate}
           />
 
@@ -149,22 +149,22 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
               <VideoPlayer
                 ref={videoPlayerRef}
                 recordingId={recordingId}
-                videoUrl={recording.video_url}
-                recordingUrl={recording.recording_url}
-                title={recording.event?.title || ''}
+                videoUrl={recording?.video_url}
+                recordingUrl={recording?.recording_url}
+                title={recording?.event?.title || ''}
                 participants={participants}
                 grantId={profile?.nylas_grant_id}
-                notetakerId={recording.notetaker_id}
+                notetakerId={recording?.notetaker_id}
                 onRefreshMedia={refreshMedia}
               />
             </div>
             
-            {recording.transcript_content && (
+            {recording?.transcript_content && (
               <TranscriptSection content={recording.transcript_content} />
             )}
           </div>
 
-          {recording.event?.description && (
+          {recording?.event?.description && (
             <div className="prose prose-sm max-w-none">
               <h3 className="text-lg font-medium">Description</h3>
               <EventDescription description={recording.event.description} />
