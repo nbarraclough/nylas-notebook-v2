@@ -168,8 +168,8 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
           </div>
 
           {recording.event?.description && (
-            <div className="prose prose-sm max-w-none mt-6">
-              <h3 className="text-lg font-medium mb-2">Description</h3>
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-medium mb-3">Description</h3>
               <EventDescription description={recording.event.description} />
             </div>
           )}
