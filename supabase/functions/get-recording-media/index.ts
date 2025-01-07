@@ -72,9 +72,13 @@ Deno.serve(async (req) => {
 
     console.log('Fetching media from Nylas for grant:', grantId)
 
+    // Log the Nylas API request details
+    const nylasUrl = `${NYLAS_API_URL}/v3/grants/${grantId}/notetakers/${notetakerId}/media`;
+    console.log('Making Nylas API request to:', nylasUrl);
+
     // Fetch media from Nylas
     const response = await fetch(
-      `${NYLAS_API_URL}/v3/grants/${grantId}/notetakers/${notetakerId}/media`,
+      nylasUrl,
       {
         method: 'GET',
         headers: {
@@ -84,8 +88,16 @@ Deno.serve(async (req) => {
       }
     )
 
+    // Log the raw response
+    const responseText = await response.text();
+    console.log('Raw Nylas API response:', responseText);
+
     if (!response.ok) {
-      console.error('Nylas API error:', response.status, await response.text())
+      console.error('Nylas API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: responseText
+      });
       
       // If media is not available yet, return a structured error response
       if (response.status === 404) {
@@ -105,7 +117,8 @@ Deno.serve(async (req) => {
         JSON.stringify({ 
           error: 'Failed to fetch media from Nylas',
           status: response.status,
-          type: 'NYLAS_API_ERROR'
+          type: 'NYLAS_API_ERROR',
+          details: responseText
         }),
         { 
           status: 502,
@@ -114,8 +127,25 @@ Deno.serve(async (req) => {
       );
     }
 
-    const mediaData = await response.json()
-    console.log('Media data received:', mediaData)
+    // Parse the JSON response
+    let mediaData;
+    try {
+      mediaData = JSON.parse(responseText);
+      console.log('Parsed Nylas media data:', mediaData);
+    } catch (error) {
+      console.error('Error parsing Nylas response:', error);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid JSON response from Nylas',
+          details: error.message,
+          raw: responseText
+        }),
+        { 
+          status: 502,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
     // Always update the recording with the latest media URLs
     const { error: updateError } = await supabaseClient
@@ -145,9 +175,11 @@ Deno.serve(async (req) => {
     // If there's a transcript URL, fetch and store its content
     if (mediaData.transcript?.url) {
       try {
+        console.log('Fetching transcript content from:', mediaData.transcript.url);
         const transcriptResponse = await fetch(mediaData.transcript.url)
         if (transcriptResponse.ok) {
           const transcriptContent = await transcriptResponse.json()
+          console.log('Successfully fetched transcript content');
           
           await supabaseClient
             .from('recordings')
@@ -156,6 +188,11 @@ Deno.serve(async (req) => {
               updated_at: new Date().toISOString(),
             })
             .eq('id', recordingId)
+        } else {
+          console.error('Failed to fetch transcript:', {
+            status: transcriptResponse.status,
+            statusText: transcriptResponse.statusText
+          });
         }
       } catch (error) {
         console.error('Error fetching transcript content:', error)
