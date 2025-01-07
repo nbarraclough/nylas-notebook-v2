@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { SharedEventHeader } from "./SharedEventHeader";
 import { SharedVideoPlayer } from "./SharedVideoPlayer";
-import { SharedContentTabs } from "./SharedContentTabs";
+import { EventDescription } from "@/components/calendar/EventDescription";
 import { TranscriptSection } from "@/components/recordings/transcript/TranscriptSection";
 import { useSharedVideo } from "./video/useSharedVideo";
 import { LoadingState } from "./video/LoadingState";
@@ -31,7 +31,7 @@ export function SharedVideoView() {
         />
 
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="aspect-video relative">
                 {isRefreshing && (
@@ -57,7 +57,12 @@ export function SharedVideoView() {
               )}
             </div>
 
-            <SharedContentTabs description={eventData.description} />
+            {eventData.description && (
+              <div className="prose prose-sm max-w-none">
+                <h3 className="text-lg font-medium">Description</h3>
+                <EventDescription description={eventData.description} />
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

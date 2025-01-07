@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { VideoPlayer, type VideoPlayerRef } from "@/components/recordings/player/VideoPlayer";
 import { TranscriptSection } from "@/components/recordings/transcript/TranscriptSection";
 import { VideoHeader } from "./VideoHeader";
+import { EventDescription } from "@/components/calendar/EventDescription";
 import { useRecordingData } from "./video/useRecordingData";
 import { useProfileData } from "./video/useProfileData";
 import { useVideoRefresh } from "./video/useVideoRefresh";
@@ -166,7 +167,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
           {recording.event?.description && (
             <div className="prose prose-sm max-w-none">
               <h3 className="text-lg font-medium">Description</h3>
-              <p className="whitespace-pre-line">{recording.event.description}</p>
+              <EventDescription description={recording.event.description} />
             </div>
           )}
         </CardContent>
