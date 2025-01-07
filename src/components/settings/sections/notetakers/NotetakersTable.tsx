@@ -25,6 +25,15 @@ export function NotetakersTable({
   onKick,
   onRetrieve,
 }: NotetakersTableProps) {
+  const getEventTitle = (record: NotetakerRecord) => {
+    // If it's a manual meeting and has a title, use that
+    if (record.event.manual_meeting?.title) {
+      return record.event.manual_meeting.title;
+    }
+    // Otherwise use the event title
+    return record.event.title;
+  };
+
   return (
     <div className="border rounded-lg">
       <Table>
@@ -44,7 +53,7 @@ export function NotetakersTable({
                 {record.notetaker_id}
               </TableCell>
               <TableCell>
-                {record.event.manual_meeting ? record.event.manual_meeting.title : record.event.title}
+                {getEventTitle(record)}
               </TableCell>
               <TableCell>
                 {format(new Date(record.event.start_time), "MMM d, yyyy 'at' h:mm a")}
