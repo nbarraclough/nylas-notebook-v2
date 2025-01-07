@@ -119,6 +119,9 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   const shareUrl = publicShare ? `${window.location.origin}/shared/${publicShare.external_token}` : null;
   const internal = isInternalMeeting();
 
+  // Log the event description to help with debugging
+  console.log('Event description:', recording.event?.description);
+
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
       <Card className="w-full max-w-6xl mx-4">
@@ -165,8 +168,8 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
           </div>
 
           {recording.event?.description && (
-            <div className="prose prose-sm max-w-none">
-              <h3 className="text-lg font-medium">Description</h3>
+            <div className="prose prose-sm max-w-none mt-6">
+              <h3 className="text-lg font-medium mb-2">Description</h3>
               <EventDescription description={recording.event.description} />
             </div>
           )}
