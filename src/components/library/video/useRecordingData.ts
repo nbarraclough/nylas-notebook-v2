@@ -26,7 +26,8 @@ export function useRecordingData(recordingId: string | null) {
           ),
           video_shares (
             share_type,
-            organization_id
+            organization_id,
+            external_token
           )
         `)
         .eq('id', recordingId)
