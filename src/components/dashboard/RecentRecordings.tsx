@@ -85,13 +85,15 @@ export function RecentRecordings() {
                       videoUrl={recording.video_url}
                       title={recording.event?.title || ''}
                     >
-                      <Button size="sm" variant="ghost" className="hover:bg-blue-50">
+                      <Button size="sm" variant="outline" className="gap-2">
                         <Play className="h-4 w-4" />
+                        <span>Play</span>
                       </Button>
                     </VideoPlayerDialog>
                   ) : (
-                    <Button size="sm" variant="ghost" disabled>
+                    <Button size="sm" variant="outline" disabled className="gap-2">
                       <Play className="h-4 w-4" />
+                      <span>Play</span>
                     </Button>
                   )}
                 </div>
