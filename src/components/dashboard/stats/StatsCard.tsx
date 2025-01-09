@@ -15,14 +15,14 @@ export function StatsCard() {
         .from('video_shares')
         .select(`
           id,
-          recording:recordings (
+          recording:recordings!inner (
             id,
             views:video_views!inner (
               id,
               viewed_at
             ),
             email_metrics:email_shares(opens, link_clicks),
-            event:events (
+            event:events!inner (
               title,
               start_time
             )
@@ -74,7 +74,7 @@ export function StatsCard() {
             >
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm font-medium line-clamp-1 flex-1 mr-2">
-                  {share.recording?.event?.title || 'Untitled Event'}
+                  {share.recording?.event?.title}
                 </p>
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground whitespace-nowrap">
                   <Calendar className="h-4 w-4 text-gray-500" />
