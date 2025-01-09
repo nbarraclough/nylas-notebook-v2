@@ -45,13 +45,12 @@ export function UpcomingMeetings({ userId }: { userId: string }) {
       }
 
       console.log('Fetched upcoming events:', data);
-      return (data as Event[]) || []; // Ensure we always return an Event array
+      return data as Event[];
     },
     enabled: !!userId,
-    refetchInterval: 30000, // Refetch every 30 seconds to keep meetings current
-    initialData: [] as Event[], // Explicitly type the initial data as Event[]
-    staleTime: 0, // Consider data immediately stale to ensure fresh fetch
-    gcTime: 5 * 60 * 1000, // Cache for 5 minutes (renamed from cacheTime)
+    refetchInterval: 30000,
+    staleTime: 0,
+    gcTime: 5 * 60 * 1000,
   });
 
   if (isLoading) {

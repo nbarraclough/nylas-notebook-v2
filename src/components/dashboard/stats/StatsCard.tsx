@@ -24,42 +24,43 @@ export function StatsCard({ publicShares }: StatsCardProps) {
         </Button>
       </div>
       <div className="space-y-4">
-        {publicShares?.map((share) => (
-          <div 
-            key={share.id} 
-            className="p-4 rounded-lg border border-gray-100 bg-white/50 backdrop-blur-sm card-hover-effect"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-medium line-clamp-1 flex-1 mr-2">
-                {share.recording?.event?.title || 'Untitled Event'}
-              </p>
-              <div className="flex items-center gap-1.5 text-sm text-muted-foreground whitespace-nowrap">
-                <Calendar className="h-4 w-4 text-gray-500" />
-                <span>
-                  {share.recording?.event?.start_time ? 
-                    format(new Date(share.recording.event.start_time), 'MMM d') : 
-                    'No date'
-                  }
-                </span>
+        {publicShares?.length > 0 ? (
+          publicShares.map((share) => (
+            <div 
+              key={share.id} 
+              className="p-4 rounded-lg border border-gray-100 bg-white/50 backdrop-blur-sm card-hover-effect"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-medium line-clamp-1 flex-1 mr-2">
+                  {share.recording?.event?.title || 'Untitled Event'}
+                </p>
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground whitespace-nowrap">
+                  <Calendar className="h-4 w-4 text-gray-500" />
+                  <span>
+                    {share.recording?.event?.start_time ? 
+                      format(new Date(share.recording.event.start_time), 'MMM d') : 
+                      'No date'
+                    }
+                  </span>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-4 text-sm">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50">
+                  <Eye className="h-4 w-4 text-blue-500" />
+                  <span className="text-blue-700 font-medium">{share.recording?.views?.length || 0}</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50">
+                  <Mail className="h-4 w-4 text-purple-500" />
+                  <span className="text-purple-700 font-medium">{share.recording?.email_metrics?.[0]?.opens || 0}</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50">
+                  <MousePointerClick className="h-4 w-4 text-green-500" />
+                  <span className="text-green-700 font-medium">{share.recording?.email_metrics?.[0]?.link_clicks || 0}</span>
+                </div>
               </div>
             </div>
-            <div className="flex flex-wrap gap-4 text-sm">
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50">
-                <Eye className="h-4 w-4 text-blue-500" />
-                <span className="text-blue-700 font-medium">{share.recording?.views?.length || 0}</span>
-              </div>
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50">
-                <Mail className="h-4 w-4 text-purple-500" />
-                <span className="text-purple-700 font-medium">{share.recording?.email_metrics?.[0]?.opens || 0}</span>
-              </div>
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50">
-                <MousePointerClick className="h-4 w-4 text-green-500" />
-                <span className="text-green-700 font-medium">{share.recording?.email_metrics?.[0]?.link_clicks || 0}</span>
-              </div>
-            </div>
-          </div>
-        ))}
-        {(!publicShares || publicShares.length === 0) && (
+          ))
+        ) : (
           <div className="text-center py-6 bg-gray-50/50 rounded-lg border border-dashed border-gray-200">
             <p className="text-muted-foreground">
               No public shares yet
