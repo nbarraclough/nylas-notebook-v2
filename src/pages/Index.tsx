@@ -80,14 +80,14 @@ export default function Index() {
         .limit(3);
 
       if (error) {
-        console.error('Error fetching events:', error);
+        console.error('Error fetching upcoming events:', error);
         throw error;
       }
 
+      console.log('Fetched upcoming events:', data);
       return data;
     },
-    enabled: !!profile?.id,
-    retry: false
+    enabled: !!profile?.id
   });
 
   // New query to fetch public shares
