@@ -18,12 +18,6 @@ export function UpcomingMeetings({ userId }: { userId: string }) {
   const { data: upcomingEvents, isLoading } = useQuery({
     queryKey: ['dashboard-upcoming-events', userId],
     queryFn: async () => {
-      // Only proceed if we have a valid userId
-      if (!userId) {
-        console.log('No user ID provided for upcoming events query');
-        return [];
-      }
-
       const now = new Date().toISOString();
       console.log('Fetching upcoming events for dashboard:', userId, 'from:', now);
       
