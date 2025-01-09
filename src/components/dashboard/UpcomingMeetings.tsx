@@ -14,14 +14,9 @@ type Event = Database['public']['Tables']['events']['Row'] & {
 };
 
 export function UpcomingMeetings({ userId }: { userId: string }) {
-  const { data: upcomingEvents, isLoading } = useQuery<Event[]>({
-    queryKey: ['dashboard-upcoming-events', userId],
+  const { data: upcomingEvents, isLoading } = useQuery({
+    queryKey: ['dashboard-upcoming-events'],
     queryFn: async () => {
-      if (!userId) {
-        console.log('No user ID available, skipping events fetch');
-        return [];
-      }
-
       const now = new Date().toISOString();
       console.log('Fetching upcoming events for dashboard:', userId, 'from:', now);
       
@@ -46,8 +41,7 @@ export function UpcomingMeetings({ userId }: { userId: string }) {
 
       console.log('Fetched upcoming events:', data);
       return data || [];
-    },
-    enabled: !!userId
+    }
   });
 
   if (isLoading) {
