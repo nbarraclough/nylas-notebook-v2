@@ -1,147 +1,180 @@
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { Card, CardContent } from "@/components/ui/card";
-import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { EventCard } from "@/components/calendar/EventCard";
-import { useEffect, useState } from "react";
+import { RecentRecordings } from "@/components/dashboard/RecentRecordings";
 import { WelcomeCard } from "@/components/dashboard/WelcomeCard";
 import { StatsCard } from "@/components/dashboard/stats/StatsCard";
-import { RecentRecordings } from "@/components/dashboard/RecentRecordings";
-import { OrganizationShares } from "@/components/dashboard/OrganizationShares";
+import { EventCard } from "@/components/calendar/EventCard";
+import { useNavigate } from "react-router-dom";
 
 export default function Index() {
-  const [userId, setUserId] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string>("");
+  const navigate = useNavigate();
 
+  // Check for active session
   useEffect(() => {
-    const checkAuth = async () => {
+    const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUserId(session.user.id);
-        setUserEmail(session.user.email);
+      if (!session) {
+        console.log('No active session found, redirecting to auth');
+        navigate('/auth');
+        return;
       }
     };
-    checkAuth();
-  }, []);
+    
+    checkSession();
+  }, [navigate]);
 
-  const { data: upcomingEvents, isLoading } = useQuery({
-    queryKey: ['upcoming-events', userId],
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ['profile'],
     queryFn: async () => {
-      if (!userId) return [];
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('No user found in auth state');
+        throw new Error('No user found');
+      }
       
-      const now = new Date().toISOString();
+      console.log('Fetching profile for user:', user.id);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching profile:', error);
+        throw error;
+      }
+
+      setUserEmail(data.email);
+      return data;
+    },
+    retry: false
+  });
+
+  const { data: upcomingEvents, isLoading: eventsLoading } = useQuery({
+    queryKey: ['upcoming-events'],
+    queryFn: async () => {
+      if (!profile?.id) {
+        console.log('No profile ID available, skipping events fetch');
+        return [];
+      }
+
+      console.log('Fetching upcoming events for user:', profile.id);
       const { data, error } = await supabase
         .from('events')
-        .select(`
-          id,
-          title,
-          start_time,
-          conference_url,
-          notetaker_queue (
-            id,
-            status
-          )
-        `)
-        .eq('user_id', userId)
-        .gte('start_time', now)
+        .select('*')
+        .gte('start_time', new Date().toISOString())
         .order('start_time', { ascending: true })
         .limit(3);
 
       if (error) {
-        console.error('Error fetching upcoming events:', error);
+        console.error('Error fetching events:', error);
         throw error;
       }
 
       return data;
     },
-    enabled: !!userId
+    enabled: !!profile?.id,
+    retry: false
   });
 
-  // Query for public video shares
-  const { data: publicShares } = useQuery({
-    queryKey: ['public-shares', userId],
+  // New query to fetch public shares
+  const { data: publicShares, isLoading: sharesLoading } = useQuery({
+    queryKey: ['public-shares'],
     queryFn: async () => {
-      if (!userId) return [];
-      
+      if (!profile?.id) {
+        console.log('No profile ID available, skipping shares fetch');
+        return [];
+      }
+
+      console.log('Fetching public shares for user:', profile.id);
       const { data, error } = await supabase
         .from('video_shares')
         .select(`
-          *,
+          id,
           recording:recordings (
             id,
-            views:video_views (count),
-            email_metrics:email_shares (opens, link_clicks),
+            views:video_views(count),
+            email_metrics:email_shares(opens, link_clicks),
             event:events (
               title,
               start_time
             )
           )
         `)
-        .eq('shared_by', userId)
+        .eq('shared_by', profile.id)
         .eq('share_type', 'external')
         .order('created_at', { ascending: false })
         .limit(3);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching public shares:', error);
+        throw error;
+      }
+
       return data;
     },
-    enabled: !!userId
+    enabled: !!profile?.id,
+    retry: false
   });
+
+  if (profileLoading || eventsLoading || sharesLoading) {
+    return (
+      <PageLayout>
+        <div className="animate-pulse space-y-4 px-4 sm:px-0">
+          <div className="h-40 bg-gray-200 rounded-lg" />
+          <div className="h-60 bg-gray-200 rounded-lg" />
+        </div>
+      </PageLayout>
+    );
+  }
 
   return (
     <PageLayout>
-      <div className="space-y-6">
-        {userEmail && (
-          <Card className="dashboard-card">
-            <CardContent className="p-6">
+      <div className="space-y-6 px-4 sm:px-0">
+        {/* Top row - Responsive grid */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <Card className="col-span-1 md:col-span-2 card-hover-effect">
+            <CardContent className="p-4 sm:p-6">
               <WelcomeCard email={userEmail} />
             </CardContent>
           </Card>
-        )}
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="dashboard-card">
-            <CardContent className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Upcoming Meetings</h2>
-              {isLoading ? (
-                <div className="space-y-4">
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="h-24 bg-muted animate-pulse rounded-lg" />
-                  ))}
-                </div>
-              ) : upcomingEvents && upcomingEvents.length > 0 ? (
-                <div className="space-y-4">
-                  {upcomingEvents.map((event) => (
-                    <EventCard
-                      key={event.id}
-                      event={event}
-                      userId={userId || ''}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-6 text-muted-foreground">
-                  No upcoming meetings found
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="dashboard-card">
-            <CardContent className="p-6">
-              <RecentRecordings />
-            </CardContent>
-          </Card>
-
-          <Card className="dashboard-card">
-            <CardContent className="p-6">
+          
+          <Card className="card-hover-effect">
+            <CardContent className="p-4 sm:p-6">
               <StatsCard publicShares={publicShares || []} />
             </CardContent>
           </Card>
+        </div>
 
-          <Card className="dashboard-card">
-            <CardContent className="p-6">
-              <OrganizationShares />
+        {/* Bottom row - Responsive grid with improved mobile layout */}
+        <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
+          <Card className="card-hover-effect min-h-[300px]">
+            <CardContent className="p-4 sm:p-6 h-full">
+              <RecentRecordings />
+            </CardContent>
+          </Card>
+          <Card className="card-hover-effect min-h-[300px]">
+            <CardContent className="p-4 sm:p-6 h-full">
+              <h3 className="text-lg font-semibold mb-4">Upcoming Meetings</h3>
+              <div className="space-y-4 overflow-y-auto max-h-[500px]">
+                {upcomingEvents?.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    userId={profile?.id || ''}
+                    isPast={false}
+                  />
+                ))}
+                {(!upcomingEvents || upcomingEvents.length === 0) && (
+                  <p className="text-center text-muted-foreground py-4">
+                    No upcoming meetings. Time to relax!
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>

@@ -8,18 +8,14 @@ import { ConnectNylas } from "@/components/calendar/ConnectNylas";
 import { EventsList } from "@/components/calendar/EventsList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRealtimeUpdates } from "@/hooks/use-realtime-updates";
-import { startOfWeek, endOfWeek } from "date-fns";
-import type { Event, EventParticipant, EventOrganizer } from "@/types/calendar";
 
 export default function Calendar() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
+  const [isLoading, setIsLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
-  const [currentWeekStart, setCurrentWeekStart] = useState(() => 
-    startOfWeek(new Date(), { weekStartsOn: 1 })
-  );
 
   // Add query for grant status
   const { data: profile } = useQuery({
@@ -42,46 +38,16 @@ export default function Calendar() {
   });
 
   const { data: events, refetch: refetchEvents, isLoading: isLoadingEvents } = useQuery({
-    queryKey: ['events', userId, currentWeekStart],
+    queryKey: ['events', userId],
     queryFn: async () => {
       if (!userId) return [];
-      
-      const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
-      
       const { data, error } = await supabase
         .from('events')
-        .select(`
-          *,
-          notetaker_queue (
-            id,
-            status
-          )
-        `)
-        .eq('user_id', userId)
-        .gte('start_time', currentWeekStart.toISOString())
-        .lte('start_time', weekEnd.toISOString())
+        .select('*')
         .order('start_time', { ascending: true });
 
-      if (error) {
-        console.error('Error fetching events:', error);
-        throw error;
-      }
-      
-      // Transform the data to match our Event type
-      const transformedEvents: Event[] = data.map(event => ({
-        ...event,
-        participants: (event.participants as any[] || []).map((participant): EventParticipant => ({
-          name: participant.name || '',
-          email: participant.email || ''
-        })),
-        organizer: event.organizer ? {
-          name: (event.organizer as any).name || '',
-          email: (event.organizer as any).email || ''
-        } as EventOrganizer : null
-      }));
-      
-      console.log('Fetched events:', transformedEvents);
-      return transformedEvents;
+      if (error) throw error;
+      return data;
     },
     enabled: !!userId,
   });
@@ -142,8 +108,6 @@ export default function Calendar() {
               userId={userId || ''}
               refetchEvents={refetchEvents}
               filter="upcoming"
-              currentWeekStart={currentWeekStart}
-              onWeekChange={setCurrentWeekStart}
             />
           </TabsContent>
           <TabsContent value="past">
@@ -153,8 +117,6 @@ export default function Calendar() {
               userId={userId || ''}
               refetchEvents={refetchEvents}
               filter="past"
-              currentWeekStart={currentWeekStart}
-              onWeekChange={setCurrentWeekStart}
             />
           </TabsContent>
         </div>

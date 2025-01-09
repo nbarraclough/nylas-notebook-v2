@@ -1,159 +1,152 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, Video, Globe, Shield } from "lucide-react";
-import { format } from "date-fns";
-import { RecordingToggle } from "./RecordingToggle";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { EventParticipants } from "./EventParticipants";
+import { EventHeader } from "./EventHeader";
 import { EventDescription } from "./EventDescription";
+import { EventActions } from "./EventActions";
+import type { Database } from "@/integrations/supabase/types";
+import type { EventParticipant, EventOrganizer } from "@/types/calendar";
+
+type Event = Database['public']['Tables']['events']['Row'];
 
 interface EventCardProps {
-  event: {
-    id: string;
-    title: string;
-    start_time: string;
-    conference_url?: string | null;
-    description?: string | null;
-    participants?: any[];
-    organizer?: any;
-    notetaker_queue?: {
-      id: string;
-      status: string;
-    }[];
-  };
+  event: Event;
   userId: string;
-  isPast?: boolean;
+  isPast: boolean;
 }
 
-export function EventCard({ event, userId, isPast = false }: EventCardProps) {
-  // Fetch user profile to get nylasGrantId
+export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
+  const [isQueued, setIsQueued] = useState(false);
+  const location = useLocation();
+  const isCalendarRoute = location.pathname === "/calendar";
+
+  // Parse organizer and participants with type checking
+  const parseParticipants = (data: unknown): EventParticipant[] => {
+    if (Array.isArray(data)) {
+      return data.filter((item): item is EventParticipant => 
+        typeof item === 'object' && 
+        item !== null && 
+        'email' in item && 
+        'name' in item
+      );
+    }
+    return [];
+  };
+
+  const parseOrganizer = (data: unknown): EventOrganizer | null => {
+    if (typeof data === 'object' && data !== null && 'email' in data && 'name' in data) {
+      return data as EventOrganizer;
+    }
+    return null;
+  };
+
+  // Determine if meeting is internal
+  const isInternalMeeting = (() => {
+    const organizer = parseOrganizer(event.organizer);
+    const participants = parseParticipants(event.participants);
+    
+    if (!organizer?.email || !participants.length) return true;
+    const organizerDomain = organizer.email.split('@')[1];
+    return participants.every(participant => 
+      participant.email.split('@')[1] === organizerDomain
+    );
+  })();
+
+  // Fetch user's profile to get Nylas grant ID
   const { data: profile } = useQuery({
     queryKey: ['profile', userId],
     queryFn: async () => {
-      if (!userId) return null;
-      
+      if (!userId) {
+        console.log('No user ID provided, skipping profile fetch');
+        return null;
+      }
+
+      console.log('Fetching profile for user:', userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('nylas_grant_id')
         .eq('id', userId)
         .maybeSingle();
-      
+
       if (error) {
         console.error('Error fetching profile:', error);
         throw error;
       }
+      
+      console.log('Profile data:', data);
       return data;
     },
-    enabled: !!userId
+    enabled: !!userId, // Only run query if userId exists
   });
 
-  // Check if event is queued for recording
-  const isQueued = event.notetaker_queue?.some(q => q.status === 'pending') ?? false;
+  // Check if event is already in queue
+  const checkQueueStatus = async () => {
+    if (!userId) {
+      console.log('No user ID available, skipping queue check');
+      return;
+    }
 
-  // Determine if meeting is internal based on email domains
-  const isInternalMeeting = (() => {
-    if (!event.participants?.length || !event.organizer?.email) return true;
-    
-    const organizerDomain = event.organizer.email.split('@')[1];
-    return event.participants.every(participant => 
-      participant.email?.split('@')[1] === organizerDomain
-    );
-  })();
+    console.log('Checking queue status for event:', event.id);
+    const { data, error } = await supabase
+      .from('notetaker_queue')
+      .select('id')
+      .eq('event_id', event.id)
+      .eq('user_id', userId)
+      .maybeSingle();
 
-  console.log('EventCard props:', {
-    eventId: event.id,
-    hasConferenceUrl: !!event.conference_url,
-    isQueued,
-    nylasGrantId: profile?.nylas_grant_id,
-    scheduledFor: event.start_time,
-    notetakerQueue: event.notetaker_queue
-  });
+    if (error) {
+      console.error('Error checking queue status:', error);
+      return;
+    }
+
+    console.log('Queue status:', data ? 'Queued' : 'Not queued');
+    setIsQueued(!!data);
+  };
+
+  // Load initial queue status
+  useEffect(() => {
+    if (userId) {
+      checkQueueStatus();
+    }
+  }, [event.id, userId]);
+
+  const handleQueueToggle = (newState: boolean) => {
+    setIsQueued(newState);
+  };
 
   return (
-    <Card className="mb-4">
-      <CardContent className="p-4">
-        <div className="space-y-4">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <h3 className="font-medium">{event.title}</h3>
-                <Badge 
-                  variant={isInternalMeeting ? "secondary" : "outline"}
-                  className={`text-xs ${
-                    isInternalMeeting 
-                      ? 'bg-purple-100 hover:bg-purple-100 text-purple-800' 
-                      : 'border-blue-200 text-blue-700 hover:bg-blue-50'
-                  }`}
-                >
-                  {isInternalMeeting ? (
-                    <>
-                      <Shield className="w-3 h-3 mr-1" />
-                      Internal
-                    </>
-                  ) : (
-                    <>
-                      <Globe className="w-3 h-3 mr-1" />
-                      External
-                    </>
-                  )}
-                </Badge>
-                {event.participants && event.participants.length > 0 && (
-                  <EventParticipants 
-                    participants={event.participants}
-                    organizer={event.organizer}
-                    isInternalMeeting={isInternalMeeting}
-                  />
-                )}
-              </div>
-              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                <span>{format(new Date(event.start_time), "h:mm a")}</span>
-              </div>
-              {event.conference_url && (
-                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                  <Video className="h-4 w-4" />
-                  <span>Conference available</span>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center space-x-4">
-              {!isPast && event.conference_url && (
-                <Button 
-                  variant="outline"
-                  size="sm"
-                  className="whitespace-nowrap"
-                  asChild
-                >
-                  <a 
-                    href={event.conference_url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                  >
-                    Join meeting
-                  </a>
-                </Button>
-              )}
-              {!isPast && (
-                <RecordingToggle
-                  isQueued={isQueued}
-                  eventId={event.id}
-                  userId={userId}
-                  hasConferenceUrl={!!event.conference_url}
-                  scheduledFor={event.start_time}
-                  nylasGrantId={profile?.nylas_grant_id}
-                  onToggle={() => {}}
-                />
-              )}
-            </div>
-          </div>
-          
-          {event.description && (
-            <EventDescription description={event.description} />
-          )}
+    <Card className={`${isPast ? "opacity-60" : ""} card-hover-effect bg-white/80 backdrop-blur-sm border border-gray-100`}>
+      <CardContent className="p-3 sm:p-6">
+        <div className="flex flex-col space-y-3 sm:space-y-4">
+          <EventHeader 
+            title={event.title}
+            startTime={event.start_time}
+            endTime={event.end_time}
+            participants={parseParticipants(event.participants)}
+            organizer={parseOrganizer(event.organizer)}
+            isInternalMeeting={isInternalMeeting}
+            conferenceUrl={event.conference_url}
+            isQueued={isQueued}
+            eventId={event.id}
+            userId={userId}
+            scheduledFor={event.start_time}
+            nylasGrantId={profile?.nylas_grant_id}
+            onToggle={handleQueueToggle}
+            isPast={isPast}
+            htmlLink={event.html_link}
+          />
+
+          <EventDescription description={event.description} />
+
+          <EventActions 
+            conferenceUrl={event.conference_url}
+            isCalendarRoute={isCalendarRoute}
+            isPast={isPast}
+          />
         </div>
       </CardContent>
     </Card>
   );
-}
+};

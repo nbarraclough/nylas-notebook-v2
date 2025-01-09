@@ -1,129 +1,171 @@
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { EventCard } from "./EventCard";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { format, startOfDay, isEqual } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { EventCard } from "./EventCard";
+import { format, isPast, startOfWeek, endOfWeek, addWeeks, subWeeks, isWithinInterval } from "date-fns";
+import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import type { QueryObserverResult, RefetchOptions } from "@tanstack/react-query";
+import type { Database } from "@/integrations/supabase/types";
 
-interface Event {
-  id: string;
-  title: string;
-  start_time: string;
-  conference_url?: string | null;
-  description?: string | null;
-  participants?: any[];
-  organizer?: any;
-  notetaker_queue?: {
-    id: string;
-    status: string;
-  }[];
-}
+type Event = Database['public']['Tables']['events']['Row'];
 
 interface EventsListProps {
   events: Event[];
   isLoadingEvents: boolean;
   userId: string;
-  refetchEvents: () => void;
+  refetchEvents: (options?: RefetchOptions) => Promise<QueryObserverResult<Event[], Error>>;
   filter: "upcoming" | "past";
-  currentWeekStart: Date;
-  onWeekChange: (date: Date) => void;
 }
 
-export function EventsList({ 
-  events, 
-  isLoadingEvents, 
-  userId, 
-  refetchEvents, 
-  filter,
-  currentWeekStart,
-  onWeekChange 
-}: EventsListProps) {
-  // Group events by day
-  const eventsByDay = events.reduce((acc: { [key: string]: Event[] }, event) => {
-    const dayKey = startOfDay(new Date(event.start_time)).toISOString();
-    if (!acc[dayKey]) {
-      acc[dayKey] = [];
+interface GroupedEvents {
+  [key: string]: Event[];
+}
+
+export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, filter }: EventsListProps) => {
+  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  
+  const navigateWeek = (direction: 'next' | 'prev' | 'current') => {
+    if (direction === 'current') {
+      setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
+    } else {
+      setCurrentWeekStart(prev => 
+        direction === 'next' ? addWeeks(prev, 1) : subWeeks(prev, 1)
+      );
     }
-    acc[dayKey].push(event);
-    return acc;
-  }, {});
+  };
 
-  // Sort days
-  const sortedDays = Object.keys(eventsByDay).sort((a, b) => 
-    new Date(a).getTime() - new Date(b).getTime()
-  );
+  const groupEventsByDate = (events: Event[]): GroupedEvents => {
+    const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
+    
+    const filteredEvents = events.filter(event => {
+      const eventDate = new Date(event.start_time);
+      const endTime = new Date(event.end_time);
+      
+      // For past events, show all of them
+      if (filter === "past") {
+        return isPast(endTime);
+      }
+      
+      // For upcoming events, filter by week and ensure they're not past
+      return !isPast(endTime) && isWithinInterval(eventDate, {
+        start: currentWeekStart,
+        end: weekEnd
+      });
+    });
 
-  if (isLoadingEvents) {
-    return (
-      <div className="space-y-4">
-        {[...Array(3)].map((_, i) => (
-          <Skeleton key={i} className="h-[100px] w-full" />
-        ))}
-      </div>
-    );
-  }
+    return filteredEvents.reduce((groups: GroupedEvents, event) => {
+      const localDate = new Date(event.start_time).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      });
+      
+      if (!groups[localDate]) {
+        groups[localDate] = [];
+      }
+      groups[localDate].push(event);
+      return groups;
+    }, {});
+  };
 
-  if (Object.keys(eventsByDay).length === 0) {
-    return (
-      <div className="text-center text-muted-foreground">
-        No {filter} events found
-      </div>
-    );
-  }
+  const sortedGroupedEvents = (() => {
+    const grouped = groupEventsByDate(events);
+    const sortedDates = Object.keys(grouped).sort((a, b) => {
+      const dateA = new Date(a).getTime();
+      const dateB = new Date(b).getTime();
+      // Sort in descending order for past events, ascending for upcoming
+      return filter === "past" 
+        ? dateB - dateA  // Descending for past events
+        : dateA - dateB; // Ascending for upcoming events
+    });
+    
+    return sortedDates.map(date => ({
+      date: new Date(date),
+      events: grouped[date].sort((a, b) => {
+        const timeA = new Date(a.start_time).getTime();
+        const timeB = new Date(b.start_time).getTime();
+        // Sort events within the same day in the same order as the dates
+        return filter === "past" ? timeB - timeA : timeA - timeB;
+      })
+    }));
+  })();
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            const newDate = new Date(currentWeekStart);
-            newDate.setDate(newDate.getDate() - 7);
-            onWeekChange(newDate);
-          }}
-        >
-          <ChevronLeft className="h-4 w-4 mr-1" />
-          Previous Week
-        </Button>
-        <span className="font-medium">
-          Week of {format(currentWeekStart, "MMMM d, yyyy")}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            const newDate = new Date(currentWeekStart);
-            newDate.setDate(newDate.getDate() + 7);
-            onWeekChange(newDate);
-          }}
-        >
-          Next Week
-          <ChevronRight className="h-4 w-4 ml-1" />
-        </Button>
-      </div>
+    <div className="space-y-4">
+      {filter === "upcoming" && (
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigateWeek('prev')}
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Previous Week
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigateWeek('current')}
+            >
+              <Calendar className="h-4 w-4 mr-1" />
+              This Week
+            </Button>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigateWeek('next')}
+          >
+            Next Week
+            <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
+        </div>
+      )}
 
-      {sortedDays.map((day) => (
-        <Card key={day} className="overflow-hidden">
-          <CardContent className="p-6">
-            <h3 className="text-lg font-semibold mb-4">
-              {format(new Date(day), "EEEE, MMMM d")}
-            </h3>
-            <div className="space-y-4">
-              {eventsByDay[day].map((event) => (
-                <EventCard
-                  key={event.id}
-                  event={event}
-                  userId={userId}
-                  isPast={filter === "past"}
-                />
+      {isLoadingEvents ? (
+        <Card>
+          <CardContent className="p-4 sm:p-6">
+            <div className="animate-pulse space-y-4">
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="h-24 bg-muted rounded-lg" />
               ))}
             </div>
           </CardContent>
         </Card>
-      ))}
+      ) : sortedGroupedEvents.length > 0 ? (
+        <div className="space-y-6">
+          {sortedGroupedEvents.map(({ date, events }) => (
+            <Card key={date.toISOString()} className="card-hover-effect">
+              <CardContent className="p-4 sm:p-6">
+                <h2 className="text-base sm:text-lg font-semibold text-[#333333] mb-4">
+                  {format(date, "EEEE, MMMM d")}
+                </h2>
+                <div className="space-y-3 sm:space-y-4">
+                  {events.map((event) => (
+                    <EventCard 
+                      key={event.id} 
+                      event={event}
+                      userId={userId}
+                      isPast={isPast(new Date(event.end_time))}
+                    />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="p-4 sm:p-6">
+            <div className="text-center py-6 sm:py-8 text-[#555555]">
+              No upcoming events found for this week. Go relax & have fun!
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
-}
+};
