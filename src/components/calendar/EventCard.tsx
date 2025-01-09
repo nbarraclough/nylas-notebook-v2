@@ -21,11 +21,8 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
   const [isQueued, setIsQueued] = useState(false);
   const location = useLocation();
   const isCalendarRoute = location.pathname === "/calendar";
-
-  // Use the shared profile hook with staleTime to prevent unnecessary refetches
   const { data: profile, isLoading: profileLoading } = useProfile(userId);
 
-  // Parse organizer and participants with type checking
   const parseParticipants = (data: unknown): EventParticipant[] => {
     if (Array.isArray(data)) {
       return data.filter((item): item is EventParticipant => 
@@ -45,7 +42,6 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
     return null;
   };
 
-  // Determine if meeting is internal
   const isInternalMeeting = (() => {
     const organizer = parseOrganizer(event.organizer);
     const participants = parseParticipants(event.participants);
@@ -57,11 +53,8 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
     );
   })();
 
-  // Check if event is already in queue
   const checkQueueStatus = async () => {
-    if (!userId || profileLoading) {
-      return;
-    }
+    if (!userId || profileLoading) return;
 
     try {
       const { data, error } = await supabase
@@ -82,14 +75,12 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
     }
   };
 
-  // Load initial queue status when profile is loaded
   useEffect(() => {
     if (!profileLoading && profile?.id) {
       checkQueueStatus();
     }
   }, [profile?.id, event.id, profileLoading]);
 
-  // Set up realtime subscription for queue status
   useEffect(() => {
     if (!profile?.id) return;
 
