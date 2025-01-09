@@ -45,10 +45,9 @@ export function UpcomingMeetings({ userId }: { userId: string }) {
       }
 
       console.log('Fetched upcoming events:', data);
-      return data as Event[];
+      return data || [];
     },
     enabled: !!userId,
-    refetchInterval: 30000,
     staleTime: 0,
     gcTime: 5 * 60 * 1000,
   });
@@ -63,7 +62,7 @@ export function UpcomingMeetings({ userId }: { userId: string }) {
     );
   }
 
-  if (!upcomingEvents || upcomingEvents.length === 0) {
+  if (!upcomingEvents?.length) {
     return (
       <div className="flex flex-col items-center justify-center p-6 text-center">
         <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
