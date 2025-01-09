@@ -54,15 +54,17 @@ export default function Index() {
     retry: false
   });
 
-  const { data: upcomingEvents, isLoading: eventsLoading, refetch: refetchEvents } = useQuery({
-    queryKey: ['upcoming-events'],
+  const { data: upcomingEvents, isLoading: eventsLoading } = useQuery({
+    queryKey: ['upcoming-events', profile?.id],
     queryFn: async () => {
       if (!profile?.id) {
         console.log('No profile ID available, skipping events fetch');
         return [];
       }
 
+      const now = new Date().toISOString();
       console.log('Fetching upcoming events for user:', profile.id);
+      
       const { data, error } = await supabase
         .from('events')
         .select(`
@@ -72,7 +74,8 @@ export default function Index() {
             status
           )
         `)
-        .gte('start_time', new Date().toISOString())
+        .eq('user_id', profile.id)
+        .gte('start_time', now)
         .order('start_time', { ascending: true })
         .limit(3);
 
@@ -172,7 +175,6 @@ export default function Index() {
                     key={event.id}
                     event={event}
                     userId={profile?.id || ''}
-                    isPast={false}
                   />
                 ))}
                 {(!upcomingEvents || upcomingEvents.length === 0) && (

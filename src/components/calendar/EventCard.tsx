@@ -1,5 +1,4 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Calendar, Video } from "lucide-react";
 import { format } from "date-fns";
 import { RecordingToggle } from "./RecordingToggle";
@@ -23,24 +22,25 @@ export function EventCard({ event, userId, isPast = false }: EventCardProps) {
   const { data: profile } = useQuery({
     queryKey: ['profile', userId],
     queryFn: async () => {
+      if (!userId) return null;
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('nylas_grant_id')
         .eq('id', userId)
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching profile:', error);
+        throw error;
+      }
       return data;
-    }
+    },
+    enabled: !!userId
   });
 
   // Check if event is queued for recording
   const isQueued = event.notetaker_queue?.some(q => q.status === 'pending');
-
-  const handleToggle = async (newState: boolean) => {
-    // Refresh the events list after toggle
-    // This will be handled by the parent component's query invalidation
-  };
 
   return (
     <Card className="mb-4">
@@ -68,13 +68,8 @@ export function EventCard({ event, userId, isPast = false }: EventCardProps) {
                 hasConferenceUrl={!!event.conference_url}
                 scheduledFor={event.start_time}
                 nylasGrantId={profile?.nylas_grant_id}
-                onToggle={handleToggle}
+                onToggle={() => {}}
               />
-            )}
-            {isQueued && (
-              <Badge variant="secondary" className="bg-green-100 text-green-800">
-                Recording scheduled
-              </Badge>
             )}
           </div>
         </div>
