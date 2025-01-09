@@ -31,7 +31,7 @@ export function EventCard({ event, userId, isPast = false }: EventCardProps) {
         .from('profiles')
         .select('nylas_grant_id')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
       
       if (error) {
         console.error('Error fetching profile:', error);
@@ -43,7 +43,15 @@ export function EventCard({ event, userId, isPast = false }: EventCardProps) {
   });
 
   // Check if event is queued for recording
-  const isQueued = event.notetaker_queue?.some(q => q.status === 'pending');
+  const isQueued = event.notetaker_queue?.some(q => q.status === 'pending') ?? false;
+
+  console.log('EventCard props:', {
+    eventId: event.id,
+    hasConferenceUrl: !!event.conference_url,
+    isQueued,
+    nylasGrantId: profile?.nylas_grant_id,
+    scheduledFor: event.start_time
+  });
 
   return (
     <Card className="mb-4">
