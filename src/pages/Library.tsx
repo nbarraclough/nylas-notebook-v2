@@ -7,6 +7,7 @@ import { LibraryError } from "@/components/library/LibraryError";
 import { useRecordings } from "@/hooks/use-recordings";
 import { supabase } from "@/integrations/supabase/client";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { Separator } from "@/components/ui/separator";
 
 export default function Library() {
   const [searchParams] = useSearchParams();
@@ -32,7 +33,6 @@ export default function Library() {
         const { data: { session } } = await supabase.auth.getSession();
         setIsAuthenticated(!!session);
         
-        // Only redirect to auth if there's no recordingId parameter and user is not authenticated
         if (!session && !recordingId) {
           navigate('/auth', { state: { returnTo: `/library/${recordingId || ''}` } });
         }
@@ -56,11 +56,20 @@ export default function Library() {
     return () => subscription.unsubscribe();
   }, [navigate, recordingId]);
 
-  const { data: recordings, isLoading, error } = useRecordings({
+  const { data: allRecordings, isLoading, error } = useRecordings({
     isAuthenticated,
     recordingId,
     filters
   });
+
+  // Separate recordings into owned and shared
+  const myRecordings = allRecordings?.filter(recording => 
+    recording.user_id === supabase.auth.user()?.id
+  ) || [];
+
+  const sharedRecordings = allRecordings?.filter(recording => 
+    recording.user_id !== supabase.auth.user()?.id
+  ) || [];
 
   // Update URL when a recording is selected
   const handleRecordingSelect = (id: string | null) => {
@@ -81,16 +90,37 @@ export default function Library() {
           <>
             {isAuthenticated && (
               <>
-                <LibraryHeader recordingsCount={recordings?.length || 0} />
+                <LibraryHeader recordingsCount={allRecordings?.length || 0} />
                 <LibraryFilters filters={filters} onFiltersChange={setFilters} />
               </>
             )}
-            <RecordingGrid 
-              recordings={recordings || []} 
-              isLoading={isLoading} 
-              selectedRecording={selectedRecording}
-              onRecordingSelect={handleRecordingSelect}
-            />
+
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-xl font-semibold mb-4">My Recordings</h2>
+                <RecordingGrid 
+                  recordings={myRecordings} 
+                  isLoading={isLoading} 
+                  selectedRecording={selectedRecording}
+                  onRecordingSelect={handleRecordingSelect}
+                />
+              </div>
+
+              {sharedRecordings.length > 0 && (
+                <>
+                  <Separator className="my-8" />
+                  <div>
+                    <h2 className="text-xl font-semibold mb-4">Internally Shared Recordings</h2>
+                    <RecordingGrid 
+                      recordings={sharedRecordings} 
+                      isLoading={isLoading} 
+                      selectedRecording={selectedRecording}
+                      onRecordingSelect={handleRecordingSelect}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
           </>
         )}
       </div>

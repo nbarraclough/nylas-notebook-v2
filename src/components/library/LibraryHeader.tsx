@@ -8,7 +8,7 @@ export function LibraryHeader({ recordingsCount }: LibraryHeaderProps) {
       <div>
         <h1 className="text-2xl font-bold">Library</h1>
         <p className="text-sm text-muted-foreground">
-          {recordingsCount} recordings
+          {recordingsCount} {recordingsCount === 1 ? 'recording' : 'recordings'} available
         </p>
       </div>
     </div>
