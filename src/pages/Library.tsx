@@ -25,6 +25,7 @@ export default function Library() {
   const navigate = useNavigate();
   const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Check authentication status
   useEffect(() => {
@@ -36,6 +37,10 @@ export default function Library() {
         if (!session && !recordingId) {
           navigate('/auth', { state: { returnTo: `/library/${recordingId || ''}` } });
         }
+
+        // Get and set current user ID
+        const { data: { user } } = await supabase.auth.getUser();
+        setCurrentUserId(user?.id || null);
       } catch (error) {
         console.error('Auth check error:', error);
         setIsAuthenticated(false);
@@ -46,11 +51,14 @@ export default function Library() {
 
   // Subscribe to auth changes
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setIsAuthenticated(!!session);
       if (!session && !recordingId) {
         navigate('/auth');
       }
+      // Update current user ID on auth state change
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id || null);
     });
 
     return () => subscription.unsubscribe();
@@ -64,11 +72,11 @@ export default function Library() {
 
   // Separate recordings into owned and shared
   const myRecordings = allRecordings?.filter(recording => 
-    recording.user_id === supabase.auth.user()?.id
+    recording.user_id === currentUserId
   ) || [];
 
   const sharedRecordings = allRecordings?.filter(recording => 
-    recording.user_id !== supabase.auth.user()?.id
+    recording.user_id !== currentUserId
   ) || [];
 
   // Update URL when a recording is selected
