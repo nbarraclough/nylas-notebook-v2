@@ -23,25 +23,15 @@ export function EventCard({ event, userId, isPast = false }: EventCardProps) {
   const { data: profile } = useQuery({
     queryKey: ['profile', userId],
     queryFn: async () => {
-      if (!userId) {
-        console.error('No userId provided to EventCard');
-        return null;
-      }
-
       const { data, error } = await supabase
         .from('profiles')
         .select('nylas_grant_id')
         .eq('id', userId)
-        .maybeSingle();
+        .single();
       
-      if (error) {
-        console.error('Error fetching profile:', error);
-        throw error;
-      }
-      
+      if (error) throw error;
       return data;
-    },
-    enabled: !!userId // Only run query if userId is provided
+    }
   });
 
   // Check if event is queued for recording
