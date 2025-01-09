@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
             throw successError
           }
 
-          // Create or update recording entry
+          // Create or update recording entry using upsert with notetaker_id as the conflict target
           const { error: recordingError } = await supabaseClient
             .from('recordings')
             .upsert({
@@ -133,10 +133,13 @@ Deno.serve(async (req) => {
               status: 'processing',
               recording_url: responseData.data.recording_url || '',
               updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'notetaker_id',
+              ignoreDuplicates: false
             })
 
           if (recordingError) {
-            console.error(`Error updating recording for queue item ${item.id}:`, recordingError)
+            console.error(`Error upserting recording for queue item ${item.id}:`, recordingError)
             throw recordingError
           }
 
