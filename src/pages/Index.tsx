@@ -6,11 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { RecentRecordings } from "@/components/dashboard/RecentRecordings";
 import { WelcomeCard } from "@/components/dashboard/WelcomeCard";
 import { StatsCard } from "@/components/dashboard/stats/StatsCard";
-import { EventCard } from "@/components/calendar/EventCard";
+import { UpcomingMeetings } from "@/components/dashboard/UpcomingMeetings";
 import { useNavigate } from "react-router-dom";
-import type { Database } from "@/integrations/supabase/types";
-
-type Event = Database['public']['Tables']['events']['Row'];
 
 export default function Index() {
   const [userEmail, setUserEmail] = useState<string>("");
@@ -58,41 +55,6 @@ export default function Index() {
     retry: false
   });
 
-  // Then fetch events only after profile is loaded
-  const { data: upcomingEvents, isLoading: eventsLoading } = useQuery<Event[]>({
-    queryKey: ['upcoming-events', profile?.id],
-    queryFn: async () => {
-      if (!profile?.id) {
-        console.log('No profile ID available, skipping events fetch');
-        return [];
-      }
-
-      console.log('Fetching upcoming events for user:', profile.id);
-      const { data, error } = await supabase
-        .from('events')
-        .select(`
-          *,
-          notetaker_queue (
-            id,
-            status
-          )
-        `)
-        .eq('user_id', profile.id)
-        .gte('start_time', new Date().toISOString())
-        .order('start_time', { ascending: true })
-        .limit(3);
-
-      if (error) {
-        console.error('Error fetching events:', error);
-        throw error;
-      }
-
-      return data;
-    },
-    enabled: !!profile?.id,
-    retry: false
-  });
-
   // Finally fetch public shares after profile is loaded
   const { data: publicShares, isLoading: sharesLoading } = useQuery({
     queryKey: ['public-shares', profile?.id],
@@ -133,7 +95,7 @@ export default function Index() {
     retry: false
   });
 
-  if (profileLoading || eventsLoading || sharesLoading) {
+  if (profileLoading || sharesLoading) {
     return (
       <PageLayout>
         <div className="animate-pulse space-y-4 px-4 sm:px-0">
@@ -172,22 +134,7 @@ export default function Index() {
           <Card className="card-hover-effect min-h-[300px]">
             <CardContent className="p-4 sm:p-6 h-full">
               <h3 className="text-lg font-semibold mb-4">Upcoming Meetings</h3>
-              <div className="space-y-4 overflow-y-auto max-h-[500px]">
-                {upcomingEvents && upcomingEvents.length > 0 ? (
-                  upcomingEvents.map((event) => (
-                    <EventCard
-                      key={event.id}
-                      event={event}
-                      userId={profile?.id || ''}
-                      isPast={false}
-                    />
-                  ))
-                ) : (
-                  <p className="text-center text-muted-foreground py-4">
-                    No upcoming meetings. Time to relax!
-                  </p>
-                )}
-              </div>
+              <UpcomingMeetings userId={profile?.id || ''} />
             </CardContent>
           </Card>
         </div>
