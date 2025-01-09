@@ -29,7 +29,6 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   const { refreshMedia, isRefreshing } = useVideoRefresh(recordingId, recording?.notetaker_id);
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
 
-  // Refresh media when component mounts
   useEffect(() => {
     if (recording?.notetaker_id) {
       refreshMedia();
@@ -119,9 +118,6 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   const shareUrl = publicShare ? `${window.location.origin}/shared/${publicShare.external_token}` : null;
   const internal = isInternalMeeting();
 
-  // Log the event description to help with debugging
-  console.log('Event description:', recording.event?.description);
-
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
       <Card className="w-full max-w-6xl mx-4">
@@ -137,6 +133,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
             startTime={recording.event?.start_time}
             endTime={recording.event?.end_time}
             onShareUpdate={handleShareUpdate}
+            ownerEmail={recording.owner_email}
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

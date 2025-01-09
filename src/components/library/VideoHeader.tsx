@@ -22,6 +22,7 @@ interface VideoHeaderProps {
   startTime?: string;
   endTime?: string;
   onShareUpdate?: () => void;
+  ownerEmail?: string;
 }
 
 export function VideoHeader({
@@ -34,16 +35,24 @@ export function VideoHeader({
   onClose,
   startTime,
   endTime,
-  onShareUpdate
+  onShareUpdate,
+  ownerEmail
 }: VideoHeaderProps) {
   return (
     <div className="flex items-start justify-between">
       <div className="space-y-1">
         <h2 className="text-2xl font-semibold">{title}</h2>
         {startTime && endTime && (
-          <p className="text-sm text-muted-foreground">
-            {format(new Date(startTime), "EEEE, MMMM d, yyyy 'at' h:mm a")} - {format(new Date(endTime), "h:mm a")}
-          </p>
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground">
+              {format(new Date(startTime), "EEEE, MMMM d, yyyy 'at' h:mm a")} - {format(new Date(endTime), "h:mm a")}
+            </p>
+            {ownerEmail && (
+              <p className="text-sm text-muted-foreground">
+                Recording owner: {ownerEmail}
+              </p>
+            )}
+          </div>
         )}
         <div className="flex items-center gap-2">
           <Badge 
