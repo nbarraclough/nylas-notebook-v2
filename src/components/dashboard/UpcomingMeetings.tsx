@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Video } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import type { Database } from "@/integrations/supabase/types";
@@ -16,8 +16,14 @@ type Event = Database['public']['Tables']['events']['Row'] & {
 
 export function UpcomingMeetings({ userId }: { userId: string }) {
   const { data: upcomingEvents, isLoading } = useQuery({
-    queryKey: ['dashboard-upcoming-events'],
+    queryKey: ['dashboard-upcoming-events', userId],
     queryFn: async () => {
+      // Don't fetch if we don't have a userId
+      if (!userId) {
+        console.log('No userId provided for upcoming events query');
+        return [];
+      }
+
       const now = new Date().toISOString();
       console.log('Fetching upcoming events for dashboard:', userId, 'from:', now);
       
@@ -47,7 +53,8 @@ export function UpcomingMeetings({ userId }: { userId: string }) {
 
       console.log('Fetched upcoming events:', queuedEvents);
       return queuedEvents;
-    }
+    },
+    enabled: Boolean(userId), // Only run query when userId exists
   });
 
   if (isLoading) {
