@@ -12,19 +12,15 @@ export default function Library() {
   const navigate = useNavigate();
   const { recordingId } = useParams();
   const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [dateRange, setDateRange] = useState<{
-    from: Date | undefined;
-    to: Date | undefined;
-  }>({
-    from: undefined,
-    to: undefined,
+  const [filters, setFilters] = useState({
+    types: [] as string[],
+    meetingTypes: [] as string[],
+    startDate: null as Date | null,
+    endDate: null as Date | null,
+    participants: [] as string[],
+    titleSearch: null as string | null,
+    hasPublicLink: false
   });
-  const [meetingType, setMeetingType] = useState<"all" | "internal" | "external">(
-    "all"
-  );
-  const [owner, setOwner] = useState<string | null>(null);
-  const [participant, setParticipant] = useState<string | null>(null);
 
   // Handle deep linking - set selectedRecording when recordingId is in URL
   useEffect(() => {
@@ -34,14 +30,7 @@ export default function Library() {
   }, [recordingId]);
 
   const { data: recordings, isLoading, error } = useQuery({
-    queryKey: [
-      "recordings",
-      searchQuery,
-      dateRange,
-      meetingType,
-      owner,
-      participant,
-    ],
+    queryKey: ["recordings", filters],
     queryFn: async () => {
       let query = supabase
         .from("recordings")
@@ -69,36 +58,36 @@ export default function Library() {
         )
         .order("created_at", { ascending: false });
 
-      if (searchQuery) {
+      if (filters.titleSearch) {
         query = query.textSearch(
           "(event->title).text",
-          searchQuery.replace(/\s+/g, " & ")
+          filters.titleSearch.replace(/\s+/g, " & ")
         );
       }
 
-      if (dateRange.from) {
-        query = query.gte("created_at", dateRange.from.toISOString());
+      if (filters.startDate) {
+        query = query.gte("created_at", filters.startDate.toISOString());
       }
 
-      if (dateRange.to) {
-        query = query.lte("created_at", dateRange.to.toISOString());
+      if (filters.endDate) {
+        query = query.lte("created_at", filters.endDate.toISOString());
       }
 
-      if (meetingType !== "all") {
-        if (meetingType === "internal") {
+      if (filters.meetingTypes.length > 0) {
+        if (filters.meetingTypes.includes("internal")) {
           query = query.eq("event->is_internal", true);
         } else {
           query = query.eq("event->is_internal", false);
         }
       }
 
-      if (owner) {
-        query = query.eq("owner->email", owner);
+      if (filters.types.length > 0) {
+        // Add owner type filtering logic here
       }
 
-      if (participant) {
+      if (filters.participants.length > 0) {
         query = query.contains("event->participants", [
-          { email: participant },
+          { email: filters.participants[0] },
         ]);
       }
 
@@ -122,25 +111,17 @@ export default function Library() {
     }
   };
 
-  if (error) {
-    return <LibraryError error={error} />;
+  if (error instanceof Error) {
+    return <LibraryError message={error.message} />;
   }
 
   return (
     <PageLayout>
       <div className="container mx-auto px-4 py-8 space-y-8">
-        <LibraryHeader />
+        <LibraryHeader recordingsCount={recordings?.length || 0} />
         <LibraryFilters
-          searchQuery={searchQuery}
-          onSearchQueryChange={setSearchQuery}
-          dateRange={dateRange}
-          onDateRangeChange={setDateRange}
-          meetingType={meetingType}
-          onMeetingTypeChange={setMeetingType}
-          owner={owner}
-          onOwnerChange={setOwner}
-          participant={participant}
-          onParticipantChange={setParticipant}
+          filters={filters}
+          onFiltersChange={setFilters}
         />
         <RecordingGrid
           recordings={recordings || []}
