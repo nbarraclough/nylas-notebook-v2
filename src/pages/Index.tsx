@@ -27,6 +27,7 @@ export default function Index() {
     checkSession();
   }, [navigate]);
 
+  // First, fetch the profile
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['profile'],
     queryFn: async () => {
@@ -54,8 +55,9 @@ export default function Index() {
     retry: false
   });
 
+  // Then fetch events only after profile is loaded
   const { data: upcomingEvents, isLoading: eventsLoading } = useQuery({
-    queryKey: ['upcoming-events'],
+    queryKey: ['upcoming-events', profile?.id],
     queryFn: async () => {
       if (!profile?.id) {
         console.log('No profile ID available, skipping events fetch');
@@ -65,7 +67,13 @@ export default function Index() {
       console.log('Fetching upcoming events for user:', profile.id);
       const { data, error } = await supabase
         .from('events')
-        .select('*')
+        .select(`
+          *,
+          notetaker_queue (
+            id,
+            status
+          )
+        `)
         .gte('start_time', new Date().toISOString())
         .order('start_time', { ascending: true })
         .limit(3);
@@ -81,9 +89,9 @@ export default function Index() {
     retry: false
   });
 
-  // New query to fetch public shares
+  // Finally fetch public shares after profile is loaded
   const { data: publicShares, isLoading: sharesLoading } = useQuery({
-    queryKey: ['public-shares'],
+    queryKey: ['public-shares', profile?.id],
     queryFn: async () => {
       if (!profile?.id) {
         console.log('No profile ID available, skipping shares fetch');
