@@ -24,7 +24,7 @@ interface Organizer {
 
 export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) {
   const queryClient = useQueryClient();
-  const { recording, isLoading: isRecordingLoading } = useRecordingData(recordingId);
+  const { data: recording, isLoading: isRecordingLoading } = useRecordingData(recordingId);
   const { data: profile } = useProfileData();
   const { refreshMedia, isRefreshing } = useVideoRefresh(recordingId, recording?.notetaker_id);
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
