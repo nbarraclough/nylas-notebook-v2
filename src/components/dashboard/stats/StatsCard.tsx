@@ -2,13 +2,52 @@ import { Button } from "@/components/ui/button";
 import { Calendar, Eye, Mail, MousePointerClick, ArrowRight } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
-interface StatsCardProps {
-  publicShares: any[];
-}
-
-export function StatsCard({ publicShares }: StatsCardProps) {
+export function StatsCard() {
   const navigate = useNavigate();
+
+  const { data: publicShares, isLoading } = useQuery({
+    queryKey: ['public-shares'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('video_shares')
+        .select(`
+          id,
+          recording:recordings (
+            id,
+            views:video_views(count),
+            email_metrics:email_shares(opens, link_clicks),
+            event:events (
+              title,
+              start_time
+            )
+          )
+        `)
+        .eq('share_type', 'external')
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between pb-2 border-b">
+          <h3 className="text-lg font-semibold tracking-tight">Public Links</h3>
+        </div>
+        <div className="space-y-4">
+          {[...Array(2)].map((_, i) => (
+            <div key={i} className="h-24 bg-muted animate-pulse rounded-lg" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
