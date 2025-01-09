@@ -9,7 +9,7 @@ import { EventsList } from "@/components/calendar/EventsList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRealtimeUpdates } from "@/hooks/use-realtime-updates";
 import { startOfWeek, endOfWeek } from "date-fns";
-import type { Event } from "@/types/calendar";
+import type { Event, EventParticipant, EventOrganizer } from "@/types/calendar";
 
 export default function Calendar() {
   const navigate = useNavigate();
