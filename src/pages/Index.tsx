@@ -27,7 +27,7 @@ export default function Index() {
     checkSession();
   }, [navigate]);
 
-  // First, fetch the profile
+  // Fetch the profile
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['profile'],
     queryFn: async () => {
@@ -55,47 +55,7 @@ export default function Index() {
     retry: false
   });
 
-  // Finally fetch public shares after profile is loaded
-  const { data: publicShares, isLoading: sharesLoading } = useQuery({
-    queryKey: ['public-shares', profile?.id],
-    queryFn: async () => {
-      if (!profile?.id) {
-        console.log('No profile ID available, skipping shares fetch');
-        return [];
-      }
-
-      console.log('Fetching public shares for user:', profile.id);
-      const { data, error } = await supabase
-        .from('video_shares')
-        .select(`
-          id,
-          recording:recordings (
-            id,
-            views:video_views(count),
-            email_metrics:email_shares(opens, link_clicks),
-            event:events (
-              title,
-              start_time
-            )
-          )
-        `)
-        .eq('shared_by', profile.id)
-        .eq('share_type', 'external')
-        .order('created_at', { ascending: false })
-        .limit(3);
-
-      if (error) {
-        console.error('Error fetching public shares:', error);
-        throw error;
-      }
-
-      return data;
-    },
-    enabled: !!profile?.id,
-    retry: false
-  });
-
-  if (profileLoading || sharesLoading) {
+  if (profileLoading) {
     return (
       <PageLayout>
         <div className="animate-pulse space-y-4 px-4 sm:px-0">
@@ -119,7 +79,7 @@ export default function Index() {
           
           <Card className="card-hover-effect">
             <CardContent className="p-4 sm:p-6">
-              <StatsCard publicShares={publicShares || []} />
+              <StatsCard />
             </CardContent>
           </Card>
         </div>
