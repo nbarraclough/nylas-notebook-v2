@@ -13,6 +13,9 @@ export function useRecordingData(recordingId: string) {
         .from('recordings')
         .select(`
           *,
+          owner:profiles!recordings_user_id_fkey (
+            email
+          ),
           event:events (
             title,
             description,
@@ -31,7 +34,7 @@ export function useRecordingData(recordingId: string) {
           )
         `)
         .eq('id', recordingId)
-        .maybeSingle(); // Changed from .single() to .maybeSingle()
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching recording:', error);
@@ -43,7 +46,11 @@ export function useRecordingData(recordingId: string) {
         return null;
       }
 
-      return data;
+      // Add owner_email to the recording object
+      return {
+        ...data,
+        owner_email: data.owner?.email
+      };
     },
   });
 
