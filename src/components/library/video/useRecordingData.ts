@@ -1,19 +1,18 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export function useRecordingData(recordingId: string) {
-  const queryClient = useQueryClient();
-
-  const { data: recording, isLoading, error } = useQuery({
+export function useRecordingData(recordingId: string | null) {
+  return useQuery({
     queryKey: ['recording', recordingId],
+    enabled: !!recordingId,
     queryFn: async () => {
-      console.log('Fetching recording data for:', recordingId);
-      
+      if (!recordingId) return null;
+
       const { data, error } = await supabase
         .from('recordings')
         .select(`
           *,
-          owner:profiles!recordings_user_id_fkey (
+          owner:profiles!inner (
             email
           ),
           event:events (
@@ -23,14 +22,11 @@ export function useRecordingData(recordingId: string) {
             end_time,
             participants,
             organizer,
-            manual_meeting:manual_meetings (
-              user_id
-            )
+            manual_meeting:manual_meetings (*)
           ),
           video_shares (
-            id,
             share_type,
-            external_token
+            organization_id
           )
         `)
         .eq('id', recordingId)
@@ -42,7 +38,7 @@ export function useRecordingData(recordingId: string) {
       }
 
       if (!data) {
-        console.log('No recording found with id:', recordingId);
+        console.log('No recording found with ID:', recordingId);
         return null;
       }
 
@@ -53,6 +49,4 @@ export function useRecordingData(recordingId: string) {
       };
     },
   });
-
-  return { recording, isLoading, error };
 }
