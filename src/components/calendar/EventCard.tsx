@@ -54,7 +54,7 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
     );
   })();
 
-  // Fetch user's profile to get Nylas grant ID
+  // Fetch user's profile to get Nylas grant ID with better error handling
   const { data: profile } = useQuery({
     queryKey: ['profile', userId],
     queryFn: async () => {
@@ -63,22 +63,34 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
         return null;
       }
 
-      console.log('Fetching profile for user:', userId);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('nylas_grant_id')
-        .eq('id', userId)
-        .maybeSingle();
+      try {
+        console.log('Fetching profile for user:', userId);
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('nylas_grant_id')
+          .eq('id', userId)
+          .maybeSingle();
 
-      if (error) {
-        console.error('Error fetching profile:', error);
+        if (error) {
+          console.error('Error fetching profile:', error);
+          throw error;
+        }
+        
+        if (!data) {
+          console.log('No profile found for user:', userId);
+          return null;
+        }
+        
+        console.log('Profile data:', data);
+        return data;
+      } catch (error) {
+        console.error('Error in profile query:', error);
         throw error;
       }
-      
-      console.log('Profile data:', data);
-      return data;
     },
-    enabled: !!userId, // Only run query if userId exists
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    retry: 2
   });
 
   // Check if event is already in queue
