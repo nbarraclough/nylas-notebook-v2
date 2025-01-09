@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Video } from "lucide-react";
 import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
 import type { Database } from "@/integrations/supabase/types";
 
 type Event = Database['public']['Tables']['events']['Row'] & {
@@ -39,8 +40,13 @@ export function UpcomingMeetings({ userId }: { userId: string }) {
         throw error;
       }
 
-      console.log('Fetched upcoming events:', data);
-      return data || [];
+      // Filter to only show events that are queued for recording
+      const queuedEvents = data?.filter(event => 
+        event.notetaker_queue && event.notetaker_queue.length > 0
+      ) || [];
+
+      console.log('Fetched upcoming events:', queuedEvents);
+      return queuedEvents;
     }
   });
 
@@ -59,7 +65,7 @@ export function UpcomingMeetings({ userId }: { userId: string }) {
       <div className="flex flex-col items-center justify-center p-6 text-center">
         <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
         <p className="text-muted-foreground">
-          No upcoming meetings. Time to relax!
+          No upcoming recordings scheduled
         </p>
       </div>
     );
@@ -79,18 +85,30 @@ export function UpcomingMeetings({ userId }: { userId: string }) {
                     {format(new Date(event.start_time), "MMM d, h:mm a")}
                   </span>
                 </div>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                {event.notetaker_queue && event.notetaker_queue.length > 0 && (
+                  <Badge variant="secondary">
+                    Recording {event.notetaker_queue[0].status}
+                  </Badge>
+                )}
                 {event.conference_url && (
-                  <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                    <Video className="h-4 w-4" />
-                    <span>Video conference available</span>
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="whitespace-nowrap"
+                    asChild
+                  >
+                    <a 
+                      href={event.conference_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                    >
+                      Join meeting
+                    </a>
+                  </Button>
                 )}
               </div>
-              {event.notetaker_queue && event.notetaker_queue.length > 0 && (
-                <Badge variant="secondary">
-                  Recording {event.notetaker_queue[0].status}
-                </Badge>
-              )}
             </div>
           </CardContent>
         </Card>
