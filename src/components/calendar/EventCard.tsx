@@ -11,7 +11,10 @@ interface EventCardProps {
     title: string;
     start_time: string;
     conference_url?: string | null;
-    notetaker_queue?: any[];
+    notetaker_queue?: {
+      id: string;
+      status: string;
+    }[];
   };
   userId: string;
   isPast?: boolean;
