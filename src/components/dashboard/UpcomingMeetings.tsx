@@ -53,8 +53,8 @@ export function UpcomingMeetings({ userId }: { userId: string }) {
 
       console.log('Fetched upcoming events:', queuedEvents);
       return queuedEvents;
-    },
-    enabled: !!userId // Only run the query if we have a userId
+    }
+    // Removed the enabled condition to start fetching immediately
   });
 
   if (isLoading) {
