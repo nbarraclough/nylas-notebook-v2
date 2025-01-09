@@ -10,10 +10,6 @@ interface StatsCardProps {
 export function StatsCard({ publicShares }: StatsCardProps) {
   const navigate = useNavigate();
 
-  if (!publicShares) {
-    return null;
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between pb-2 border-b">
@@ -28,7 +24,7 @@ export function StatsCard({ publicShares }: StatsCardProps) {
         </Button>
       </div>
       <div className="space-y-4">
-        {publicShares.length > 0 ? (
+        {publicShares && publicShares.length > 0 ? (
           publicShares.map((share) => (
             <div 
               key={share.id} 

@@ -47,9 +47,7 @@ export function UpcomingMeetings({ userId }: { userId: string }) {
       console.log('Fetched upcoming events:', data);
       return data || [];
     },
-    enabled: !!userId,
-    staleTime: 0,
-    gcTime: 5 * 60 * 1000,
+    enabled: !!userId
   });
 
   if (isLoading) {
