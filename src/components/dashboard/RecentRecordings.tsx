@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { Play, ArrowRight } from "lucide-react";
+import { Play, ArrowRight, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { VideoPlayerDialog } from "@/components/recordings/VideoPlayerDialog";
 
@@ -25,7 +25,7 @@ export function RecentRecordings() {
           video_url
         `)
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(3);
 
       if (error) throw error;
       return data;
@@ -33,67 +33,73 @@ export function RecentRecordings() {
   });
 
   return (
-    <>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-lg font-medium">Your Recent Recordings</CardTitle>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between pb-2 border-b">
+        <h3 className="text-lg font-semibold tracking-tight">Your Recent Recordings</h3>
         <Button 
           variant="ghost" 
-          size="sm"
-          className="text-sm"
-          onClick={() => navigate('/library')}
+          className="text-sm hover:bg-blue-50" 
+          onClick={() => navigate("/library")}
         >
-          View more
-          <ArrowRight className="ml-2 h-4 w-4" />
+          <span className="hidden sm:inline">View more</span>
+          <ArrowRight className="h-4 w-4 ml-0 sm:ml-2" />
         </Button>
-      </CardHeader>
-      <CardContent>
+      </div>
+      <div className="space-y-4">
         {isLoading ? (
           <div className="space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-12 bg-muted animate-pulse rounded" />
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="h-24 bg-muted animate-pulse rounded-lg" />
             ))}
           </div>
         ) : recordings?.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4 text-center">
-            No recordings yet. Start by recording your first meeting!
-          </p>
+          <div className="text-center py-6 bg-gray-50/50 rounded-lg border border-dashed border-gray-200">
+            <p className="text-muted-foreground">
+              No recordings yet
+            </p>
+          </div>
         ) : (
           <div className="space-y-4">
             {recordings?.map((recording) => (
               <div
                 key={recording.id}
-                className="space-y-2 border-b pb-4 last:border-0"
+                className="p-4 rounded-lg border border-gray-100 bg-white/50 backdrop-blur-sm card-hover-effect"
               >
-                <div className="space-y-1">
-                  <p className="text-sm line-clamp-1">
-                    {recording.event?.title}
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-medium line-clamp-1 flex-1 mr-2">
+                    {recording.event?.title || 'Untitled Recording'}
                   </p>
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">
-                      {recording.event?.start_time && 
-                        format(new Date(recording.event.start_time), 'PPp')}
-                    </p>
-                    {recording.video_url ? (
-                      <VideoPlayerDialog
-                        videoUrl={recording.video_url}
-                        title={recording.event?.title || ''}
-                      >
-                        <Button size="sm" variant="ghost">
-                          <Play className="h-4 w-4" />
-                        </Button>
-                      </VideoPlayerDialog>
-                    ) : (
-                      <Button size="sm" variant="ghost" disabled>
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground whitespace-nowrap">
+                    <Calendar className="h-4 w-4 text-gray-500" />
+                    <span>
+                      {recording.event?.start_time ? 
+                        format(new Date(recording.event.start_time), 'MMM d') : 
+                        'No date'
+                      }
+                    </span>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  {recording.video_url ? (
+                    <VideoPlayerDialog
+                      videoUrl={recording.video_url}
+                      title={recording.event?.title || ''}
+                    >
+                      <Button size="sm" variant="ghost" className="hover:bg-blue-50">
                         <Play className="h-4 w-4" />
                       </Button>
-                    )}
-                  </div>
+                    </VideoPlayerDialog>
+                  ) : (
+                    <Button size="sm" variant="ghost" disabled>
+                      <Play className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
-      </CardContent>
-    </>
+      </div>
+    </div>
   );
 }
