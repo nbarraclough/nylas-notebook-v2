@@ -1,152 +1,84 @@
-import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Calendar, Video } from "lucide-react";
+import { format } from "date-fns";
+import { RecordingToggle } from "./RecordingToggle";
 import { useQuery } from "@tanstack/react-query";
-import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { EventHeader } from "./EventHeader";
-import { EventDescription } from "./EventDescription";
-import { EventActions } from "./EventActions";
-import type { Database } from "@/integrations/supabase/types";
-import type { EventParticipant, EventOrganizer } from "@/types/calendar";
-
-type Event = Database['public']['Tables']['events']['Row'];
 
 interface EventCardProps {
-  event: Event;
+  event: {
+    id: string;
+    title: string;
+    start_time: string;
+    conference_url?: string | null;
+    notetaker_queue?: any[];
+  };
   userId: string;
-  isPast: boolean;
+  isPast?: boolean;
 }
 
-export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
-  const [isQueued, setIsQueued] = useState(false);
-  const location = useLocation();
-  const isCalendarRoute = location.pathname === "/calendar";
-
-  // Parse organizer and participants with type checking
-  const parseParticipants = (data: unknown): EventParticipant[] => {
-    if (Array.isArray(data)) {
-      return data.filter((item): item is EventParticipant => 
-        typeof item === 'object' && 
-        item !== null && 
-        'email' in item && 
-        'name' in item
-      );
-    }
-    return [];
-  };
-
-  const parseOrganizer = (data: unknown): EventOrganizer | null => {
-    if (typeof data === 'object' && data !== null && 'email' in data && 'name' in data) {
-      return data as EventOrganizer;
-    }
-    return null;
-  };
-
-  // Determine if meeting is internal
-  const isInternalMeeting = (() => {
-    const organizer = parseOrganizer(event.organizer);
-    const participants = parseParticipants(event.participants);
-    
-    if (!organizer?.email || !participants.length) return true;
-    const organizerDomain = organizer.email.split('@')[1];
-    return participants.every(participant => 
-      participant.email.split('@')[1] === organizerDomain
-    );
-  })();
-
-  // Fetch user's profile to get Nylas grant ID
+export function EventCard({ event, userId, isPast = false }: EventCardProps) {
+  // Fetch user profile to get nylasGrantId
   const { data: profile } = useQuery({
     queryKey: ['profile', userId],
     queryFn: async () => {
-      if (!userId) {
-        console.log('No user ID provided, skipping profile fetch');
-        return null;
-      }
-
-      console.log('Fetching profile for user:', userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('nylas_grant_id')
         .eq('id', userId)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error fetching profile:', error);
-        throw error;
-      }
+        .single();
       
-      console.log('Profile data:', data);
+      if (error) throw error;
       return data;
-    },
-    enabled: !!userId, // Only run query if userId exists
+    }
   });
 
-  // Check if event is already in queue
-  const checkQueueStatus = async () => {
-    if (!userId) {
-      console.log('No user ID available, skipping queue check');
-      return;
-    }
+  // Check if event is queued for recording
+  const isQueued = event.notetaker_queue?.some(q => q.status === 'pending');
 
-    console.log('Checking queue status for event:', event.id);
-    const { data, error } = await supabase
-      .from('notetaker_queue')
-      .select('id')
-      .eq('event_id', event.id)
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Error checking queue status:', error);
-      return;
-    }
-
-    console.log('Queue status:', data ? 'Queued' : 'Not queued');
-    setIsQueued(!!data);
-  };
-
-  // Load initial queue status
-  useEffect(() => {
-    if (userId) {
-      checkQueueStatus();
-    }
-  }, [event.id, userId]);
-
-  const handleQueueToggle = (newState: boolean) => {
-    setIsQueued(newState);
+  const handleToggle = async (newState: boolean) => {
+    // Refresh the events list after toggle
+    // This will be handled by the parent component's query invalidation
   };
 
   return (
-    <Card className={`${isPast ? "opacity-60" : ""} card-hover-effect bg-white/80 backdrop-blur-sm border border-gray-100`}>
-      <CardContent className="p-3 sm:p-6">
-        <div className="flex flex-col space-y-3 sm:space-y-4">
-          <EventHeader 
-            title={event.title}
-            startTime={event.start_time}
-            endTime={event.end_time}
-            participants={parseParticipants(event.participants)}
-            organizer={parseOrganizer(event.organizer)}
-            isInternalMeeting={isInternalMeeting}
-            conferenceUrl={event.conference_url}
-            isQueued={isQueued}
-            eventId={event.id}
-            userId={userId}
-            scheduledFor={event.start_time}
-            nylasGrantId={profile?.nylas_grant_id}
-            onToggle={handleQueueToggle}
-            isPast={isPast}
-            htmlLink={event.html_link}
-          />
-
-          <EventDescription description={event.description} />
-
-          <EventActions 
-            conferenceUrl={event.conference_url}
-            isCalendarRoute={isCalendarRoute}
-            isPast={isPast}
-          />
+    <Card className="mb-4">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <h3 className="font-medium">{event.title}</h3>
+            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+              <Calendar className="h-4 w-4" />
+              <span>{format(new Date(event.start_time), "PPp")}</span>
+            </div>
+            {event.conference_url && (
+              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                <Video className="h-4 w-4" />
+                <span>Has conference URL</span>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center space-x-4">
+            {!isPast && (
+              <RecordingToggle
+                isQueued={isQueued}
+                eventId={event.id}
+                userId={userId}
+                hasConferenceUrl={!!event.conference_url}
+                scheduledFor={event.start_time}
+                nylasGrantId={profile?.nylas_grant_id}
+                onToggle={handleToggle}
+              />
+            )}
+            {isQueued && (
+              <Badge variant="secondary" className="bg-green-100 text-green-800">
+                Recording scheduled
+              </Badge>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
   );
-};
+}

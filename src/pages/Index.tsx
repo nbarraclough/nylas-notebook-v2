@@ -54,7 +54,7 @@ export default function Index() {
     retry: false
   });
 
-  const { data: upcomingEvents, isLoading: eventsLoading } = useQuery({
+  const { data: upcomingEvents, isLoading: eventsLoading, refetch: refetchEvents } = useQuery({
     queryKey: ['upcoming-events'],
     queryFn: async () => {
       if (!profile?.id) {
@@ -65,7 +65,13 @@ export default function Index() {
       console.log('Fetching upcoming events for user:', profile.id);
       const { data, error } = await supabase
         .from('events')
-        .select('*')
+        .select(`
+          *,
+          notetaker_queue (
+            id,
+            status
+          )
+        `)
         .gte('start_time', new Date().toISOString())
         .order('start_time', { ascending: true })
         .limit(3);
