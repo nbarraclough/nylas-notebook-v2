@@ -57,46 +57,19 @@ export default function Index() {
     enabled: !!userId
   });
 
-  // Query for public video shares
-  const { data: publicShares } = useQuery({
-    queryKey: ['public-shares', userId],
-    queryFn: async () => {
-      if (!userId) return [];
-      
-      const { data, error } = await supabase
-        .from('video_shares')
-        .select(`
-          *,
-          recording:recordings (
-            id,
-            views:video_views (count),
-            email_metrics:email_shares (opens, link_clicks),
-            event:events (
-              title,
-              start_time
-            )
-          )
-        `)
-        .eq('shared_by', userId)
-        .eq('share_type', 'external')
-        .order('created_at', { ascending: false })
-        .limit(3);
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!userId
-  });
-
   return (
     <PageLayout>
       <div className="space-y-6">
         {userEmail && (
-          <WelcomeCard email={userEmail} />
+          <Card className="dashboard-card">
+            <CardContent className="p-6">
+              <WelcomeCard email={userEmail} />
+            </CardContent>
+          </Card>
         )}
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
+          <Card className="dashboard-card">
             <CardContent className="p-6">
               <h2 className="text-xl font-semibold mb-4">Upcoming Meetings</h2>
               {isLoading ? (
@@ -123,19 +96,19 @@ export default function Index() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="dashboard-card">
             <CardContent className="p-6">
               <RecentRecordings />
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="dashboard-card">
             <CardContent className="p-6">
-              <StatsCard publicShares={publicShares || []} />
+              <StatsCard publicShares={[]} />
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="dashboard-card">
             <CardContent className="p-6">
               <OrganizationShares />
             </CardContent>
