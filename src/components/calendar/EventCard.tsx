@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { EventHeader } from "./EventHeader";
 import { EventDescription } from "./EventDescription";
 import { EventActions } from "./EventActions";
+import { useProfile } from "@/hooks/use-profile";
 import type { Database } from "@/integrations/supabase/types";
 import type { EventParticipant, EventOrganizer } from "@/types/calendar";
 
@@ -21,6 +21,9 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
   const [isQueued, setIsQueued] = useState(false);
   const location = useLocation();
   const isCalendarRoute = location.pathname === "/calendar";
+
+  // Use the shared profile hook
+  const { data: profile } = useProfile(userId);
 
   // Parse organizer and participants with type checking
   const parseParticipants = (data: unknown): EventParticipant[] => {
@@ -53,45 +56,6 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
       participant.email.split('@')[1] === organizerDomain
     );
   })();
-
-  // Fetch user's profile to get Nylas grant ID with better error handling
-  const { data: profile } = useQuery({
-    queryKey: ['profile', userId],
-    queryFn: async () => {
-      if (!userId) {
-        console.log('No user ID provided, skipping profile fetch');
-        return null;
-      }
-
-      try {
-        console.log('Fetching profile for user:', userId);
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('nylas_grant_id')
-          .eq('id', userId)
-          .maybeSingle();
-
-        if (error) {
-          console.error('Error fetching profile:', error);
-          throw error;
-        }
-        
-        if (!data) {
-          console.log('No profile found for user:', userId);
-          return null;
-        }
-        
-        console.log('Profile data:', data);
-        return data;
-      } catch (error) {
-        console.error('Error in profile query:', error);
-        throw error;
-      }
-    },
-    enabled: !!userId,
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-    retry: 2
-  });
 
   // Check if event is already in queue
   const checkQueueStatus = async () => {
