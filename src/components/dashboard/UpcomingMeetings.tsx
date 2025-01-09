@@ -21,12 +21,6 @@ export function UpcomingMeetings() {
       const now = new Date().toISOString();
       console.log('Fetching upcoming events from:', now);
       
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.log('No authenticated user found');
-        return [];
-      }
-      
       const { data, error } = await supabase
         .from('events')
         .select(`
@@ -36,7 +30,6 @@ export function UpcomingMeetings() {
             status
           )
         `)
-        .eq('user_id', user.id)
         .gte('start_time', now)
         .order('start_time')
         .limit(3);
