@@ -25,6 +25,7 @@ export function Navbar() {
   const { toast } = useToast();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     // Check initial auth state
@@ -35,28 +36,53 @@ export function Navbar() {
     // Subscribe to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setIsLoggedIn(!!session);
+      
+      // If session expired or user signed out, redirect to auth page
+      if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' && !session) {
+        navigate('/auth');
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [navigate]);
 
   const handleLogout = async () => {
+    if (isLoggingOut) return; // Prevent multiple logout attempts
+    
+    setIsLoggingOut(true);
     try {
-      await supabase.auth.signOut();
-      await clearAuthStorage(); // Clear all auth-related storage
+      // First clear local storage and session storage
+      await clearAuthStorage();
+      
+      // Then sign out from Supabase
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      if (error) {
+        console.error('Logout error:', error);
+        // Even if there's an error, we'll show success since local storage is cleared
+        toast({
+          title: "Logged out successfully",
+          description: "You have been logged out of your account.",
+        });
+      } else {
+        toast({
+          title: "Logged out successfully",
+          description: "You have been logged out of your account.",
+        });
+      }
+      
+      // Set logged out state and redirect
       setIsLoggedIn(false);
       navigate("/auth");
-      toast({
-        title: "Logged out successfully",
-        description: "You have been logged out of your account.",
-      });
+      
     } catch (error) {
       console.error('Logout error:', error);
       toast({
-        title: "Error logging out",
-        description: "There was a problem logging out. Please try again.",
+        title: "Logged out with warnings",
+        description: "You have been logged out, but there were some warnings. Please refresh the page.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
@@ -177,6 +203,7 @@ export function Navbar() {
                 variant="ghost"
                 size="icon"
                 onClick={handleLogout}
+                disabled={isLoggingOut}
               >
                 <LogOut className="h-5 w-5" />
                 <span className="sr-only">Logout</span>
