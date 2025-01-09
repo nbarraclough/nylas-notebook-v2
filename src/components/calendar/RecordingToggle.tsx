@@ -25,18 +25,8 @@ export const RecordingToggle = ({
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
-  console.log('RecordingToggle props:', {
-    isQueued,
-    eventId,
-    hasConferenceUrl,
-    scheduledFor,
-    nylasGrantId,
-    isLoading
-  });
-
   const handleRecordingToggle = async () => {
     if (!hasConferenceUrl) {
-      console.log('Toggle blocked: No conference URL');
       toast({
         title: "Error",
         description: "This event doesn't have a conference URL.",
@@ -46,7 +36,6 @@ export const RecordingToggle = ({
     }
 
     if (!nylasGrantId) {
-      console.log('Toggle blocked: No Nylas grant ID');
       toast({
         title: "Error",
         description: "Nylas connection not found. Please connect your calendar first.",
@@ -57,11 +46,9 @@ export const RecordingToggle = ({
 
     try {
       setIsLoading(true);
-      console.log('Toggling recording for event:', eventId, 'Current state:', isQueued);
 
       if (!isQueued) {
-        // Add to queue using the Edge Function
-        const { data, error } = await supabase.functions.invoke('queue-event-recording', {
+        const { error } = await supabase.functions.invoke('queue-event-recording', {
           body: {
             event_id: eventId,
             user_id: userId,
@@ -69,10 +56,7 @@ export const RecordingToggle = ({
           }
         });
 
-        if (error) {
-          console.error('Error adding to queue:', error);
-          throw error;
-        }
+        if (error) throw error;
 
         onToggle(true);
         toast({
@@ -80,17 +64,13 @@ export const RecordingToggle = ({
           description: "Meeting scheduled for recording!",
         });
       } else {
-        // Remove from queue
         const { error } = await supabase
           .from('notetaker_queue')
           .delete()
           .eq('event_id', eventId)
           .eq('user_id', userId);
 
-        if (error) {
-          console.error('Error removing from queue:', error);
-          throw error;
-        }
+        if (error) throw error;
 
         onToggle(false);
         toast({

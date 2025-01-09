@@ -22,8 +22,8 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
   const location = useLocation();
   const isCalendarRoute = location.pathname === "/calendar";
 
-  // Use the shared profile hook
-  const { data: profile } = useProfile(userId);
+  // Use the shared profile hook with staleTime to prevent unnecessary refetches
+  const { data: profile, isLoading: profileLoading } = useProfile(userId);
 
   // Parse organizer and participants with type checking
   const parseParticipants = (data: unknown): EventParticipant[] => {
@@ -59,34 +59,61 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
 
   // Check if event is already in queue
   const checkQueueStatus = async () => {
-    if (!userId) {
-      console.log('No user ID available, skipping queue check');
+    if (!userId || profileLoading) {
       return;
     }
 
-    console.log('Checking queue status for event:', event.id);
-    const { data, error } = await supabase
-      .from('notetaker_queue')
-      .select('id')
-      .eq('event_id', event.id)
-      .eq('user_id', userId)
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from('notetaker_queue')
+        .select('id')
+        .eq('event_id', event.id)
+        .eq('user_id', userId)
+        .maybeSingle();
 
-    if (error) {
-      console.error('Error checking queue status:', error);
-      return;
+      if (error) {
+        console.error('Error checking queue status:', error);
+        return;
+      }
+
+      setIsQueued(!!data);
+    } catch (err) {
+      console.error('Error in checkQueueStatus:', err);
     }
-
-    console.log('Queue status:', data ? 'Queued' : 'Not queued');
-    setIsQueued(!!data);
   };
 
-  // Load initial queue status
+  // Load initial queue status when profile is loaded
   useEffect(() => {
-    if (userId) {
+    if (profile?.id) {
       checkQueueStatus();
     }
-  }, [event.id, userId]);
+  }, [profile?.id, event.id]);
+
+  // Set up realtime subscription for queue status
+  useEffect(() => {
+    if (!profile?.id) return;
+
+    const subscription = supabase
+      .channel(`queue-status-${event.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'notetaker_queue',
+        filter: `event_id=eq.${event.id}`,
+      }, 
+      (payload) => {
+        if (payload.eventType === 'DELETE') {
+          setIsQueued(false);
+        } else if (payload.eventType === 'INSERT') {
+          setIsQueued(true);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [event.id, profile?.id]);
 
   const handleQueueToggle = (newState: boolean) => {
     setIsQueued(newState);
