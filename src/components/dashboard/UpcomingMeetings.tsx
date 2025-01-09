@@ -22,7 +22,9 @@ export function UpcomingMeetings({ userId }: { userId: string }) {
         return [];
       }
 
-      console.log('Fetching upcoming events for dashboard:', userId);
+      const now = new Date().toISOString();
+      console.log('Fetching upcoming events for dashboard:', userId, 'from:', now);
+      
       const { data, error } = await supabase
         .from('events')
         .select(`
@@ -33,8 +35,8 @@ export function UpcomingMeetings({ userId }: { userId: string }) {
           )
         `)
         .eq('user_id', userId)
-        .gte('start_time', new Date().toISOString())
-        .order('start_time', { ascending: true })
+        .gte('start_time', now)
+        .order('start_time')
         .limit(3);
 
       if (error) {
@@ -42,9 +44,11 @@ export function UpcomingMeetings({ userId }: { userId: string }) {
         throw error;
       }
 
+      console.log('Fetched upcoming events:', data);
       return data;
     },
-    enabled: !!userId
+    enabled: !!userId,
+    refetchInterval: 30000 // Refetch every 30 seconds to keep meetings current
   });
 
   if (isLoading) {
@@ -57,42 +61,47 @@ export function UpcomingMeetings({ userId }: { userId: string }) {
     );
   }
 
-  return (
-    <div className="space-y-4 overflow-y-auto max-h-[500px]">
-      {upcomingEvents && upcomingEvents.length > 0 ? (
-        upcomingEvents.map((event) => (
-          <Card key={event.id} className="hover:bg-muted/50 transition-colors">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-sm truncate">{event.title}</h4>
-                  <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
-                    <span>
-                      {format(new Date(event.start_time), "MMM d, h:mm a")}
-                    </span>
-                  </div>
-                  {event.conference_url && (
-                    <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                      <Video className="h-4 w-4" />
-                      <span>Video conference available</span>
-                    </div>
-                  )}
-                </div>
-                {event.notetaker_queue?.length > 0 && (
-                  <Badge variant="secondary">
-                    Recording {event.notetaker_queue[0].status}
-                  </Badge>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))
-      ) : (
-        <p className="text-center text-muted-foreground py-4">
+  if (!upcomingEvents || upcomingEvents.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-6 text-center">
+        <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
+        <p className="text-muted-foreground">
           No upcoming meetings. Time to relax!
         </p>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 overflow-y-auto max-h-[500px]">
+      {upcomingEvents.map((event) => (
+        <Card key={event.id} className="hover:bg-muted/50 transition-colors">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <h4 className="font-medium text-sm truncate">{event.title}</h4>
+                <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                  <Calendar className="h-4 w-4" />
+                  <span>
+                    {format(new Date(event.start_time), "MMM d, h:mm a")}
+                  </span>
+                </div>
+                {event.conference_url && (
+                  <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                    <Video className="h-4 w-4" />
+                    <span>Video conference available</span>
+                  </div>
+                )}
+              </div>
+              {event.notetaker_queue && event.notetaker_queue.length > 0 && (
+                <Badge variant="secondary">
+                  Recording {event.notetaker_queue[0].status}
+                </Badge>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }
