@@ -6,7 +6,12 @@ import { Calendar, Video } from "lucide-react";
 import { format } from "date-fns";
 import type { Database } from "@/integrations/supabase/types";
 
-type Event = Database['public']['Tables']['events']['Row'];
+type Event = Database['public']['Tables']['events']['Row'] & {
+  notetaker_queue?: {
+    id: string;
+    status: string;
+  }[];
+};
 
 export function UpcomingMeetings({ userId }: { userId: string }) {
   const { data: upcomingEvents, isLoading } = useQuery<Event[]>({
