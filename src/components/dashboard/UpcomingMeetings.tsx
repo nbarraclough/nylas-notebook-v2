@@ -14,18 +14,18 @@ type Event = Database['public']['Tables']['events']['Row'] & {
   }[];
 };
 
-export function UpcomingMeetings({ userId }: { userId: string }) {
+export function UpcomingMeetings() {
   const { data: upcomingEvents, isLoading } = useQuery({
-    queryKey: ['dashboard-upcoming-events', userId],
+    queryKey: ['dashboard-upcoming-events'],
     queryFn: async () => {
-      // Only proceed if we have a valid userId
-      if (!userId) {
-        console.log('No user ID provided for upcoming events query');
+      const now = new Date().toISOString();
+      console.log('Fetching upcoming events from:', now);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('No authenticated user found');
         return [];
       }
-
-      const now = new Date().toISOString();
-      console.log('Fetching upcoming events for dashboard:', userId, 'from:', now);
       
       const { data, error } = await supabase
         .from('events')
@@ -36,7 +36,7 @@ export function UpcomingMeetings({ userId }: { userId: string }) {
             status
           )
         `)
-        .eq('user_id', userId)
+        .eq('user_id', user.id)
         .gte('start_time', now)
         .order('start_time')
         .limit(3);
@@ -54,7 +54,6 @@ export function UpcomingMeetings({ userId }: { userId: string }) {
       console.log('Fetched upcoming events:', queuedEvents);
       return queuedEvents;
     }
-    // Removed the enabled condition to start fetching immediately
   });
 
   if (isLoading) {
