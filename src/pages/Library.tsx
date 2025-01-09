@@ -8,6 +8,16 @@ import { useRecordings } from "@/hooks/use-recordings";
 import { supabase } from "@/integrations/supabase/client";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+
+const RECORDINGS_PER_PAGE = 8;
 
 export default function Library() {
   const [searchParams] = useSearchParams();
@@ -26,6 +36,8 @@ export default function Library() {
   const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [myRecordingsPage, setMyRecordingsPage] = useState(1);
+  const [sharedRecordingsPage, setSharedRecordingsPage] = useState(1);
 
   // Check authentication status
   useEffect(() => {
@@ -79,6 +91,18 @@ export default function Library() {
     recording.user_id !== currentUserId
   ) || [];
 
+  // Calculate pagination for my recordings
+  const myRecordingsStart = (myRecordingsPage - 1) * RECORDINGS_PER_PAGE;
+  const myRecordingsEnd = myRecordingsStart + RECORDINGS_PER_PAGE;
+  const myRecordingsPaginated = myRecordings.slice(myRecordingsStart, myRecordingsEnd);
+  const myRecordingsPages = Math.ceil(myRecordings.length / RECORDINGS_PER_PAGE);
+
+  // Calculate pagination for shared recordings
+  const sharedRecordingsStart = (sharedRecordingsPage - 1) * RECORDINGS_PER_PAGE;
+  const sharedRecordingsEnd = sharedRecordingsStart + RECORDINGS_PER_PAGE;
+  const sharedRecordingsPaginated = sharedRecordings.slice(sharedRecordingsStart, sharedRecordingsEnd);
+  const sharedRecordingsPages = Math.ceil(sharedRecordings.length / RECORDINGS_PER_PAGE);
+
   // Update URL when a recording is selected
   const handleRecordingSelect = (id: string | null) => {
     setSelectedRecording(id);
@@ -107,11 +131,43 @@ export default function Library() {
               <div>
                 <h2 className="text-xl font-semibold mb-4">My Recordings</h2>
                 <RecordingGrid 
-                  recordings={myRecordings} 
+                  recordings={myRecordingsPaginated} 
                   isLoading={isLoading} 
                   selectedRecording={selectedRecording}
                   onRecordingSelect={handleRecordingSelect}
                 />
+                {myRecordingsPages > 1 && (
+                  <div className="mt-4">
+                    <Pagination>
+                      <PaginationContent>
+                        {myRecordingsPage > 1 && (
+                          <PaginationItem>
+                            <PaginationPrevious 
+                              onClick={() => setMyRecordingsPage(page => Math.max(1, page - 1))}
+                            />
+                          </PaginationItem>
+                        )}
+                        {Array.from({ length: myRecordingsPages }, (_, i) => i + 1).map((page) => (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              onClick={() => setMyRecordingsPage(page)}
+                              isActive={page === myRecordingsPage}
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        ))}
+                        {myRecordingsPage < myRecordingsPages && (
+                          <PaginationItem>
+                            <PaginationNext 
+                              onClick={() => setMyRecordingsPage(page => Math.min(myRecordingsPages, page + 1))}
+                            />
+                          </PaginationItem>
+                        )}
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                )}
               </div>
 
               {sharedRecordings.length > 0 && (
@@ -120,11 +176,43 @@ export default function Library() {
                   <div>
                     <h2 className="text-xl font-semibold mb-4">Internally Shared Recordings</h2>
                     <RecordingGrid 
-                      recordings={sharedRecordings} 
+                      recordings={sharedRecordingsPaginated} 
                       isLoading={isLoading} 
                       selectedRecording={selectedRecording}
                       onRecordingSelect={handleRecordingSelect}
                     />
+                    {sharedRecordingsPages > 1 && (
+                      <div className="mt-4">
+                        <Pagination>
+                          <PaginationContent>
+                            {sharedRecordingsPage > 1 && (
+                              <PaginationItem>
+                                <PaginationPrevious 
+                                  onClick={() => setSharedRecordingsPage(page => Math.max(1, page - 1))}
+                                />
+                              </PaginationItem>
+                            )}
+                            {Array.from({ length: sharedRecordingsPages }, (_, i) => i + 1).map((page) => (
+                              <PaginationItem key={page}>
+                                <PaginationLink
+                                  onClick={() => setSharedRecordingsPage(page)}
+                                  isActive={page === sharedRecordingsPage}
+                                >
+                                  {page}
+                                </PaginationLink>
+                              </PaginationItem>
+                            ))}
+                            {sharedRecordingsPage < sharedRecordingsPages && (
+                              <PaginationItem>
+                                <PaginationNext 
+                                  onClick={() => setSharedRecordingsPage(page => Math.min(sharedRecordingsPages, page + 1))}
+                                />
+                              </PaginationItem>
+                            )}
+                          </PaginationContent>
+                        </Pagination>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
