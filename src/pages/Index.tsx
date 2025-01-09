@@ -41,11 +41,16 @@ export default function Index() {
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
       
       if (error) {
         console.error('Error fetching profile:', error);
         throw error;
+      }
+
+      if (!data) {
+        console.error('No profile found for user:', user.id);
+        throw new Error('No profile found');
       }
 
       setUserEmail(data.email);
@@ -54,8 +59,8 @@ export default function Index() {
     retry: false
   });
 
-  const { data: upcomingEvents, isLoading: eventsLoading, refetch: refetchEvents } = useQuery({
-    queryKey: ['upcoming-events'],
+  const { data: upcomingEvents, isLoading: eventsLoading } = useQuery({
+    queryKey: ['upcoming-events', profile?.id],
     queryFn: async () => {
       if (!profile?.id) {
         console.log('No profile ID available, skipping events fetch');
@@ -89,7 +94,7 @@ export default function Index() {
 
   // New query to fetch public shares
   const { data: publicShares, isLoading: sharesLoading } = useQuery({
-    queryKey: ['public-shares'],
+    queryKey: ['public-shares', profile?.id],
     queryFn: async () => {
       if (!profile?.id) {
         console.log('No profile ID available, skipping shares fetch');
@@ -138,6 +143,16 @@ export default function Index() {
     );
   }
 
+  if (!profile?.id) {
+    return (
+      <PageLayout>
+        <div className="text-center py-8">
+          <p className="text-muted-foreground">Unable to load profile data. Please try refreshing the page.</p>
+        </div>
+      </PageLayout>
+    );
+  }
+
   return (
     <PageLayout>
       <div className="space-y-6 px-4 sm:px-0">
@@ -171,7 +186,7 @@ export default function Index() {
                   <EventCard
                     key={event.id}
                     event={event}
-                    userId={profile?.id || ''}
+                    userId={profile.id}
                     isPast={false}
                   />
                 ))}
