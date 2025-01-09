@@ -17,7 +17,10 @@ export function StatsCard() {
           id,
           recording:recordings (
             id,
-            views:video_views(count),
+            views:video_views!inner (
+              id,
+              viewed_at
+            ),
             email_metrics:email_shares(opens, link_clicks),
             event:events (
               title,
@@ -86,7 +89,9 @@ export function StatsCard() {
               <div className="flex flex-wrap gap-4 text-sm">
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50">
                   <Eye className="h-4 w-4 text-blue-500" />
-                  <span className="text-blue-700 font-medium">{share.recording?.views?.length || 0}</span>
+                  <span className="text-blue-700 font-medium">
+                    {share.recording?.views?.length || 0}
+                  </span>
                 </div>
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50">
                   <Mail className="h-4 w-4 text-purple-500" />
