@@ -50,7 +50,8 @@ export function EventCard({ event, userId, isPast = false }: EventCardProps) {
     hasConferenceUrl: !!event.conference_url,
     isQueued,
     nylasGrantId: profile?.nylas_grant_id,
-    scheduledFor: event.start_time
+    scheduledFor: event.start_time,
+    notetakerQueue: event.notetaker_queue // Add this for debugging
   });
 
   return (

@@ -43,10 +43,21 @@ export default function Calendar() {
       if (!userId) return [];
       const { data, error } = await supabase
         .from('events')
-        .select('*')
+        .select(`
+          *,
+          notetaker_queue (
+            id,
+            status
+          )
+        `)
         .order('start_time', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching events:', error);
+        throw error;
+      }
+      
+      console.log('Fetched events:', data);
       return data;
     },
     enabled: !!userId,
