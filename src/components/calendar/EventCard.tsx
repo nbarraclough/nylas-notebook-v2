@@ -54,9 +54,10 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
   })();
 
   const checkQueueStatus = async () => {
-    if (!userId || profileLoading) return;
+    if (!userId) return;
 
     try {
+      console.log('Checking queue status for event:', event.id);
       const { data, error } = await supabase
         .from('notetaker_queue')
         .select('id')
@@ -69,20 +70,22 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
         return;
       }
 
-      setIsQueued(!!data);
+      const isCurrentlyQueued = !!data;
+      console.log('Queue status for event:', event.id, 'is:', isCurrentlyQueued);
+      setIsQueued(isCurrentlyQueued);
     } catch (err) {
       console.error('Error in checkQueueStatus:', err);
     }
   };
 
+  // Initial check when component mounts
   useEffect(() => {
-    if (!profileLoading && profile?.id) {
-      checkQueueStatus();
-    }
-  }, [profile?.id, event.id, profileLoading]);
+    checkQueueStatus();
+  }, [event.id, userId]);
 
+  // Real-time subscription
   useEffect(() => {
-    if (!profile?.id) return;
+    if (!userId) return;
 
     console.log('Setting up realtime subscription for event:', event.id);
     
@@ -108,7 +111,7 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
       console.log('Cleaning up realtime subscription for event:', event.id);
       supabase.removeChannel(channel);
     };
-  }, [event.id, profile?.id]);
+  }, [event.id, userId]);
 
   const handleQueueToggle = (newState: boolean) => {
     setIsQueued(newState);
