@@ -52,7 +52,6 @@ export default function Index() {
         throw error;
       }
 
-      console.log('Fetched upcoming events:', data);
       return data;
     },
     enabled: !!userId
