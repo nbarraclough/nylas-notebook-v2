@@ -70,8 +70,14 @@ export default function Calendar() {
       // Transform the data to match our Event type
       const transformedEvents: Event[] = data.map(event => ({
         ...event,
-        participants: event.participants as EventParticipant[],
-        organizer: event.organizer as EventOrganizer,
+        participants: (event.participants as any[] || []).map((participant): EventParticipant => ({
+          name: participant.name || '',
+          email: participant.email || ''
+        })),
+        organizer: event.organizer ? {
+          name: (event.organizer as any).name || '',
+          email: (event.organizer as any).email || ''
+        } as EventOrganizer : null
       }));
       
       console.log('Fetched events:', transformedEvents);
