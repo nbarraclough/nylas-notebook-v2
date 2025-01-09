@@ -8,7 +8,8 @@ import { ConnectNylas } from "@/components/calendar/ConnectNylas";
 import { EventsList } from "@/components/calendar/EventsList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRealtimeUpdates } from "@/hooks/use-realtime-updates";
-import { startOfWeek, endOfWeek, addDays } from "date-fns";
+import { startOfWeek, endOfWeek } from "date-fns";
+import type { Event } from "@/types/calendar";
 
 export default function Calendar() {
   const navigate = useNavigate();
@@ -66,8 +67,15 @@ export default function Calendar() {
         throw error;
       }
       
-      console.log('Fetched events:', data);
-      return data;
+      // Transform the data to match our Event type
+      const transformedEvents: Event[] = data.map(event => ({
+        ...event,
+        participants: event.participants as EventParticipant[],
+        organizer: event.organizer as EventOrganizer,
+      }));
+      
+      console.log('Fetched events:', transformedEvents);
+      return transformedEvents;
     },
     enabled: !!userId,
   });
