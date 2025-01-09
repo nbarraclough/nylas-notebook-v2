@@ -1,224 +1,153 @@
 import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { LibraryHeader } from "@/components/library/LibraryHeader";
 import { LibraryFilters } from "@/components/library/LibraryFilters";
 import { RecordingGrid } from "@/components/library/RecordingGrid";
-import { LibraryError } from "@/components/library/LibraryError";
-import { useRecordings } from "@/hooks/use-recordings";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { Separator } from "@/components/ui/separator";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
-
-const RECORDINGS_PER_PAGE = 8;
+import { LibraryError } from "@/components/library/LibraryError";
 
 export default function Library() {
-  const [searchParams] = useSearchParams();
-  const [filters, setFilters] = useState({
-    types: [] as string[],
-    meetingTypes: [] as string[],
-    startDate: null,
-    endDate: null,
-    participants: [] as string[],
-    titleSearch: null,
-    hasPublicLink: searchParams.get('filter') === 'public',
-  });
-
-  const { recordingId } = useParams();
   const navigate = useNavigate();
+  const { recordingId } = useParams();
   const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [myRecordingsPage, setMyRecordingsPage] = useState(1);
-  const [sharedRecordingsPage, setSharedRecordingsPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dateRange, setDateRange] = useState<{
+    from: Date | undefined;
+    to: Date | undefined;
+  }>({
+    from: undefined,
+    to: undefined,
+  });
+  const [meetingType, setMeetingType] = useState<"all" | "internal" | "external">(
+    "all"
+  );
+  const [owner, setOwner] = useState<string | null>(null);
+  const [participant, setParticipant] = useState<string | null>(null);
 
-  // Check authentication status
+  // Handle deep linking - set selectedRecording when recordingId is in URL
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setIsAuthenticated(!!session);
-        
-        if (!session && !recordingId) {
-          navigate('/auth', { state: { returnTo: `/library/${recordingId || ''}` } });
+    if (recordingId) {
+      setSelectedRecording(recordingId);
+    }
+  }, [recordingId]);
+
+  const { data: recordings, isLoading, error } = useQuery({
+    queryKey: [
+      "recordings",
+      searchQuery,
+      dateRange,
+      meetingType,
+      owner,
+      participant,
+    ],
+    queryFn: async () => {
+      let query = supabase
+        .from("recordings")
+        .select(
+          `
+          *,
+          owner:profiles!inner (
+            email
+          ),
+          event:events (
+            title,
+            description,
+            start_time,
+            end_time,
+            participants,
+            organizer,
+            manual_meeting:manual_meetings (*)
+          ),
+          video_shares (
+            share_type,
+            organization_id,
+            external_token
+          )
+        `
+        )
+        .order("created_at", { ascending: false });
+
+      if (searchQuery) {
+        query = query.textSearch(
+          "(event->title).text",
+          searchQuery.replace(/\s+/g, " & ")
+        );
+      }
+
+      if (dateRange.from) {
+        query = query.gte("created_at", dateRange.from.toISOString());
+      }
+
+      if (dateRange.to) {
+        query = query.lte("created_at", dateRange.to.toISOString());
+      }
+
+      if (meetingType !== "all") {
+        if (meetingType === "internal") {
+          query = query.eq("event->is_internal", true);
+        } else {
+          query = query.eq("event->is_internal", false);
         }
-
-        // Get and set current user ID
-        const { data: { user } } = await supabase.auth.getUser();
-        setCurrentUserId(user?.id || null);
-      } catch (error) {
-        console.error('Auth check error:', error);
-        setIsAuthenticated(false);
       }
-    };
-    checkAuth();
-  }, [navigate, recordingId]);
 
-  // Subscribe to auth changes
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setIsAuthenticated(!!session);
-      if (!session && !recordingId) {
-        navigate('/auth');
+      if (owner) {
+        query = query.eq("owner->email", owner);
       }
-      // Update current user ID on auth state change
-      const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUserId(user?.id || null);
-    });
 
-    return () => subscription.unsubscribe();
-  }, [navigate, recordingId]);
+      if (participant) {
+        query = query.contains("event->participants", [
+          { email: participant },
+        ]);
+      }
 
-  const { data: allRecordings, isLoading, error } = useRecordings({
-    isAuthenticated,
-    recordingId,
-    filters
+      const { data, error } = await query;
+
+      if (error) {
+        console.error("Error fetching recordings:", error);
+        throw error;
+      }
+
+      return data;
+    },
   });
 
-  // Separate recordings into owned and shared
-  const myRecordings = allRecordings?.filter(recording => 
-    recording.user_id === currentUserId
-  ) || [];
-
-  const sharedRecordings = allRecordings?.filter(recording => 
-    recording.user_id !== currentUserId
-  ) || [];
-
-  // Calculate pagination for my recordings
-  const myRecordingsStart = (myRecordingsPage - 1) * RECORDINGS_PER_PAGE;
-  const myRecordingsEnd = myRecordingsStart + RECORDINGS_PER_PAGE;
-  const myRecordingsPaginated = myRecordings.slice(myRecordingsStart, myRecordingsEnd);
-  const myRecordingsPages = Math.ceil(myRecordings.length / RECORDINGS_PER_PAGE);
-
-  // Calculate pagination for shared recordings
-  const sharedRecordingsStart = (sharedRecordingsPage - 1) * RECORDINGS_PER_PAGE;
-  const sharedRecordingsEnd = sharedRecordingsStart + RECORDINGS_PER_PAGE;
-  const sharedRecordingsPaginated = sharedRecordings.slice(sharedRecordingsStart, sharedRecordingsEnd);
-  const sharedRecordingsPages = Math.ceil(sharedRecordings.length / RECORDINGS_PER_PAGE);
-
-  // Update URL when a recording is selected
   const handleRecordingSelect = (id: string | null) => {
     setSelectedRecording(id);
     if (id) {
       navigate(`/library/${id}`);
     } else {
-      navigate('/library');
+      navigate("/library");
     }
   };
 
+  if (error) {
+    return <LibraryError error={error} />;
+  }
+
   return (
     <PageLayout>
-      <div className="space-y-6">
-        {error ? (
-          <LibraryError message={error instanceof Error ? error.message : 'An error occurred'} />
-        ) : (
-          <>
-            {isAuthenticated && (
-              <>
-                <LibraryHeader recordingsCount={allRecordings?.length || 0} />
-                <LibraryFilters filters={filters} onFiltersChange={setFilters} />
-              </>
-            )}
-
-            <div className="space-y-8">
-              <div>
-                <h2 className="text-xl font-semibold mb-4">My Recordings</h2>
-                <RecordingGrid 
-                  recordings={myRecordingsPaginated} 
-                  isLoading={isLoading} 
-                  selectedRecording={selectedRecording}
-                  onRecordingSelect={handleRecordingSelect}
-                />
-                {myRecordingsPages > 1 && (
-                  <div className="mt-4">
-                    <Pagination>
-                      <PaginationContent>
-                        {myRecordingsPage > 1 && (
-                          <PaginationItem>
-                            <PaginationPrevious 
-                              onClick={() => setMyRecordingsPage(page => Math.max(1, page - 1))}
-                            />
-                          </PaginationItem>
-                        )}
-                        {Array.from({ length: myRecordingsPages }, (_, i) => i + 1).map((page) => (
-                          <PaginationItem key={page}>
-                            <PaginationLink
-                              onClick={() => setMyRecordingsPage(page)}
-                              isActive={page === myRecordingsPage}
-                            >
-                              {page}
-                            </PaginationLink>
-                          </PaginationItem>
-                        ))}
-                        {myRecordingsPage < myRecordingsPages && (
-                          <PaginationItem>
-                            <PaginationNext 
-                              onClick={() => setMyRecordingsPage(page => Math.min(myRecordingsPages, page + 1))}
-                            />
-                          </PaginationItem>
-                        )}
-                      </PaginationContent>
-                    </Pagination>
-                  </div>
-                )}
-              </div>
-
-              {sharedRecordings.length > 0 && (
-                <>
-                  <Separator className="my-8" />
-                  <div>
-                    <h2 className="text-xl font-semibold mb-4">Internally Shared Recordings</h2>
-                    <RecordingGrid 
-                      recordings={sharedRecordingsPaginated} 
-                      isLoading={isLoading} 
-                      selectedRecording={selectedRecording}
-                      onRecordingSelect={handleRecordingSelect}
-                    />
-                    {sharedRecordingsPages > 1 && (
-                      <div className="mt-4">
-                        <Pagination>
-                          <PaginationContent>
-                            {sharedRecordingsPage > 1 && (
-                              <PaginationItem>
-                                <PaginationPrevious 
-                                  onClick={() => setSharedRecordingsPage(page => Math.max(1, page - 1))}
-                                />
-                              </PaginationItem>
-                            )}
-                            {Array.from({ length: sharedRecordingsPages }, (_, i) => i + 1).map((page) => (
-                              <PaginationItem key={page}>
-                                <PaginationLink
-                                  onClick={() => setSharedRecordingsPage(page)}
-                                  isActive={page === sharedRecordingsPage}
-                                >
-                                  {page}
-                                </PaginationLink>
-                              </PaginationItem>
-                            ))}
-                            {sharedRecordingsPage < sharedRecordingsPages && (
-                              <PaginationItem>
-                                <PaginationNext 
-                                  onClick={() => setSharedRecordingsPage(page => Math.min(sharedRecordingsPages, page + 1))}
-                                />
-                              </PaginationItem>
-                            )}
-                          </PaginationContent>
-                        </Pagination>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          </>
-        )}
+      <div className="container mx-auto px-4 py-8 space-y-8">
+        <LibraryHeader />
+        <LibraryFilters
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+          meetingType={meetingType}
+          onMeetingTypeChange={setMeetingType}
+          owner={owner}
+          onOwnerChange={setOwner}
+          participant={participant}
+          onParticipantChange={setParticipant}
+        />
+        <RecordingGrid
+          recordings={recordings || []}
+          isLoading={isLoading}
+          selectedRecording={selectedRecording}
+          onRecordingSelect={handleRecordingSelect}
+        />
       </div>
     </PageLayout>
   );
