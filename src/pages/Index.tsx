@@ -8,6 +8,9 @@ import { WelcomeCard } from "@/components/dashboard/WelcomeCard";
 import { StatsCard } from "@/components/dashboard/stats/StatsCard";
 import { EventCard } from "@/components/calendar/EventCard";
 import { useNavigate } from "react-router-dom";
+import type { Database } from "@/integrations/supabase/types";
+
+type Event = Database['public']['Tables']['events']['Row'];
 
 export default function Index() {
   const [userEmail, setUserEmail] = useState<string>("");
@@ -56,7 +59,7 @@ export default function Index() {
   });
 
   // Then fetch events only after profile is loaded
-  const { data: upcomingEvents, isLoading: eventsLoading } = useQuery({
+  const { data: upcomingEvents, isLoading: eventsLoading } = useQuery<Event[]>({
     queryKey: ['upcoming-events', profile?.id],
     queryFn: async () => {
       if (!profile?.id) {
@@ -74,6 +77,7 @@ export default function Index() {
             status
           )
         `)
+        .eq('user_id', profile.id)
         .gte('start_time', new Date().toISOString())
         .order('start_time', { ascending: true })
         .limit(3);
@@ -169,15 +173,16 @@ export default function Index() {
             <CardContent className="p-4 sm:p-6 h-full">
               <h3 className="text-lg font-semibold mb-4">Upcoming Meetings</h3>
               <div className="space-y-4 overflow-y-auto max-h-[500px]">
-                {upcomingEvents?.map((event) => (
-                  <EventCard
-                    key={event.id}
-                    event={event}
-                    userId={profile?.id || ''}
-                    isPast={false}
-                  />
-                ))}
-                {(!upcomingEvents || upcomingEvents.length === 0) && (
+                {upcomingEvents && upcomingEvents.length > 0 ? (
+                  upcomingEvents.map((event) => (
+                    <EventCard
+                      key={event.id}
+                      event={event}
+                      userId={profile?.id || ''}
+                      isPast={false}
+                    />
+                  ))
+                ) : (
                   <p className="text-center text-muted-foreground py-4">
                     No upcoming meetings. Time to relax!
                   </p>
