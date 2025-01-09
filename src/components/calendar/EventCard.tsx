@@ -84,16 +84,18 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
 
   // Load initial queue status when profile is loaded
   useEffect(() => {
-    if (profile?.id) {
+    if (!profileLoading && profile?.id) {
       checkQueueStatus();
     }
-  }, [profile?.id, event.id]);
+  }, [profile?.id, event.id, profileLoading]);
 
   // Set up realtime subscription for queue status
   useEffect(() => {
     if (!profile?.id) return;
 
-    const subscription = supabase
+    console.log('Setting up realtime subscription for event:', event.id);
+    
+    const channel = supabase
       .channel(`queue-status-${event.id}`)
       .on('postgres_changes', {
         event: '*',
@@ -102,6 +104,7 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
         filter: `event_id=eq.${event.id}`,
       }, 
       (payload) => {
+        console.log('Received queue status update:', payload);
         if (payload.eventType === 'DELETE') {
           setIsQueued(false);
         } else if (payload.eventType === 'INSERT') {
@@ -111,7 +114,8 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
       .subscribe();
 
     return () => {
-      subscription.unsubscribe();
+      console.log('Cleaning up realtime subscription for event:', event.id);
+      supabase.removeChannel(channel);
     };
   }, [event.id, profile?.id]);
 
