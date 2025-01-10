@@ -73,7 +73,7 @@ export function RecentRecordings() {
                     <Calendar className="h-4 w-4 text-gray-500" />
                     <span>
                       {recording.event?.start_time ? 
-                        format(new Date(recording.event.start_time), 'MMM d') : 
+                        format(new Date(recording.event.start_time), 'MMM d, h:mm a') : 
                         'No date'
                       }
                     </span>
