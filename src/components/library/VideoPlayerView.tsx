@@ -160,7 +160,10 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
             </div>
             
             {recording.transcript_content && (
-              <TranscriptSection content={recording.transcript_content} />
+              <TranscriptSection 
+                content={recording.transcript_content} 
+                videoRef={videoPlayerRef}
+              />
             )}
           </div>
 
