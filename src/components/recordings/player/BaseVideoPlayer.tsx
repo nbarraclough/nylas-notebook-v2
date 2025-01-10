@@ -3,6 +3,7 @@ import { Loader2, AlertCircle, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface BaseVideoPlayerProps {
   videoUrl: string | null;
@@ -100,46 +101,23 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
       
       // Create new abort controller for this download
       abortControllerRef.current = new AbortController();
-      
-      const response = await fetch(url, {
-        signal: abortControllerRef.current.signal
+
+      // Use Supabase Edge Function to proxy the video download
+      const { data: response, error: proxyError } = await supabase.functions.invoke('proxy-video-download', {
+        body: { url },
       });
 
-      if (!response.ok) throw new Error('Failed to fetch video');
-      
-      const contentLength = Number(response.headers.get('Content-Length')) || 0;
+      if (proxyError) throw proxyError;
+
+      const videoBlob = await fetch(response.url).then(r => r.blob());
       
       // Check file size
-      if (contentLength > MEMORY_LIMIT) {
+      if (videoBlob.size > MEMORY_LIMIT) {
         throw new Error('Video file is too large for in-memory playback');
       }
-      
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('Failed to initialize video download');
 
-      let receivedLength = 0;
-      const chunks: Uint8Array[] = [];
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        chunks.push(value);
-        receivedLength += value.length;
-        
-        // Update progress
-        const progress = Math.round((receivedLength / contentLength) * 100);
-        setLoadingProgress(progress);
-
-        // Check if we're exceeding memory limits
-        if (receivedLength > MEMORY_LIMIT) {
-          throw new Error('Memory limit exceeded during download');
-        }
-      }
-
-      const blob = new Blob(chunks, { type: 'video/webm' });
       cleanupBlobUrl();
-      const newBlobUrl = URL.createObjectURL(blob);
+      const newBlobUrl = URL.createObjectURL(videoBlob);
       setBlobUrl(newBlobUrl);
       setIsLoading(false);
       setRetryCount(0); // Reset retry count on success
