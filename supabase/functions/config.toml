@@ -41,10 +41,6 @@ name = "process-notetaker-queue"
 verify_jwt = true
 
 [[functions]]
-name = "proxy-video-download"
-verify_jwt = true
-
-[[functions]]
 name = "queue-event-recording"
 verify_jwt = true
 

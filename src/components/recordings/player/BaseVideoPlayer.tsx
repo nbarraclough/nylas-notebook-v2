@@ -3,7 +3,6 @@ import { Loader2, AlertCircle, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 
 interface BaseVideoPlayerProps {
   videoUrl: string | null;
@@ -18,6 +17,9 @@ export interface BaseVideoPlayerRef {
   seekTo: (time: number) => void;
 }
 
+const MAX_RETRIES = 3;
+const MEMORY_LIMIT = 2000 * 1024 * 1024; // 2GB limit for safety
+
 export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerProps>(({ 
   videoUrl: initialVideoUrl,
   recordingUrl,
@@ -26,10 +28,14 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
 }, ref) => {
   const { toast } = useToast();
   const [videoUrl, setVideoUrl] = useState<string | null>(initialVideoUrl);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
 
   useImperativeHandle(ref, () => ({
@@ -49,28 +55,17 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
     }
   }));
 
-  const verifyVideoUrl = useCallback(async (url: string) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      console.log('Verifying video URL:', url);
-      
-      const { data, error: proxyError } = await supabase.functions.invoke('proxy-video-download', {
-        body: { url },
-      });
+  const cleanupBlobUrl = useCallback(() => {
+    if (blobUrl) {
+      URL.revokeObjectURL(blobUrl);
+      setBlobUrl(null);
+    }
+  }, [blobUrl]);
 
-      if (proxyError) throw proxyError;
-
-      console.log('Video URL verified:', data);
-      return data.url;
-    } catch (err) {
-      console.error('Error verifying video:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to verify video';
-      setError(errorMessage);
-      throw err;
-    } finally {
-      setIsLoading(false);
+  const cancelDownload = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
   }, []);
 
@@ -95,15 +90,92 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
     setIsDragging(false);
   };
 
-  useEffect(() => {
-    if (videoUrl) {
-      verifyVideoUrl(videoUrl).catch(() => {
-        if (onRefreshMedia) {
-          onRefreshMedia();
-        }
+  const downloadVideo = useCallback(async (url: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Cancel any existing download
+      cancelDownload();
+      
+      // Create new abort controller for this download
+      abortControllerRef.current = new AbortController();
+      
+      const response = await fetch(url, {
+        signal: abortControllerRef.current.signal
       });
+
+      if (!response.ok) throw new Error('Failed to fetch video');
+      
+      const contentLength = Number(response.headers.get('Content-Length')) || 0;
+      
+      // Check file size
+      if (contentLength > MEMORY_LIMIT) {
+        throw new Error('Video file is too large for in-memory playback');
+      }
+      
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Failed to initialize video download');
+
+      let receivedLength = 0;
+      const chunks: Uint8Array[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        chunks.push(value);
+        receivedLength += value.length;
+        
+        // Update progress
+        const progress = Math.round((receivedLength / contentLength) * 100);
+        setLoadingProgress(progress);
+
+        // Check if we're exceeding memory limits
+        if (receivedLength > MEMORY_LIMIT) {
+          throw new Error('Memory limit exceeded during download');
+        }
+      }
+
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      cleanupBlobUrl();
+      const newBlobUrl = URL.createObjectURL(blob);
+      setBlobUrl(newBlobUrl);
+      setIsLoading(false);
+      setRetryCount(0); // Reset retry count on success
+      
+      // Clear the abort controller
+      abortControllerRef.current = null;
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.log('Download cancelled');
+        return;
+      }
+
+      console.error('Error downloading video:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to download video';
+      setError(errorMessage);
+      setIsLoading(false);
+
+      // Handle retries
+      if (retryCount < MAX_RETRIES) {
+        setRetryCount(prev => prev + 1);
+        toast({
+          title: "Download failed",
+          description: `Retrying... (Attempt ${retryCount + 1}/${MAX_RETRIES})`,
+        });
+        await downloadVideo(url);
+      } else if (onRefreshMedia) {
+        await onRefreshMedia();
+      }
     }
-  }, [videoUrl, verifyVideoUrl, onRefreshMedia]);
+  }, [cleanupBlobUrl, onRefreshMedia, retryCount, toast, cancelDownload]);
+
+  useEffect(() => {
+    if (videoUrl && !blobUrl && !isLoading) {
+      downloadVideo(videoUrl);
+    }
+  }, [videoUrl, blobUrl, isLoading, downloadVideo]);
 
   useEffect(() => {
     setVideoUrl(initialVideoUrl);
@@ -114,10 +186,12 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
     document.addEventListener('mouseleave', handleSeekEnd);
 
     return () => {
+      cleanupBlobUrl();
+      cancelDownload();
       document.removeEventListener('mouseup', handleSeekEnd);
       document.removeEventListener('mouseleave', handleSeekEnd);
     };
-  }, []);
+  }, [cleanupBlobUrl, cancelDownload]);
 
   if (error) {
     return (
@@ -128,9 +202,8 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
           <Button 
             variant="outline"
             onClick={() => {
-              if (videoUrl) {
-                verifyVideoUrl(videoUrl);
-              }
+              setRetryCount(0);
+              downloadVideo(videoUrl || '');
             }}
             className="gap-2"
           >
@@ -142,20 +215,33 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
     );
   }
 
-  if (!videoUrl && !recordingUrl) {
+  if (!blobUrl && isLoading) {
     return (
       <div className="aspect-video bg-muted flex items-center justify-center">
-        <p className="text-muted-foreground">This video is no longer available or has been removed.</p>
+        <div className="text-center space-y-4 w-full max-w-[80%]">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+          <Progress value={loadingProgress} className="w-full" />
+          <p className="text-sm text-muted-foreground">
+            Downloading video... {loadingProgress}%
+          </p>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={cancelDownload}
+          >
+            Cancel
+          </Button>
+        </div>
       </div>
     );
   }
 
-  const finalVideoUrl = videoUrl || recordingUrl;
+  const finalVideoUrl = blobUrl || videoUrl || recordingUrl;
 
   if (!finalVideoUrl) {
     return (
       <div className="aspect-video bg-muted flex items-center justify-center">
-        <p className="text-muted-foreground">No video URL available.</p>
+        <p className="text-muted-foreground">This video is no longer available or has been removed.</p>
       </div>
     );
   }
