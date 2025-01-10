@@ -1,4 +1,5 @@
-import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useState, useEffect, forwardRef, useImperativeHandle, useCallback } from "react";
+import { Loader2 } from "lucide-react";
 
 interface BaseVideoPlayerProps {
   videoUrl: string | null;
@@ -18,50 +19,113 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
   isRefreshing
 }, ref) => {
   const [videoUrl, setVideoUrl] = useState<string | null>(initialVideoUrl);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useImperativeHandle(ref, () => ({
     pause: () => {
       if (videoElement) {
         videoElement.pause();
-        videoElement.currentTime = 0; // Reset to beginning
+        videoElement.currentTime = 0;
       }
     }
   }));
 
+  const cleanupBlobUrl = useCallback(() => {
+    if (blobUrl) {
+      URL.revokeObjectURL(blobUrl);
+      setBlobUrl(null);
+    }
+  }, [blobUrl]);
+
+  const downloadVideo = useCallback(async (url: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch video');
+      
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Failed to initialize video download');
+
+      const contentLength = Number(response.headers.get('Content-Length')) || 0;
+      let receivedLength = 0;
+      const chunks: Uint8Array[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        chunks.push(value);
+        receivedLength += value.length;
+        setLoadingProgress(Math.round((receivedLength / contentLength) * 100));
+      }
+
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      cleanupBlobUrl();
+      const newBlobUrl = URL.createObjectURL(blob);
+      setBlobUrl(newBlobUrl);
+      setIsLoading(false);
+    } catch (err) {
+      console.error('Error downloading video:', err);
+      setError(err instanceof Error ? err.message : 'Failed to download video');
+      setIsLoading(false);
+      if (onRefreshMedia) {
+        await onRefreshMedia();
+      }
+    }
+  }, [cleanupBlobUrl, onRefreshMedia]);
+
+  useEffect(() => {
+    if (videoUrl && !blobUrl && !isLoading) {
+      downloadVideo(videoUrl);
+    }
+  }, [videoUrl, blobUrl, isLoading, downloadVideo]);
+
   useEffect(() => {
     setVideoUrl(initialVideoUrl);
-    setIsLoaded(false);
   }, [initialVideoUrl]);
 
   useEffect(() => {
-    // When the video URL changes and isn't refreshing, attempt to play
-    if (videoUrl && !isRefreshing && videoElement) {
-      videoElement.play().catch(e => {
-        console.log('Autoplay prevented:', e);
-      });
-    }
-  }, [videoUrl, isRefreshing]);
+    return () => {
+      cleanupBlobUrl();
+    };
+  }, [cleanupBlobUrl]);
 
-  const handlePlay = async () => {
-    if (onRefreshMedia) {
-      await onRefreshMedia();
-    }
-  };
+  if (error) {
+    return (
+      <div className="aspect-video bg-muted flex items-center justify-center">
+        <div className="text-center space-y-2">
+          <p className="text-muted-foreground">{error}</p>
+          <button 
+            onClick={() => downloadVideo(videoUrl || '')}
+            className="text-sm text-primary hover:underline"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-  const handleLoadedData = () => {
-    setIsLoaded(true);
-    // Attempt autoplay when video is loaded
-    if (videoElement) {
-      videoElement.play().catch(e => {
-        console.log('Autoplay prevented:', e);
-      });
-    }
-  };
+  if (!blobUrl && isLoading) {
+    return (
+      <div className="aspect-video bg-muted flex items-center justify-center">
+        <div className="text-center space-y-2">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+          <p className="text-sm text-muted-foreground">
+            Downloading video... {loadingProgress}%
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-  // Use video_url if available, fall back to recording_url
-  const finalVideoUrl = videoUrl || recordingUrl;
+  const finalVideoUrl = blobUrl || videoUrl || recordingUrl;
 
   if (!finalVideoUrl) {
     return (
@@ -82,8 +146,6 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
         playsInline
         preload="auto"
         controlsList="nodownload"
-        onPlay={handlePlay}
-        onLoadedData={handleLoadedData}
       >
         <source src={finalVideoUrl} type="video/webm" />
         Your browser does not support the video tag.
