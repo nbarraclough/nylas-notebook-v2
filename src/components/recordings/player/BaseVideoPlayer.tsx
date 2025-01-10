@@ -13,6 +13,8 @@ interface BaseVideoPlayerProps {
 
 export interface BaseVideoPlayerRef {
   pause: () => void;
+  getCurrentTime: () => number;
+  seekTo: (time: number) => void;
 }
 
 const MAX_RETRIES = 3;
@@ -32,13 +34,23 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const progressBarRef = useRef<HTMLDivElement>(null);
 
   useImperativeHandle(ref, () => ({
     pause: () => {
       if (videoElement) {
         videoElement.pause();
         videoElement.currentTime = 0;
+      }
+    },
+    getCurrentTime: () => {
+      return videoElement?.currentTime || 0;
+    },
+    seekTo: (time: number) => {
+      if (videoElement) {
+        videoElement.currentTime = time;
       }
     }
   }));
@@ -56,6 +68,27 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
       abortControllerRef.current = null;
     }
   }, []);
+
+  const handleSeekStart = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!videoElement || !progressBarRef.current) return;
+    setIsDragging(true);
+    
+    const rect = progressBarRef.current.getBoundingClientRect();
+    const position = (e.clientX - rect.left) / rect.width;
+    videoElement.currentTime = position * videoElement.duration;
+  };
+
+  const handleSeeking = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDragging || !videoElement || !progressBarRef.current) return;
+    
+    const rect = progressBarRef.current.getBoundingClientRect();
+    const position = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    videoElement.currentTime = position * videoElement.duration;
+  };
+
+  const handleSeekEnd = () => {
+    setIsDragging(false);
+  };
 
   const downloadVideo = useCallback(async (url: string) => {
     try {
@@ -149,9 +182,14 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
   }, [initialVideoUrl]);
 
   useEffect(() => {
+    document.addEventListener('mouseup', handleSeekEnd);
+    document.addEventListener('mouseleave', handleSeekEnd);
+
     return () => {
       cleanupBlobUrl();
       cancelDownload();
+      document.removeEventListener('mouseup', handleSeekEnd);
+      document.removeEventListener('mouseleave', handleSeekEnd);
     };
   }, [cleanupBlobUrl, cancelDownload]);
 
@@ -209,7 +247,7 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
   }
 
   return (
-    <div className="aspect-video">
+    <div className="aspect-video relative">
       <video
         ref={setVideoElement}
         src={finalVideoUrl}
@@ -223,6 +261,22 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
         <source src={finalVideoUrl} type="video/webm" />
         Your browser does not support the video tag.
       </video>
+      
+      <div 
+        ref={progressBarRef}
+        className="absolute bottom-0 left-0 right-0 h-1 bg-gray-200 cursor-pointer"
+        onMouseDown={handleSeekStart}
+        onMouseMove={handleSeeking}
+      >
+        {videoElement && (
+          <div 
+            className="h-full bg-primary transition-all duration-100"
+            style={{ 
+              width: `${(videoElement.currentTime / videoElement.duration) * 100}%` 
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 });
