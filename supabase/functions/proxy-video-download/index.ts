@@ -1,25 +1,19 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 import { corsHeaders } from '../_shared/cors.ts'
 
+console.log('Proxy video download function started');
+
 Deno.serve(async (req) => {
-  // Handle CORS preflight
+  // Handle CORS
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        ...corsHeaders,
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      }
-    })
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    // Get URL from request body
     const { url } = await req.json()
-    console.log('Received request to proxy URL:', url)
+    console.log('Received request to proxy URL:', url);
 
     if (!url) {
-      console.error('No URL provided')
+      console.error('No URL provided');
       return new Response(
         JSON.stringify({ error: 'URL is required' }),
         { 
@@ -29,8 +23,9 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Fetch the video with proper headers
+    // Instead of downloading the video, just verify the URL is accessible
     const response = await fetch(url, {
+      method: 'HEAD', // Only fetch headers
       headers: {
         'Origin': 'https://api-staging.us.nylas.com',
         'User-Agent': 'Mozilla/5.0',
@@ -39,10 +34,10 @@ Deno.serve(async (req) => {
     })
 
     if (!response.ok) {
-      console.error('Failed to fetch video:', response.status, response.statusText)
+      console.error('Failed to verify video URL:', response.status, response.statusText);
       return new Response(
         JSON.stringify({ 
-          error: 'Failed to fetch video',
+          error: 'Failed to verify video URL',
           status: response.status,
           statusText: response.statusText
         }),
@@ -53,23 +48,29 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Get the video data as a blob
-    const blob = await response.blob()
-    
-    // Return the video data directly with proper headers
-    return new Response(blob, {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': response.headers.get('Content-Type') || 'video/webm',
-        'Content-Length': response.headers.get('Content-Length') || '',
-        'Cache-Control': 'no-cache'
+    // Return the original URL with content info
+    return new Response(
+      JSON.stringify({ 
+        url,
+        contentType: response.headers.get('content-type'),
+        contentLength: response.headers.get('content-length')
+      }),
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
       }
-    })
+    )
 
   } catch (error) {
-    console.error('Error in proxy-video-download:', error)
+    console.error('Error in proxy-video-download:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: error.stack
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500
