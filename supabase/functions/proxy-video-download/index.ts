@@ -14,15 +14,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Verify JWT token
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      throw new Error('No authorization header')
-    }
-
+    // Get URL from request body
     const { url } = await req.json()
+    console.log('Received request to proxy URL:', url)
 
     if (!url) {
+      console.error('No URL provided')
       return new Response(
         JSON.stringify({ error: 'URL is required' }),
         { 
@@ -32,13 +29,11 @@ Deno.serve(async (req) => {
       )
     }
 
-    console.log('Proxying video download for URL:', url)
-
     // Fetch the video with proper headers
     const response = await fetch(url, {
       headers: {
         'Origin': 'https://api-staging.us.nylas.com',
-        'User-Agent': 'Notebook/1.0',
+        'User-Agent': 'Mozilla/5.0',
         'Accept': '*/*',
       }
     })
@@ -58,20 +53,19 @@ Deno.serve(async (req) => {
       )
     }
 
-    console.log('Successfully fetched video, returning signed URL')
-
-    // Return the signed URL with CORS headers
-    return new Response(
-      JSON.stringify({ url: response.url }),
-      { 
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache'
-        },
-        status: 200
+    // Get the video data as a blob
+    const blob = await response.blob()
+    
+    // Return the video data directly with proper headers
+    return new Response(blob, {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': response.headers.get('Content-Type') || 'video/webm',
+        'Content-Length': response.headers.get('Content-Length') || '',
+        'Cache-Control': 'no-cache'
       }
-    )
+    })
+
   } catch (error) {
     console.error('Error in proxy-video-download:', error)
     return new Response(
