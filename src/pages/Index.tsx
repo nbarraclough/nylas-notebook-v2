@@ -93,7 +93,6 @@ export default function Index() {
           </Card>
           <Card className="card-hover-effect min-h-[300px]">
             <CardContent className="p-4 sm:p-6 h-full">
-              <h3 className="text-lg font-semibold mb-4">Upcoming Recordings</h3>
               <UpcomingMeetings />
             </CardContent>
           </Card>
