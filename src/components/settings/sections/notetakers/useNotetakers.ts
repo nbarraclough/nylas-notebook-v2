@@ -81,8 +81,15 @@ export function useNotetakers(userId: string) {
 
       const uniqueRecords = Array.from(notetakerMap.values()) as NotetakerRecord[];
 
-      console.log('Final unique records:', uniqueRecords);
-      return uniqueRecords;
+      // Sort records by start_time in descending order (newest first)
+      const sortedRecords = uniqueRecords.sort((a, b) => {
+        const dateA = new Date(a.event.start_time);
+        const dateB = new Date(b.event.start_time);
+        return dateB.getTime() - dateA.getTime();
+      });
+
+      console.log('Final sorted records:', sortedRecords);
+      return sortedRecords;
     },
   });
 }
