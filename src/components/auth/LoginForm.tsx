@@ -72,7 +72,7 @@ export function LoginForm() {
               },
             }}
             theme="light"
-            providers={[]}
+            providers={['google']}
             redirectTo={`${siteUrl}/calendar`}
           />
         </CardContent>
