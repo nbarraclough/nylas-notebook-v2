@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -40,11 +39,6 @@ export function useVideoMedia(recordingId: string, notetakerId: string | null | 
       });
     }
   };
-
-  // Refresh media when component mounts
-  useEffect(() => {
-    refreshMedia();
-  }, [recordingId]);
 
   return { refreshMedia };
 }
