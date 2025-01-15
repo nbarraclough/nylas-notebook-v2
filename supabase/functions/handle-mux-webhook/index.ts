@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { logWebhookRequest, logRawBody, logWebhookError, logWebhookSuccess } from "../_shared/webhook-logger.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,6 +13,11 @@ const verifyMuxSignature = async (
   secret: string
 ): Promise<boolean> => {
   try {
+    console.log('Verifying Mux signature:', {
+      signatureHeader: signature,
+      payloadLength: payload.length
+    });
+
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(
       "raw",
@@ -21,25 +27,63 @@ const verifyMuxSignature = async (
       ["verify"]
     );
 
-    // The signature from Mux is in the format: t=timestamp,v=signature
-    const [, signatureValue] = signature.split('v=');
-    if (!signatureValue) {
-      console.error('Invalid signature format');
+    // Parse the signature header which is in format t=timestamp,v=signature
+    const [timestampPart, signaturePart] = signature.split(',');
+    if (!timestampPart || !signaturePart) {
+      console.error('Invalid signature format:', signature);
       return false;
     }
 
+    const timestamp = timestampPart.split('=')[1];
+    const providedSignature = signaturePart.split('=')[1];
+    
+    if (!timestamp || !providedSignature) {
+      console.error('Missing timestamp or signature parts:', { timestamp, providedSignature });
+      return false;
+    }
+
+    // Check if timestamp is within tolerance (5 minutes)
+    const timestampMs = parseInt(timestamp) * 1000;
+    const now = Date.now();
+    const fiveMinutes = 5 * 60 * 1000;
+    
+    if (Math.abs(now - timestampMs) > fiveMinutes) {
+      console.error('Timestamp outside tolerance window:', {
+        webhookTimestamp: new Date(timestampMs).toISOString(),
+        currentTime: new Date(now).toISOString(),
+        differenceMs: Math.abs(now - timestampMs)
+      });
+      return false;
+    }
+
+    // Convert hex signature to Uint8Array
     const signatureBytes = new Uint8Array(
-      signatureValue.split('').map((c) => c.charCodeAt(0))
+      providedSignature.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
     );
 
-    return await crypto.subtle.verify(
+    // Create the message to verify (timestamp + . + payload)
+    const message = `${timestamp}.${payload}`;
+    
+    const isValid = await crypto.subtle.verify(
       "HMAC",
       key,
       signatureBytes,
-      encoder.encode(payload)
+      encoder.encode(message)
     );
+
+    console.log('Signature verification result:', {
+      isValid,
+      messageLength: message.length,
+      signatureBytesLength: signatureBytes.length
+    });
+
+    return isValid;
   } catch (error) {
-    console.error('Error verifying signature:', error);
+    console.error('Error in signature verification:', {
+      error: error.message,
+      stack: error.stack,
+      signature
+    });
     return false;
   }
 };
@@ -51,6 +95,9 @@ serve(async (req) => {
   }
 
   try {
+    // Log incoming request
+    logWebhookRequest(req);
+
     const webhookSecret = Deno.env.get("MUX_WEBHOOK_SECRET");
     if (!webhookSecret) {
       throw new Error("MUX_WEBHOOK_SECRET is not set");
@@ -59,25 +106,30 @@ serve(async (req) => {
     // Get the signature from the headers
     const signature = req.headers.get("mux-signature");
     if (!signature) {
-      console.error('No Mux signature found in request headers');
+      console.error('No Mux signature found in request headers:', 
+        Object.fromEntries(req.headers.entries())
+      );
       throw new Error("No signature found in request headers");
     }
 
     // Get the raw body
     const body = await req.text();
-    console.log('Received Mux webhook payload:', body);
+    logRawBody(body);
 
     // Verify the signature
     const isValid = await verifyMuxSignature(body, signature, webhookSecret);
     if (!isValid) {
-      console.error('Invalid Mux signature');
+      console.error('Invalid Mux signature:', {
+        signature,
+        bodyPreview: body.substring(0, 100) // Log first 100 chars of body
+      });
       throw new Error("Invalid signature");
     }
 
     // Parse the webhook payload
     const payload = JSON.parse(body);
     const { type, data } = payload;
-    console.log("Received Mux webhook:", type);
+    console.log("Received Mux webhook:", { type, assetId: data?.id });
 
     // Create Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -106,7 +158,7 @@ serve(async (req) => {
             throw error;
           }
           
-          console.log('Successfully updated recording status to ready');
+          logWebhookSuccess('video.asset.ready');
         }
         break;
       }
@@ -128,7 +180,7 @@ serve(async (req) => {
           throw error;
         }
         
-        console.log('Successfully updated recording status to error');
+        logWebhookSuccess('video.asset.errored');
         break;
       }
 
@@ -141,7 +193,7 @@ serve(async (req) => {
       status: 200,
     });
   } catch (error) {
-    console.error("Error processing webhook:", error);
+    logWebhookError('Mux webhook processing', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
