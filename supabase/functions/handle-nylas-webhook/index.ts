@@ -9,6 +9,16 @@ import {
 } from '../_shared/webhook-logger.ts'
 import { handleWebhookType } from '../_shared/webhook-type-handlers.ts'
 
+const SUPPORTED_WEBHOOK_TYPES = [
+  "grant.created",
+  "grant.deleted",
+  "grant.expired",
+  "event.created",
+  "event.updated",
+  "event.deleted",
+  "notetaker.media_updated"
+];
+
 serve(async (req) => {
   const requestId = crypto.randomUUID();
   console.log(`⚡ [${requestId}] Webhook handler started`);
@@ -77,9 +87,25 @@ serve(async (req) => {
       const webhookData = JSON.parse(rawBody);
       logParsedWebhook(webhookData);
 
+      // Validate webhook type
+      if (!webhookData.type || !SUPPORTED_WEBHOOK_TYPES.includes(webhookData.type)) {
+        logWebhookError('webhook type validation', new Error(`Unsupported webhook type: ${webhookData.type}`));
+        return new Response(
+          JSON.stringify({
+            success: false,
+            message: `Unsupported webhook type: ${webhookData.type}`,
+            status: 'acknowledged'
+          }),
+          { 
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
       // Get grant ID from webhook data
       const grantId = webhookData.data?.object?.grant_id;
-      if (!grantId) {
+      if (!grantId && !webhookData.type.startsWith('notetaker.')) {
         logWebhookError('data validation', new Error('No grant ID found in webhook data'));
         return new Response(
           JSON.stringify({
