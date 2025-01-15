@@ -1,152 +1,137 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { corsHeaders } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, mux-signature',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
-
-const verifyMuxSignature = async (rawBody: string, signature: string | null, secret: string) => {
-  if (!signature) return false;
-
+const verifyMuxSignature = (
+  payload: string,
+  signature: string,
+  secret: string
+): boolean => {
   const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
+  const key = encoder.encode(secret);
+  const message = encoder.encode(payload);
+
+  const cryptoKey = crypto.subtle.importKey(
     "raw",
-    encoder.encode(secret),
+    key,
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["sign"]
+    ["verify"]
   );
 
-  const signatureBuffer = await crypto.subtle.sign(
+  const signatureBytes = new Uint8Array(
+    signature.split(",")[1].split("").map((c) => c.charCodeAt(0))
+  );
+
+  return crypto.subtle.verify(
     "HMAC",
-    key,
-    encoder.encode(rawBody)
+    cryptoKey,
+    signatureBytes,
+    message
   );
-
-  const calculatedSignature = Array.from(new Uint8Array(signatureBuffer))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-
-  return signature === calculatedSignature;
 };
 
 serve(async (req) => {
-  const requestId = crypto.randomUUID();
-  console.log(`⚡ [${requestId}] Mux webhook handler started`);
-
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+  // Handle CORS
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    // Get webhook secret
-    const webhookSecret = Deno.env.get('MUX_WEBHOOK_SECRET');
+    const webhookSecret = Deno.env.get("MUX_WEBHOOK_SECRET");
     if (!webhookSecret) {
-      console.error(`❌ [${requestId}] MUX_WEBHOOK_SECRET not configured`);
-      throw new Error('Webhook secret not configured');
+      throw new Error("MUX_WEBHOOK_SECRET is not set");
     }
 
-    // Get and verify signature
-    const signature = req.headers.get('mux-signature');
-    const rawBody = await req.text();
-    console.log(`📦 [${requestId}] Raw webhook body:`, rawBody);
+    // Get the signature from the headers
+    const signature = req.headers.get("mux-signature");
+    if (!signature) {
+      throw new Error("No signature found in request headers");
+    }
 
-    const isValid = await verifyMuxSignature(rawBody, signature, webhookSecret);
+    // Get the raw body
+    const body = await req.text();
+
+    // Verify the signature
+    const isValid = await verifyMuxSignature(body, signature, webhookSecret);
     if (!isValid) {
-      console.error(`❌ [${requestId}] Invalid webhook signature`);
-      throw new Error('Invalid signature');
+      throw new Error("Invalid signature");
     }
 
-    // Parse webhook data
-    const webhookData = JSON.parse(rawBody);
-    console.log(`🔍 [${requestId}] Parsed webhook data:`, webhookData);
+    // Parse the webhook payload
+    const payload = JSON.parse(body);
+    const { type, data } = payload;
+    console.log("Received Mux webhook:", type);
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Supabase configuration missing');
-    }
+    // Create Supabase client
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Handle different webhook types
-    switch (webhookData.type) {
-      case 'video.asset.ready': {
-        const { playback_ids, id: assetId } = webhookData.data;
+    // Handle different event types
+    switch (type) {
+      case "video.asset.ready": {
+        const { playback_ids, id: assetId } = data;
         const playbackId = playback_ids?.[0]?.id;
 
         if (playbackId) {
           const { error } = await supabase
-            .from('recordings')
+            .from("recordings")
             .update({
-              status: 'completed',
-              mux_asset_id: assetId,
+              status: "ready",
               mux_playback_id: playbackId,
-              updated_at: new Date().toISOString()
+              updated_at: new Date().toISOString(),
             })
-            .eq('mux_asset_id', assetId);
+            .eq("mux_asset_id", assetId);
 
           if (error) throw error;
-          console.log(`✅ [${requestId}] Updated recording with playback ID:`, playbackId);
         }
         break;
       }
 
-      case 'video.asset.errored': {
-        const { id: assetId, error: muxError } = webhookData.data;
+      case "video.asset.errored": {
+        const { id: assetId } = data;
         const { error } = await supabase
-          .from('recordings')
+          .from("recordings")
           .update({
-            status: 'failed',
-            updated_at: new Date().toISOString()
+            status: "error",
+            updated_at: new Date().toISOString(),
           })
-          .eq('mux_asset_id', assetId);
+          .eq("mux_asset_id", assetId);
 
         if (error) throw error;
-        console.log(`❌ [${requestId}] Updated recording status to failed. Mux error:`, muxError);
         break;
       }
 
-      case 'video.asset.deleted': {
-        const { id: assetId } = webhookData.data;
+      case "video.asset.deleted": {
+        const { id: assetId } = data;
         const { error } = await supabase
-          .from('recordings')
+          .from("recordings")
           .update({
-            status: 'deleted',
-            updated_at: new Date().toISOString()
+            status: "deleted",
+            updated_at: new Date().toISOString(),
           })
-          .eq('mux_asset_id', assetId);
+          .eq("mux_asset_id", assetId);
 
         if (error) throw error;
-        console.log(`🗑️ [${requestId}] Marked recording as deleted`);
         break;
       }
 
       default:
-        console.log(`⚠️ [${requestId}] Unhandled webhook type:`, webhookData.type);
+        console.log("Unhandled event type:", type);
     }
 
-    return new Response(
-      JSON.stringify({ success: true }),
-      { 
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
-
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
+    });
   } catch (error) {
-    console.error(`❌ [${requestId}] Error processing webhook:`, error);
+    console.error("Error processing webhook:", error);
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message 
-      }),
-      { 
-        status: 200, // Always return 200 to acknowledge webhook
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      JSON.stringify({ error: error.message }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
       }
     );
   }

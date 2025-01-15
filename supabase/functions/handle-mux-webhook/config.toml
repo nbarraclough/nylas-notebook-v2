@@ -1,8 +1,2 @@
-project_id = "xqzlejcvvtjdrabofrxs"
-
-[global.env]
-MUX_WEBHOOK_SECRET = "env(MUX_WEBHOOK_SECRET)"
-
-[[functions]]
-name = "handle-mux-webhook"
-verify_jwt = false
+[build]
+template = "edge-functions"
