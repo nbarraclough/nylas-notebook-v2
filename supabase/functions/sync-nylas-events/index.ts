@@ -107,6 +107,7 @@ serve(async (req) => {
         
         while (hasMorePages) {
           const queryParams = new URLSearchParams({
+            calendar_id: 'primary',
             start: startUnix.toString(),
             end: endUnix.toString(),
             limit: '200',
