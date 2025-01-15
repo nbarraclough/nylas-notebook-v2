@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 import { corsHeaders } from '../_shared/cors.ts'
 
 const NYLAS_API_URL = 'https://api.us.nylas.com';
+const MUX_API_URL = 'https://api.mux.com/video/v1';
 
 Deno.serve(async (req) => {
   // Handle CORS
@@ -71,24 +72,16 @@ Deno.serve(async (req) => {
     }
 
     console.log('Fetching media from Nylas for grant:', grantId)
-
-    // Log the Nylas API request details
     const nylasUrl = `${NYLAS_API_URL}/v3/grants/${grantId}/notetakers/${notetakerId}/media`;
-    console.log('Making Nylas API request to:', nylasUrl);
-
+    
     // Fetch media from Nylas
-    const response = await fetch(
-      nylasUrl,
-      {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
-        },
-      }
-    )
+    const response = await fetch(nylasUrl, {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
+      },
+    })
 
-    // Log the raw response
     const responseText = await response.text();
     console.log('Raw Nylas API response:', responseText);
 
@@ -99,7 +92,6 @@ Deno.serve(async (req) => {
         body: responseText
       });
       
-      // If media is not available yet, return a structured error response
       if (response.status === 404) {
         return new Response(
           JSON.stringify({ 
@@ -147,29 +139,76 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Always update the recording with the latest media URLs
-    const { error: updateError } = await supabaseClient
-      .from('recordings')
-      .update({
-        video_url: mediaData.recording?.url,
-        transcript_url: mediaData.transcript?.url,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', recordingId)
+    // Create Mux asset if we have a video URL
+    if (mediaData.recording?.url) {
+      try {
+        console.log('Creating Mux asset from URL:', mediaData.recording.url);
+        
+        const muxResponse = await fetch(`${MUX_API_URL}/assets`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Basic ${btoa(`${Deno.env.get('MUX_TOKEN_ID')}:${Deno.env.get('MUX_TOKEN_SECRET')}`)}`,
+          },
+          body: JSON.stringify({
+            input: mediaData.recording.url,
+            playback_policy: ['public'],
+          }),
+        });
 
-    if (updateError) {
-      console.error('Error updating recording:', updateError)
-      return new Response(
-        JSON.stringify({ 
-          error: 'Failed to update recording with media data',
-          details: updateError,
-          type: 'DATABASE_ERROR'
-        }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        if (!muxResponse.ok) {
+          throw new Error(`Mux API error: ${muxResponse.status} ${muxResponse.statusText}`);
         }
-      );
+
+        const muxData = await muxResponse.json();
+        console.log('Mux asset created:', muxData);
+
+        // Update recording with Mux IDs
+        const { error: updateError } = await supabaseClient
+          .from('recordings')
+          .update({
+            video_url: mediaData.recording.url,
+            transcript_url: mediaData.transcript?.url,
+            mux_asset_id: muxData.data.id,
+            mux_playback_id: muxData.data.playback_ids[0].id,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', recordingId);
+
+        if (updateError) {
+          console.error('Error updating recording with Mux data:', updateError);
+          throw updateError;
+        }
+      } catch (error) {
+        console.error('Error creating Mux asset:', error);
+        // Continue with the response even if Mux creation fails
+        // We'll still have the original video URL
+      }
+    } else {
+      // Update recording without Mux data
+      const { error: updateError } = await supabaseClient
+        .from('recordings')
+        .update({
+          video_url: mediaData.recording?.url,
+          transcript_url: mediaData.transcript?.url,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', recordingId);
+
+      if (updateError) {
+        console.error('Error updating recording:', updateError);
+        return new Response(
+          JSON.stringify({ 
+            error: 'Failed to update recording with media data',
+            details: updateError,
+            type: 'DATABASE_ERROR'
+          }),
+          { 
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
     }
 
     // If there's a transcript URL, fetch and store its content
