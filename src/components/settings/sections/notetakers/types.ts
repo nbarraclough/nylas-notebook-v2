@@ -12,3 +12,12 @@ export type NotetakerRecord = {
     } | null;
   };
 };
+
+export interface NotetakerActionsProps {
+  notetakerId: string;
+  recordingId: string;
+  isKicking: boolean;
+  isRetrieving: boolean;
+  onKick: () => void;
+  onRetrieve: () => void;
+}
