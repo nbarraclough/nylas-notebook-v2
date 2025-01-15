@@ -155,10 +155,11 @@ Deno.serve(async (req) => {
     }
 
     // Create Mux asset if we have a recording URL
-    if (mediaData.recording?.url) {
+    // Fixed: Check the correct path for the recording URL
+    if (mediaData.data?.recording?.url) {
       try {
-        console.log('🎬 [Mux] Creating asset from recording URL:', mediaData.recording.url);
-        console.log('🎬 [Mux] File size reported by Nylas:', mediaData.recording.size);
+        console.log('🎬 [Mux] Creating asset from recording URL:', mediaData.data.recording.url);
+        console.log('🎬 [Mux] File size reported by Nylas:', mediaData.data.recording.size);
         
         const muxResponse = await fetch(`${MUX_API_URL}/assets`, {
           method: 'POST',
@@ -167,7 +168,7 @@ Deno.serve(async (req) => {
             'Authorization': `Basic ${btoa(`${Deno.env.get('MUX_TOKEN_ID')}:${Deno.env.get('MUX_TOKEN_SECRET')}`)}`,
           },
           body: JSON.stringify({
-            input: mediaData.recording.url,
+            input: mediaData.data.recording.url,
             playback_policy: ['public'],
             video_quality: 'basic'
           }),
@@ -199,8 +200,8 @@ Deno.serve(async (req) => {
         const { error: updateError } = await supabaseClient
           .from('recordings')
           .update({
-            video_url: mediaData.recording.url,
-            transcript_url: mediaData.transcript?.url,
+            video_url: mediaData.data.recording.url,
+            transcript_url: mediaData.data.transcript?.url,
             mux_asset_id: muxData.data.id,
             mux_playback_id: muxData.data.playback_ids[0].id,
             updated_at: new Date().toISOString(),
@@ -223,8 +224,8 @@ Deno.serve(async (req) => {
         const { error: updateError } = await supabaseClient
           .from('recordings')
           .update({
-            video_url: mediaData.recording?.url,
-            transcript_url: mediaData.transcript?.url,
+            video_url: mediaData.data.recording?.url,
+            transcript_url: mediaData.data.transcript?.url,
             updated_at: new Date().toISOString(),
           })
           .eq('id', recordingId);
@@ -240,8 +241,8 @@ Deno.serve(async (req) => {
       const { error: updateError } = await supabaseClient
         .from('recordings')
         .update({
-          video_url: mediaData.recording?.url,
-          transcript_url: mediaData.transcript?.url,
+          video_url: mediaData.data?.recording?.url,
+          transcript_url: mediaData.data?.transcript?.url,
           updated_at: new Date().toISOString(),
         })
         .eq('id', recordingId);
@@ -265,8 +266,8 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true,
-        videoUrl: mediaData.recording?.url,
-        transcriptUrl: mediaData.transcript?.url
+        videoUrl: mediaData.data?.recording?.url,
+        transcriptUrl: mediaData.data?.transcript?.url
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
