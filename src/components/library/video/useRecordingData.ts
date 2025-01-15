@@ -1,6 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+const getMuxPlaybackUrl = (playbackId: string | null): string | null => {
+  if (!playbackId) return null;
+  return `https://stream.mux.com/${playbackId}.m3u8`;
+};
+
 export function useRecordingData(recordingId: string | null) {
   return useQuery({
     queryKey: ['recording', recordingId],
@@ -43,14 +48,11 @@ export function useRecordingData(recordingId: string | null) {
         return null;
       }
 
-      // Add owner_email to the recording object
+      // Add owner_email and construct Mux playback URL
       return {
         ...data,
         owner_email: data.owner?.email,
-        // Construct Mux playback URL if we have a playback ID
-        mux_playback_url: data.mux_playback_id 
-          ? `https://stream.mux.com/${data.mux_playback_id}.m3u8` 
-          : null
+        mux_playback_url: getMuxPlaybackUrl(data.mux_playback_id)
       };
     },
   });
