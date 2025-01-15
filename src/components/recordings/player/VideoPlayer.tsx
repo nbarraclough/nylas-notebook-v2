@@ -11,7 +11,6 @@ interface VideoPlayerProps {
   grantId?: string | null;
   notetakerId?: string | null;
   muxPlaybackId?: string | null;
-  isLoading?: boolean;
 }
 
 export type VideoPlayerRef = BaseVideoPlayerRef;
@@ -21,7 +20,6 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
   videoUrl,
   recordingUrl,
   muxPlaybackId,
-  isLoading,
 }, ref) => {
   // Get Mux playback URL if available
   const getMuxPlaybackUrl = (playbackId: string) => {
@@ -33,12 +31,11 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
     : videoUrl || recordingUrl;
 
   return (
-    <div className="relative aspect-video bg-muted rounded-lg overflow-hidden transition-all duration-200 group hover:shadow-lg hover:shadow-[#9b87f5]/10">
+    <div className="relative aspect-video">
       <BaseVideoPlayer
         ref={ref}
         videoUrl={videoSource}
         recordingUrl={recordingUrl}
-        isRefreshing={isLoading}
       />
     </div>
   );
