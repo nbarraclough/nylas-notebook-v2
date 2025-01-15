@@ -158,6 +158,7 @@ Deno.serve(async (req) => {
     if (mediaData.recording?.url) {
       try {
         console.log('🎬 [Mux] Creating asset from recording URL:', mediaData.recording.url);
+        console.log('🎬 [Mux] File size reported by Nylas:', mediaData.recording.size);
         
         const muxResponse = await fetch(`${MUX_API_URL}/assets`, {
           method: 'POST',
@@ -172,17 +173,27 @@ Deno.serve(async (req) => {
           }),
         });
 
+        const muxResponseText = await muxResponse.text();
+        console.log('🎬 [Mux] Raw API response:', muxResponseText);
+
         if (!muxResponse.ok) {
-          const muxErrorText = await muxResponse.text();
           console.error('❌ [Mux] API error:', {
             status: muxResponse.status,
-            body: muxErrorText
+            statusText: muxResponse.statusText,
+            headers: Object.fromEntries(muxResponse.headers.entries()),
+            body: muxResponseText
           });
-          throw new Error(`Mux API error: ${muxResponse.status} ${muxErrorText}`);
+          throw new Error(`Mux API error: ${muxResponse.status} ${muxResponseText}`);
         }
 
-        const muxData = await muxResponse.json();
-        console.log('🎬 [Mux] Asset created:', muxData);
+        let muxData;
+        try {
+          muxData = JSON.parse(muxResponseText);
+          console.log('🎬 [Mux] Parsed response data:', muxData);
+        } catch (error) {
+          console.error('❌ [Mux] Error parsing response:', error);
+          throw error;
+        }
 
         // Update recording with Mux IDs and recording URL
         const { error: updateError } = await supabaseClient
@@ -203,12 +214,28 @@ Deno.serve(async (req) => {
 
         console.log('✅ Successfully updated recording with Mux data');
       } catch (error) {
-        console.error('❌ [Mux] Error creating Mux asset:', error);
-        // Continue with the response even if Mux creation fails
-        // We'll still have the original video URL
+        console.error('❌ [Mux] Error creating Mux asset:', {
+          error: error.message,
+          stack: error.stack,
+          cause: error.cause
+        });
+        // Update recording without Mux data, but with available URLs
+        const { error: updateError } = await supabaseClient
+          .from('recordings')
+          .update({
+            video_url: mediaData.recording?.url,
+            transcript_url: mediaData.transcript?.url,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', recordingId);
+
+        if (updateError) {
+          console.error('❌ [Database] Error updating recording:', updateError);
+          throw updateError;
+        }
       }
     } else {
-      console.log('⚠️ [Nylas] No recording URL found in response');
+      console.log('⚠️ [Nylas] Recording URL not found in response. Full response:', mediaData);
       // Update recording without Mux data
       const { error: updateError } = await supabaseClient
         .from('recordings')
@@ -232,34 +259,6 @@ Deno.serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         );
-      }
-    }
-
-    // If there's a transcript URL, fetch and store its content
-    if (mediaData.transcript?.url) {
-      try {
-        console.log('📝 [Nylas] Fetching transcript content from:', mediaData.transcript.url);
-        const transcriptResponse = await fetch(mediaData.transcript.url)
-        if (transcriptResponse.ok) {
-          const transcriptContent = await transcriptResponse.json()
-          console.log('✅ [Nylas] Successfully fetched transcript content');
-          
-          await supabaseClient
-            .from('recordings')
-            .update({
-              transcript_content: transcriptContent,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', recordingId)
-        } else {
-          console.error('❌ [Nylas] Failed to fetch transcript:', {
-            status: transcriptResponse.status,
-            statusText: transcriptResponse.statusText
-          });
-        }
-      } catch (error) {
-        console.error('❌ [Nylas] Error fetching transcript content:', error)
-        // Don't throw here, as we still want to return success for the media URLs
       }
     }
 
