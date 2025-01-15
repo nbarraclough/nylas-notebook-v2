@@ -10,11 +10,15 @@ export interface BaseVideoPlayerRef {
 interface BaseVideoPlayerProps {
   videoUrl: string | null;
   recordingUrl: string | null;
+  onRefreshMedia?: () => Promise<void>;
+  isRefreshing?: boolean;
 }
 
 export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerProps>(({
   videoUrl,
   recordingUrl,
+  onRefreshMedia,
+  isRefreshing
 }, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
