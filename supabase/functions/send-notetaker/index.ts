@@ -11,10 +11,15 @@ Deno.serve(async (req) => {
 
   try {
     const { meetingUrl, grantId, meetingId } = await req.json()
-    console.log('Processing notetaker request...');
+    console.log('📥 Received notetaker request:', {
+      meetingUrl,
+      grantId,
+      meetingId,
+      timestamp: new Date().toISOString()
+    });
 
     if (!meetingUrl || !grantId || !meetingId) {
-      console.error('Missing required parameters');
+      console.error('❌ Missing required parameters:', { meetingUrl, grantId, meetingId });
       throw new Error('Missing required parameters')
     }
 
@@ -24,7 +29,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    console.log('Fetching event details...');
+    console.log('🔍 Fetching event details...');
     // Get user's profile for notetaker name
     const { data: event, error: eventError } = await supabaseClient
       .from('events')
@@ -38,16 +43,20 @@ Deno.serve(async (req) => {
       .maybeSingle()
 
     if (eventError) {
-      console.error('Error fetching event');
+      console.error('❌ Error fetching event:', eventError);
       throw new Error('Failed to fetch event details')
     }
 
     if (!event) {
-      console.error('Event not found');
+      console.error('❌ Event not found:', { meetingId });
       throw new Error('Event not found')
     }
 
-    console.log('Sending notetaker to meeting...');
+    console.log('📤 Preparing Nylas API request...', {
+      endpoint: `${NYLAS_API_URL}/v3/grants/${grantId}/notetakers`,
+      meetingLink: meetingUrl,
+      notetakerName: event.profiles?.notetaker_name || 'Nylas Notetaker'
+    });
 
     // Send notetaker to the meeting
     const response = await fetch(
@@ -66,14 +75,25 @@ Deno.serve(async (req) => {
       }
     )
 
+    const responseText = await response.text();
+    console.log('📥 Raw Nylas API response:', responseText);
+
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Failed to send notetaker');
+      console.error('❌ Nylas API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: responseText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
       throw new Error(`Failed to send notetaker`)
     }
 
-    const data = await response.json()
-    console.log('Notetaker sent successfully');
+    const data = JSON.parse(responseText);
+    console.log('✅ Nylas API success:', {
+      notetakerId: data.data.notetaker_id,
+      status: response.status,
+      headers: Object.fromEntries(response.headers.entries())
+    });
 
     // Update the notetaker queue with the notetaker_id
     const { error: queueError } = await supabaseClient
@@ -85,9 +105,11 @@ Deno.serve(async (req) => {
       .eq('event_id', meetingId)
 
     if (queueError) {
-      console.error('Error updating notetaker queue');
+      console.error('❌ Error updating notetaker queue:', queueError);
       throw new Error('Failed to update notetaker queue')
     }
+
+    console.log('✅ Successfully updated notetaker queue');
 
     return new Response(
       JSON.stringify({ 
@@ -100,11 +122,14 @@ Deno.serve(async (req) => {
       }
     )
   } catch (error) {
-    console.error('Error in send-notetaker');
+    console.error('❌ Error in send-notetaker:', {
+      error: error.message,
+      stack: error.stack
+    });
     return new Response(
       JSON.stringify({ 
         error: 'Failed to process request',
-        details: 'An error occurred while processing the request'
+        details: error.message
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
