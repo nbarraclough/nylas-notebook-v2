@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
     // Create Mux asset if we have a recording URL
     if (mediaData.recording?.url) {
       try {
-        console.log('Creating Mux asset from URL:', mediaData.recording.url);
+        console.log('Creating Mux asset from recording URL:', mediaData.recording.url);
         
         const muxResponse = await fetch(`${MUX_API_URL}/assets`, {
           method: 'POST',
@@ -153,6 +153,7 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             input: mediaData.recording.url,
             playback_policy: ['public'],
+            video_quality: 'basic'
           }),
         });
 
@@ -168,7 +169,7 @@ Deno.serve(async (req) => {
         const muxData = await muxResponse.json();
         console.log('Mux asset created:', muxData);
 
-        // Update recording with Mux IDs and video URL
+        // Update recording with Mux IDs and recording URL
         const { error: updateError } = await supabaseClient
           .from('recordings')
           .update({
