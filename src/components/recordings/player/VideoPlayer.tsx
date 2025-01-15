@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import { BaseVideoPlayer } from "./BaseVideoPlayer";
+import { forwardRef, useRef } from "react";
+import { BaseVideoPlayer, type BaseVideoPlayerRef } from "./BaseVideoPlayer";
 import { useRecordingMedia } from "@/hooks/use-recording-media";
 import { Loader2 } from "lucide-react";
 import type { EventParticipant } from "@/types/calendar";
@@ -12,22 +12,24 @@ interface VideoPlayerProps {
   participants: EventParticipant[];
   grantId?: string | null;
   notetakerId?: string | null;
+  onRefreshMedia?: () => Promise<void>;
 }
 
-export const VideoPlayer = ({
+export type VideoPlayerRef = BaseVideoPlayerRef;
+
+export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
   recordingId,
   videoUrl,
   recordingUrl,
-  title,
-  participants,
-  grantId,
-  notetakerId
-}: VideoPlayerProps) => {
-  const playerRef = useRef(null);
-  const { isRefreshing, refreshMedia } = useRecordingMedia(recordingId);
+  notetakerId,
+  onRefreshMedia
+}, ref) => {
+  const { isRefreshing, refreshMedia } = useRecordingMedia();
 
   const handleRefreshMedia = async () => {
-    if (notetakerId && grantId) {
+    if (onRefreshMedia) {
+      await onRefreshMedia();
+    } else if (notetakerId) {
       await refreshMedia(recordingId, notetakerId);
     }
   };
@@ -57,7 +59,7 @@ export const VideoPlayer = ({
         </div>
       )}
       <BaseVideoPlayer
-        ref={playerRef}
+        ref={ref}
         videoUrl={videoSource}
         recordingUrl={recordingUrl}
         onRefreshMedia={handleRefreshMedia}
@@ -65,4 +67,6 @@ export const VideoPlayer = ({
       />
     </div>
   );
-};
+});
+
+VideoPlayer.displayName = "VideoPlayer";

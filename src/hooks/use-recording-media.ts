@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -5,11 +6,13 @@ import { supabase } from "@/integrations/supabase/client";
 export function useRecordingMedia() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const refreshMedia = async (recordingId: string, notetakerId: string | null) => {
     if (!notetakerId) return null;
 
     try {
+      setIsRefreshing(true);
       console.log('Refreshing media for recording:', recordingId);
       
       const { data, error } = await supabase.functions.invoke('get-recording-media', {
@@ -48,8 +51,10 @@ export function useRecordingMedia() {
         variant: "destructive",
       });
       return null;
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
-  return { refreshMedia };
+  return { refreshMedia, isRefreshing };
 }
