@@ -75,8 +75,10 @@ Deno.serve(async (req) => {
           console.log('Sending notetaker request to Nylas for event:', item.events.title)
           
           // Send notetaker request to Nylas
+
+          // Send notetaker request to Nylas using production URL
           const response = await fetch(
-            `https://api-staging.us.nylas.com/v3/grants/${item.profiles.nylas_grant_id}/notetakers`,
+            `https://api.us.nylas.com/v3/grants/${item.profiles.nylas_grant_id}/notetakers`,
             {
               method: 'POST',
               headers: {

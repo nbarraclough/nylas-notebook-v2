@@ -60,12 +60,12 @@ serve(async (req) => {
     };
 
     console.log('📤 Sending request to Nylas API:', {
-      url: `https://api-staging.us.nylas.com/v3/grants/${grantId}/messages/send`,
+      url: `https://api.us.nylas.com/v3/grants/${grantId}/messages/send`,
       method: 'POST',
       body: JSON.stringify(requestBody, null, 2),
     });
 
-    const response = await fetch(`https://api-staging.us.nylas.com/v3/grants/${grantId}/messages/send`, {
+    const response = await fetch(`https://api.us.nylas.com/v3/grants/${grantId}/messages/send`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
@@ -76,7 +76,7 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
+      const errorText = await response.text()
       console.error('❌ Nylas API error response:', {
         status: response.status,
         statusText: response.statusText,

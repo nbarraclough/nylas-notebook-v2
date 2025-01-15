@@ -118,7 +118,7 @@ serve(async (req) => {
           console.log('Fetching events with params:', queryParams.toString())
 
           const eventsResponse = await fetch(
-            `https://api-staging.us.nylas.com/v3/grants/${grantId}/events?${queryParams}`, 
+            `https://api.us.nylas.com/v3/grants/${grantId}/events?${queryParams}`, 
             {
               headers: {
                 'Authorization': `Bearer ${NYLAS_CLIENT_SECRET}`,

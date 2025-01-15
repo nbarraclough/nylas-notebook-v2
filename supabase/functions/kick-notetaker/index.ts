@@ -69,9 +69,9 @@ Deno.serve(async (req) => {
       throw new Error('No Nylas grant ID found for user')
     }
 
-    // Send kick request to Nylas using the correct URL format
+    // Send kick request to Nylas using the production URL format
     const response = await fetch(
-      `https://api-staging.us.nylas.com/v3/grants/${profileData.nylas_grant_id}/notetakers/${notetakerId}`,
+      `https://api.us.nylas.com/v3/grants/${profileData.nylas_grant_id}/notetakers/${notetakerId}`,
       {
         method: 'DELETE',
         headers: {

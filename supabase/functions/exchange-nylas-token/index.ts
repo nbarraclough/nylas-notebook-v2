@@ -31,8 +31,8 @@ serve(async (req) => {
     const redirectUri = `${origin}/calendar`
 
     console.log('Exchanging code for grant_id...')
-    // Exchange the code for a nylas_grant_id using staging URL
-    const tokenResponse = await fetch('https://api-staging.us.nylas.com/v3/connect/token', {
+    // Exchange the code for a nylas_grant_id using production URL
+    const tokenResponse = await fetch('https://api.us.nylas.com/v3/connect/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
