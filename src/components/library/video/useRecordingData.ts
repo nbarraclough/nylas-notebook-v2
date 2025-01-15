@@ -46,7 +46,11 @@ export function useRecordingData(recordingId: string | null) {
       // Add owner_email to the recording object
       return {
         ...data,
-        owner_email: data.owner?.email
+        owner_email: data.owner?.email,
+        // Construct Mux playback URL if we have a playback ID
+        mux_playback_url: data.mux_playback_id 
+          ? `https://stream.mux.com/${data.mux_playback_id}.m3u8` 
+          : null
       };
     },
   });

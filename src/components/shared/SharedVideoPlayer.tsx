@@ -24,10 +24,24 @@ export const SharedVideoPlayer = forwardRef<BaseVideoPlayerRef, SharedVideoPlaye
     }
   };
 
+  // Get Mux playback URL if available
+  const getMuxPlaybackUrl = (url: string) => {
+    if (url.includes('mux.com')) {
+      return url;
+    }
+    // If it's a Mux playback ID, construct the URL
+    if (url.startsWith('https://stream.mux.com')) {
+      return url;
+    }
+    return url;
+  };
+
+  const videoSource = videoUrl ? getMuxPlaybackUrl(videoUrl) : recordingUrl;
+
   return (
     <BaseVideoPlayer
       ref={ref}
-      videoUrl={videoUrl}
+      videoUrl={videoSource}
       recordingUrl={recordingUrl}
       onRefreshMedia={handleRefreshMedia}
       isRefreshing={isRefreshing}
