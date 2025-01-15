@@ -1,40 +1,53 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
-import { corsHeaders } from "../_shared/cors.ts";
 
-const verifyMuxSignature = (
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, mux-signature',
+};
+
+const verifyMuxSignature = async (
   payload: string,
   signature: string,
   secret: string
-): boolean => {
-  const encoder = new TextEncoder();
-  const key = encoder.encode(secret);
-  const message = encoder.encode(payload);
+): Promise<boolean> => {
+  try {
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["verify"]
+    );
 
-  const cryptoKey = crypto.subtle.importKey(
-    "raw",
-    key,
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["verify"]
-  );
+    // The signature from Mux is in the format: t=timestamp,v=signature
+    const [, signatureValue] = signature.split('v=');
+    if (!signatureValue) {
+      console.error('Invalid signature format');
+      return false;
+    }
 
-  const signatureBytes = new Uint8Array(
-    signature.split(",")[1].split("").map((c) => c.charCodeAt(0))
-  );
+    const signatureBytes = new Uint8Array(
+      signatureValue.split('').map((c) => c.charCodeAt(0))
+    );
 
-  return crypto.subtle.verify(
-    "HMAC",
-    cryptoKey,
-    signatureBytes,
-    message
-  );
+    return await crypto.subtle.verify(
+      "HMAC",
+      key,
+      signatureBytes,
+      encoder.encode(payload)
+    );
+  } catch (error) {
+    console.error('Error verifying signature:', error);
+    return false;
+  }
 };
 
 serve(async (req) => {
-  // Handle CORS
+  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
@@ -46,15 +59,18 @@ serve(async (req) => {
     // Get the signature from the headers
     const signature = req.headers.get("mux-signature");
     if (!signature) {
+      console.error('No Mux signature found in request headers');
       throw new Error("No signature found in request headers");
     }
 
     // Get the raw body
     const body = await req.text();
+    console.log('Received Mux webhook payload:', body);
 
     // Verify the signature
     const isValid = await verifyMuxSignature(body, signature, webhookSecret);
     if (!isValid) {
+      console.error('Invalid Mux signature');
       throw new Error("Invalid signature");
     }
 
@@ -73,6 +89,7 @@ serve(async (req) => {
       case "video.asset.ready": {
         const { playback_ids, id: assetId } = data;
         const playbackId = playback_ids?.[0]?.id;
+        console.log('Video asset ready:', { assetId, playbackId });
 
         if (playbackId) {
           const { error } = await supabase
@@ -84,13 +101,20 @@ serve(async (req) => {
             })
             .eq("mux_asset_id", assetId);
 
-          if (error) throw error;
+          if (error) {
+            console.error('Error updating recording:', error);
+            throw error;
+          }
+          
+          console.log('Successfully updated recording status to ready');
         }
         break;
       }
 
       case "video.asset.errored": {
-        const { id: assetId } = data;
+        const { id: assetId, error: muxError } = data;
+        console.log('Video asset error:', { assetId, error: muxError });
+
         const { error } = await supabase
           .from("recordings")
           .update({
@@ -99,21 +123,12 @@ serve(async (req) => {
           })
           .eq("mux_asset_id", assetId);
 
-        if (error) throw error;
-        break;
-      }
-
-      case "video.asset.deleted": {
-        const { id: assetId } = data;
-        const { error } = await supabase
-          .from("recordings")
-          .update({
-            status: "deleted",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("mux_asset_id", assetId);
-
-        if (error) throw error;
+        if (error) {
+          console.error('Error updating recording status:', error);
+          throw error;
+        }
+        
+        console.log('Successfully updated recording status to error');
         break;
       }
 
