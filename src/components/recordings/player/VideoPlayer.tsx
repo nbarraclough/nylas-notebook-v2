@@ -1,7 +1,5 @@
-import { forwardRef, useRef } from "react";
+import { forwardRef } from "react";
 import { BaseVideoPlayer, type BaseVideoPlayerRef } from "./BaseVideoPlayer";
-import { useRecordingMedia } from "@/hooks/use-recording-media";
-import { Loader2 } from "lucide-react";
 import type { EventParticipant } from "@/types/calendar";
 
 interface VideoPlayerProps {
@@ -12,7 +10,7 @@ interface VideoPlayerProps {
   participants: EventParticipant[];
   grantId?: string | null;
   notetakerId?: string | null;
-  onRefreshMedia?: () => Promise<void>;
+  muxPlaybackId?: string | null;
 }
 
 export type VideoPlayerRef = BaseVideoPlayerRef;
@@ -21,49 +19,23 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
   recordingId,
   videoUrl,
   recordingUrl,
-  notetakerId,
-  onRefreshMedia
+  muxPlaybackId,
 }, ref) => {
-  const { isRefreshing, refreshMedia } = useRecordingMedia();
-
-  const handleRefreshMedia = async () => {
-    if (onRefreshMedia) {
-      await onRefreshMedia();
-    } else if (notetakerId) {
-      await refreshMedia(recordingId, notetakerId);
-    }
-  };
-
   // Get Mux playback URL if available
-  const getMuxPlaybackUrl = (url: string) => {
-    if (url.includes('mux.com')) {
-      return url;
-    }
-    // If it's a Mux playback ID, construct the URL
-    if (url.startsWith('https://stream.mux.com')) {
-      return url;
-    }
-    return url;
+  const getMuxPlaybackUrl = (playbackId: string) => {
+    return `https://stream.mux.com/${playbackId}.m3u8`;
   };
 
-  const videoSource = videoUrl ? getMuxPlaybackUrl(videoUrl) : recordingUrl;
+  const videoSource = muxPlaybackId 
+    ? getMuxPlaybackUrl(muxPlaybackId)
+    : videoUrl || recordingUrl;
 
   return (
     <div className="relative aspect-video">
-      {isRefreshing && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
-          <div className="flex flex-col items-center gap-2">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Refreshing video...</p>
-          </div>
-        </div>
-      )}
       <BaseVideoPlayer
         ref={ref}
         videoUrl={videoSource}
         recordingUrl={recordingUrl}
-        onRefreshMedia={handleRefreshMedia}
-        isRefreshing={isRefreshing}
       />
     </div>
   );

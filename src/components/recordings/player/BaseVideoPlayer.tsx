@@ -10,15 +10,11 @@ export interface BaseVideoPlayerRef {
 interface BaseVideoPlayerProps {
   videoUrl: string | null;
   recordingUrl: string | null;
-  onRefreshMedia?: () => Promise<void>;
-  isRefreshing?: boolean;
 }
 
 export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerProps>(({
   videoUrl,
   recordingUrl,
-  onRefreshMedia,
-  isRefreshing
 }, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -69,9 +65,6 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
                 break;
               default:
                 console.error('Fatal HLS error:', data);
-                if (onRefreshMedia) {
-                  onRefreshMedia();
-                }
                 break;
             }
           }
@@ -131,12 +124,6 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
       playsInline
       preload="metadata"
       controlsList="nodownload"
-      onError={async (e) => {
-        console.error('Video playback error:', e);
-        if (onRefreshMedia && !isRefreshing) {
-          await onRefreshMedia();
-        }
-      }}
     >
       Your browser does not support the video tag.
     </video>

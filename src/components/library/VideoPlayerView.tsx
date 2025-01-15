@@ -6,11 +6,9 @@ import { VideoHeader } from "./VideoHeader";
 import { EventDescription } from "@/components/calendar/EventDescription";
 import { useRecordingData } from "./video/useRecordingData";
 import { useProfileData } from "./video/useProfileData";
-import { useVideoRefresh } from "./video/useVideoRefresh";
 import type { EventParticipant } from "@/types/calendar";
 import type { Json } from "@/integrations/supabase/types";
-import { Loader2 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 
 interface VideoPlayerViewProps {
   recordingId: string;
@@ -26,14 +24,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   const queryClient = useQueryClient();
   const { data: recording, isLoading: isRecordingLoading } = useRecordingData(recordingId);
   const { data: profile } = useProfileData();
-  const { refreshMedia, isRefreshing } = useVideoRefresh(recordingId, recording?.notetaker_id);
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
-
-  useEffect(() => {
-    if (recording?.notetaker_id) {
-      refreshMedia();
-    }
-  }, [recording?.notetaker_id]);
 
   const handleClose = () => {
     if (videoPlayerRef.current) {
@@ -137,15 +128,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="aspect-video bg-muted rounded-lg overflow-hidden relative">
-              {isRefreshing ? (
-                <div className="absolute inset-0 flex items-center justify-center bg-background/50">
-                  <div className="flex flex-col items-center gap-2">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    <p className="text-sm text-muted-foreground">Refreshing video...</p>
-                  </div>
-                </div>
-              ) : null}
+            <div className="aspect-video bg-muted rounded-lg overflow-hidden">
               <VideoPlayer
                 ref={videoPlayerRef}
                 recordingId={recordingId}
@@ -155,7 +138,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
                 participants={participants}
                 grantId={profile?.nylas_grant_id}
                 notetakerId={recording.notetaker_id}
-                onRefreshMedia={refreshMedia}
+                muxPlaybackId={recording.mux_playback_id}
               />
             </div>
             
