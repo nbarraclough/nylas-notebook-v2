@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Create Mux asset if we have a video URL
+    // Create Mux asset if we have a recording URL
     if (mediaData.recording?.url) {
       try {
         console.log('Creating Mux asset from URL:', mediaData.recording.url);
@@ -157,13 +157,18 @@ Deno.serve(async (req) => {
         });
 
         if (!muxResponse.ok) {
-          throw new Error(`Mux API error: ${muxResponse.status} ${muxResponse.statusText}`);
+          const muxErrorText = await muxResponse.text();
+          console.error('Mux API error:', {
+            status: muxResponse.status,
+            body: muxErrorText
+          });
+          throw new Error(`Mux API error: ${muxResponse.status} ${muxErrorText}`);
         }
 
         const muxData = await muxResponse.json();
         console.log('Mux asset created:', muxData);
 
-        // Update recording with Mux IDs
+        // Update recording with Mux IDs and video URL
         const { error: updateError } = await supabaseClient
           .from('recordings')
           .update({
@@ -179,12 +184,15 @@ Deno.serve(async (req) => {
           console.error('Error updating recording with Mux data:', updateError);
           throw updateError;
         }
+
+        console.log('Successfully updated recording with Mux data');
       } catch (error) {
         console.error('Error creating Mux asset:', error);
         // Continue with the response even if Mux creation fails
         // We'll still have the original video URL
       }
     } else {
+      console.log('No recording URL found in Nylas response');
       // Update recording without Mux data
       const { error: updateError } = await supabaseClient
         .from('recordings')
