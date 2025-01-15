@@ -154,8 +154,24 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Download transcript content if available
+    let transcriptContent = null;
+    if (mediaData.data?.transcript?.url) {
+      try {
+        console.log('📝 [Transcript] Downloading transcript from:', mediaData.data.transcript.url);
+        const transcriptResponse = await fetch(mediaData.data.transcript.url);
+        if (transcriptResponse.ok) {
+          transcriptContent = await transcriptResponse.json();
+          console.log('📝 [Transcript] Successfully downloaded transcript');
+        } else {
+          console.error('❌ [Transcript] Failed to download:', transcriptResponse.statusText);
+        }
+      } catch (error) {
+        console.error('❌ [Transcript] Error downloading transcript:', error);
+      }
+    }
+
     // Create Mux asset if we have a recording URL
-    // Fixed: Check the correct path for the recording URL
     if (mediaData.data?.recording?.url) {
       try {
         console.log('🎬 [Mux] Creating asset from recording URL:', mediaData.data.recording.url);
@@ -196,12 +212,13 @@ Deno.serve(async (req) => {
           throw error;
         }
 
-        // Update recording with Mux IDs and recording URL
+        // Update recording with Mux IDs, URLs, and transcript content
         const { error: updateError } = await supabaseClient
           .from('recordings')
           .update({
             video_url: mediaData.data.recording.url,
             transcript_url: mediaData.data.transcript?.url,
+            transcript_content: transcriptContent,
             mux_asset_id: muxData.data.id,
             mux_playback_id: muxData.data.playback_ids[0].id,
             updated_at: new Date().toISOString(),
@@ -213,19 +230,20 @@ Deno.serve(async (req) => {
           throw updateError;
         }
 
-        console.log('✅ Successfully updated recording with Mux data');
+        console.log('✅ Successfully updated recording with Mux data and transcript');
       } catch (error) {
         console.error('❌ [Mux] Error creating Mux asset:', {
           error: error.message,
           stack: error.stack,
           cause: error.cause
         });
-        // Update recording without Mux data, but with available URLs
+        // Update recording without Mux data, but with available URLs and transcript
         const { error: updateError } = await supabaseClient
           .from('recordings')
           .update({
             video_url: mediaData.data.recording?.url,
             transcript_url: mediaData.data.transcript?.url,
+            transcript_content: transcriptContent,
             updated_at: new Date().toISOString(),
           })
           .eq('id', recordingId);
@@ -243,6 +261,7 @@ Deno.serve(async (req) => {
         .update({
           video_url: mediaData.data?.recording?.url,
           transcript_url: mediaData.data?.transcript?.url,
+          transcript_content: transcriptContent,
           updated_at: new Date().toISOString(),
         })
         .eq('id', recordingId);
@@ -267,7 +286,8 @@ Deno.serve(async (req) => {
       JSON.stringify({ 
         success: true,
         videoUrl: mediaData.data?.recording?.url,
-        transcriptUrl: mediaData.data?.transcript?.url
+        transcriptUrl: mediaData.data?.transcript?.url,
+        hasTranscript: !!transcriptContent
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
