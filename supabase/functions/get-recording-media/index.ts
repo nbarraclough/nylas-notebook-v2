@@ -12,10 +12,10 @@ Deno.serve(async (req) => {
 
   try {
     const { recordingId, notetakerId } = await req.json()
-    console.log('Processing request for recording:', recordingId, 'notetaker:', notetakerId)
+    console.log('🎥 Processing request for recording:', recordingId, 'notetaker:', notetakerId)
 
     if (!recordingId || !notetakerId) {
-      console.error('Missing required parameters:', { recordingId, notetakerId });
+      console.error('❌ Missing required parameters:', { recordingId, notetakerId });
       return new Response(
         JSON.stringify({ 
           error: 'Missing required parameters',
@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
       .single()
 
     if (recordingError || !recording) {
-      console.error('Error fetching recording:', recordingError)
+      console.error('❌ Error fetching recording:', recordingError)
       return new Response(
         JSON.stringify({ 
           error: 'Recording not found',
@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Fetching media from Nylas for grant:', grantId)
+    console.log('📧 [Nylas] Fetching media for grant:', grantId)
     const nylasUrl = `${NYLAS_API_URL}/v3/grants/${grantId}/notetakers/${notetakerId}/media`;
     
     // Fetch media from Nylas
@@ -83,10 +83,10 @@ Deno.serve(async (req) => {
     })
 
     const responseText = await response.text();
-    console.log('Raw Nylas API response:', responseText);
+    console.log('📧 [Nylas] Raw API response:', responseText);
 
     if (!response.ok) {
-      console.error('Nylas API error:', {
+      console.error('❌ [Nylas] API error:', {
         status: response.status,
         statusText: response.statusText,
         body: responseText
@@ -123,9 +123,9 @@ Deno.serve(async (req) => {
     let mediaData;
     try {
       mediaData = JSON.parse(responseText);
-      console.log('Parsed Nylas media data:', mediaData);
+      console.log('📧 [Nylas] Parsed media data:', mediaData);
     } catch (error) {
-      console.error('Error parsing Nylas response:', error);
+      console.error('❌ [Nylas] Error parsing response:', error);
       return new Response(
         JSON.stringify({ 
           error: 'Invalid JSON response from Nylas',
@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
     // Create Mux asset if we have a recording URL
     if (mediaData.recording?.url) {
       try {
-        console.log('Creating Mux asset from recording URL:', mediaData.recording.url);
+        console.log('🎬 [Mux] Creating asset from recording URL:', mediaData.recording.url);
         
         const muxResponse = await fetch(`${MUX_API_URL}/assets`, {
           method: 'POST',
@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
 
         if (!muxResponse.ok) {
           const muxErrorText = await muxResponse.text();
-          console.error('Mux API error:', {
+          console.error('❌ [Mux] API error:', {
             status: muxResponse.status,
             body: muxErrorText
           });
@@ -167,7 +167,7 @@ Deno.serve(async (req) => {
         }
 
         const muxData = await muxResponse.json();
-        console.log('Mux asset created:', muxData);
+        console.log('🎬 [Mux] Asset created:', muxData);
 
         // Update recording with Mux IDs and recording URL
         const { error: updateError } = await supabaseClient
@@ -182,18 +182,18 @@ Deno.serve(async (req) => {
           .eq('id', recordingId);
 
         if (updateError) {
-          console.error('Error updating recording with Mux data:', updateError);
+          console.error('❌ Error updating recording with Mux data:', updateError);
           throw updateError;
         }
 
-        console.log('Successfully updated recording with Mux data');
+        console.log('✅ Successfully updated recording with Mux data');
       } catch (error) {
-        console.error('Error creating Mux asset:', error);
+        console.error('❌ Error creating Mux asset:', error);
         // Continue with the response even if Mux creation fails
         // We'll still have the original video URL
       }
     } else {
-      console.log('No recording URL found in Nylas response');
+      console.log('⚠️ No recording URL found in Nylas response');
       // Update recording without Mux data
       const { error: updateError } = await supabaseClient
         .from('recordings')
@@ -205,7 +205,7 @@ Deno.serve(async (req) => {
         .eq('id', recordingId);
 
       if (updateError) {
-        console.error('Error updating recording:', updateError);
+        console.error('❌ Error updating recording:', updateError);
         return new Response(
           JSON.stringify({ 
             error: 'Failed to update recording with media data',
@@ -223,11 +223,11 @@ Deno.serve(async (req) => {
     // If there's a transcript URL, fetch and store its content
     if (mediaData.transcript?.url) {
       try {
-        console.log('Fetching transcript content from:', mediaData.transcript.url);
+        console.log('📝 [Nylas] Fetching transcript content from:', mediaData.transcript.url);
         const transcriptResponse = await fetch(mediaData.transcript.url)
         if (transcriptResponse.ok) {
           const transcriptContent = await transcriptResponse.json()
-          console.log('Successfully fetched transcript content');
+          console.log('✅ [Nylas] Successfully fetched transcript content');
           
           await supabaseClient
             .from('recordings')
@@ -237,13 +237,13 @@ Deno.serve(async (req) => {
             })
             .eq('id', recordingId)
         } else {
-          console.error('Failed to fetch transcript:', {
+          console.error('❌ [Nylas] Failed to fetch transcript:', {
             status: transcriptResponse.status,
             statusText: transcriptResponse.statusText
           });
         }
       } catch (error) {
-        console.error('Error fetching transcript content:', error)
+        console.error('❌ [Nylas] Error fetching transcript content:', error)
         // Don't throw here, as we still want to return success for the media URLs
       }
     }
@@ -260,7 +260,7 @@ Deno.serve(async (req) => {
       }
     )
   } catch (error) {
-    console.error('Error in get-recording-media:', error)
+    console.error('❌ Error in get-recording-media:', error)
     return new Response(
       JSON.stringify({ 
         error: error.message,
