@@ -5,6 +5,7 @@ export interface BaseVideoPlayerRef {
   pause: () => void;
   play: () => void;
   seek: (time: number) => void;
+  getVideoElement: () => HTMLVideoElement | null;
 }
 
 interface BaseVideoPlayerProps {
@@ -23,7 +24,6 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
 
-  // Initialize HLS if we have a Mux stream URL
   useEffect(() => {
     if (!videoRef.current) return;
 
@@ -32,13 +32,11 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
 
     if (!url) return;
 
-    // Clean up existing HLS instance
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
     }
 
-    // If it's a Mux HLS stream
     if (url.includes('.m3u8')) {
       if (Hls.isSupported()) {
         console.log('HLS is supported, initializing player with URL:', url);
@@ -79,12 +77,10 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
 
         hlsRef.current = hls;
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        // For Safari which has built-in HLS support
         console.log('Using native HLS support');
         video.src = url;
       }
     } else {
-      // For non-HLS videos
       console.log('Using standard video player with URL:', url);
       video.src = url;
     }
@@ -97,7 +93,6 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
     };
   }, [videoUrl, recordingUrl]);
 
-  // Expose player controls through ref
   useEffect(() => {
     if (!videoRef.current) return;
 
@@ -109,7 +104,8 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
           if (videoRef.current) {
             videoRef.current.currentTime = time;
           }
-        }
+        },
+        getVideoElement: () => videoRef.current
       };
 
       if (typeof ref === 'function') {

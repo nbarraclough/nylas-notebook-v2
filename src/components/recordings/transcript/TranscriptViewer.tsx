@@ -47,7 +47,9 @@ export function TranscriptViewer({ content, videoRef }: TranscriptViewerProps) {
   useEffect(() => {
     if (!videoRef?.current) return;
     
-    const videoElement = videoRef.current as unknown as HTMLVideoElement;
+    const videoElement = videoRef.current.getVideoElement();
+    if (!videoElement) return;
+
     videoElement.addEventListener('timeupdate', handleTimeUpdate);
     
     return () => {
@@ -58,8 +60,10 @@ export function TranscriptViewer({ content, videoRef }: TranscriptViewerProps) {
   const handleEntryClick = (timestamp: number) => {
     if (!videoRef?.current) return;
     
-    const videoElement = videoRef.current as unknown as HTMLVideoElement;
-    videoElement.currentTime = timestamp / 1000; // Convert to seconds
+    const videoElement = videoRef.current.getVideoElement();
+    if (videoElement) {
+      videoElement.currentTime = timestamp / 1000; // Convert to seconds
+    }
   };
 
   const handleScroll = () => {
