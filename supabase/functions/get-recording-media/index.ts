@@ -40,14 +40,28 @@ Deno.serve(async (req) => {
       .from('recordings')
       .select('*, profiles:user_id(nylas_grant_id)')
       .eq('id', recordingId)
-      .single()
+      .maybeSingle()
 
-    if (recordingError || !recording) {
-      console.error('❌ Error fetching recording:', recordingError)
+    if (recordingError) {
+      console.error('❌ [Database] Error fetching recording:', recordingError)
+      return new Response(
+        JSON.stringify({ 
+          error: 'Database error while fetching recording',
+          details: recordingError,
+          type: 'DATABASE_ERROR'
+        }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    if (!recording) {
+      console.error('❌ [Database] Recording not found:', recordingId)
       return new Response(
         JSON.stringify({ 
           error: 'Recording not found',
-          details: recordingError,
           type: 'NOT_FOUND'
         }),
         { 
@@ -59,6 +73,7 @@ Deno.serve(async (req) => {
 
     const grantId = recording.profiles?.nylas_grant_id
     if (!grantId) {
+      console.error('❌ [Database] Nylas grant ID not found for user')
       return new Response(
         JSON.stringify({ 
           error: 'Nylas grant ID not found',
@@ -182,18 +197,18 @@ Deno.serve(async (req) => {
           .eq('id', recordingId);
 
         if (updateError) {
-          console.error('❌ Error updating recording with Mux data:', updateError);
+          console.error('❌ [Database] Error updating recording with Mux data:', updateError);
           throw updateError;
         }
 
         console.log('✅ Successfully updated recording with Mux data');
       } catch (error) {
-        console.error('❌ Error creating Mux asset:', error);
+        console.error('❌ [Mux] Error creating Mux asset:', error);
         // Continue with the response even if Mux creation fails
         // We'll still have the original video URL
       }
     } else {
-      console.log('⚠️ No recording URL found in Nylas response');
+      console.log('⚠️ [Nylas] No recording URL found in response');
       // Update recording without Mux data
       const { error: updateError } = await supabaseClient
         .from('recordings')
@@ -205,7 +220,7 @@ Deno.serve(async (req) => {
         .eq('id', recordingId);
 
       if (updateError) {
-        console.error('❌ Error updating recording:', updateError);
+        console.error('❌ [Database] Error updating recording:', updateError);
         return new Response(
           JSON.stringify({ 
             error: 'Failed to update recording with media data',
