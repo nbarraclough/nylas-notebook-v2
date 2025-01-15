@@ -24,7 +24,7 @@ export function useNotetakers(userId: string) {
           )
         `)
         .eq('user_id', userId)
-        .not('notetaker_id', 'is', null);  // Only get recordings with notetaker_id
+        .not('notetaker_id', 'is', null);
 
       console.log('Recordings query result:', { recordingsData, recordingsError });
       
@@ -58,23 +58,39 @@ export function useNotetakers(userId: string) {
         throw queueError;
       }
 
-      // Combine records, preserving the most recent notetaker_id
-      const allRecords = [
-        ...(recordingsData || []),
-        ...(queueData || [])
-      ].filter(record => record.notetaker_id);
-
-      console.log('Combined records before processing:', allRecords);
-
-      // Create a map to store the most recent record for each notetaker_id
+      // Create a map to store records by notetaker_id
       const notetakerMap = new Map();
       
-      allRecords.forEach(record => {
+      // First, add all recordings to the map
+      recordingsData?.forEach(record => {
         if (record.notetaker_id) {
-          const existingRecord = notetakerMap.get(record.notetaker_id);
-          // If no existing record or current record is more recent (based on presence in queue)
-          if (!existingRecord || queueData?.some(q => q.id === record.id)) {
-            notetakerMap.set(record.notetaker_id, record);
+          notetakerMap.set(record.notetaker_id, {
+            ...record,
+            source: 'recording'
+          });
+        }
+      });
+
+      // Then, process queue items
+      queueData?.forEach(queueItem => {
+        if (queueItem.notetaker_id) {
+          const existingRecord = notetakerMap.get(queueItem.notetaker_id);
+          
+          if (existingRecord) {
+            // If there's a recording, use its ID but update with queue info
+            notetakerMap.set(queueItem.notetaker_id, {
+              ...queueItem,
+              id: existingRecord.id, // Keep the recording ID
+              source: 'both',
+              queueId: queueItem.id // Store queue ID separately
+            });
+          } else {
+            // If no recording exists yet, use queue item
+            notetakerMap.set(queueItem.notetaker_id, {
+              ...queueItem,
+              source: 'queue',
+              queueId: queueItem.id
+            });
           }
         }
       });
@@ -88,7 +104,7 @@ export function useNotetakers(userId: string) {
         return dateB.getTime() - dateA.getTime();
       });
 
-      console.log('Final sorted records:', sortedRecords);
+      console.log('Final merged and sorted records:', sortedRecords);
       return sortedRecords;
     },
   });
