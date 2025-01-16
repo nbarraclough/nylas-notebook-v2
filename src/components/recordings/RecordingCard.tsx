@@ -10,7 +10,6 @@ import { RecordingActions } from "./RecordingActions";
 import { Loader } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { VideoPlayer } from "./player/VideoPlayer";
-import { Badge } from "@/components/ui/badge";
 import type { Database } from "@/integrations/supabase/types";
 import type { EventParticipant, EventOrganizer } from "@/types/calendar";
 
@@ -28,21 +27,6 @@ type Recording = Database['public']['Tables']['recordings']['Row'] & {
 interface RecordingCardProps {
   recording: Recording;
 }
-
-const getStatusBadgeVariant = (status: string) => {
-  switch (status) {
-    case 'waiting':
-      return 'secondary';
-    case 'retrieving':
-      return 'secondary'; // Changed from 'warning' to 'secondary'
-    case 'processing':
-      return 'default';
-    case 'error':
-      return 'destructive';
-    default:
-      return 'default';
-  }
-};
 
 export const RecordingCard = ({ recording }: RecordingCardProps) => {
   const { toast } = useToast();
@@ -159,18 +143,8 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
                 Duration: {Math.floor(recording.duration / 60)} minutes
               </p>
             )}
-            <div className="flex flex-col gap-1">
-              <RecordingStatus status={recording.status} />
-              {recording.status !== 'ready' && (
-                <Badge 
-                  variant={getStatusBadgeVariant(recording.status.toLowerCase())}
-                  className="w-fit"
-                >
-                  {recording.status}
-                </Badge>
-              )}
-            </div>
           </div>
+          <RecordingStatus status={recording.status} />
         </div>
 
         <VideoPlayer
