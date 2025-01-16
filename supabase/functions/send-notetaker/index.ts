@@ -37,10 +37,16 @@ Deno.serve(async (req) => {
         *,
         profiles:user_id (
           notetaker_name
+        ),
+        manual_meetings!inner (
+          id
         )
       `)
       .eq('id', meetingId)
       .maybeSingle()
+
+    const isManualMeeting = event?.manual_meeting_id !== null;
+    console.log('📝 Meeting type:', isManualMeeting ? 'Manual' : 'Calendar');
 
     if (eventError) {
       console.error('❌ Error fetching event:', eventError);
@@ -95,71 +101,74 @@ Deno.serve(async (req) => {
       headers: Object.fromEntries(response.headers.entries())
     });
 
-    // Calculate scheduled_for time based on event start time
-    const scheduledFor = event.start_time > new Date().toISOString() 
-      ? event.start_time 
-      : new Date().toISOString();
+    // For manual meetings, we don't need to update the queue
+    // The recording entry is created directly
+    if (isManualMeeting) {
+      console.log('📝 Creating recording entry for manual meeting...');
+      const { error: recordingError } = await supabaseClient
+        .from('recordings')
+        .insert({
+          user_id: event.user_id,
+          event_id: event.id,
+          notetaker_id: data.data.notetaker_id,
+          recording_url: '',
+          status: 'waiting'
+        });
 
-    // First, get the existing queue item
-    const { data: existingQueue, error: queueFetchError } = await supabaseClient
-      .from('notetaker_queue')
-      .select('id')
-      .eq('event_id', meetingId)
-      .maybeSingle();
+      if (recordingError) {
+        console.error('❌ Error creating recording entry:', recordingError);
+        throw new Error('Failed to create recording entry')
+      }
 
-    if (queueFetchError) {
-      console.error('❌ Error fetching queue:', queueFetchError);
-      throw new Error('Failed to fetch notetaker queue');
-    }
+      console.log('✅ Successfully created recording entry for manual meeting');
+    } else {
+      // Calculate scheduled_for time based on event start time
+      const scheduledFor = event.start_time > new Date().toISOString() 
+        ? event.start_time 
+        : new Date().toISOString();
 
-    // Prepare the common data for both insert and update operations
-    const queueData = {
-      notetaker_id: data.data.notetaker_id,
-      status: 'sent',
-      scheduled_for: scheduledFor
-    };
+      // First, get the existing queue item
+      const { data: existingQueue, error: queueFetchError } = await supabaseClient
+        .from('notetaker_queue')
+        .select('id')
+        .eq('event_id', meetingId)
+        .maybeSingle();
 
-    // Update or insert the queue item
-    const queueOperation = existingQueue
-      ? supabaseClient
-          .from('notetaker_queue')
-          .update(queueData)
-          .eq('id', existingQueue.id)
-      : supabaseClient
-          .from('notetaker_queue')
-          .insert({
-            ...queueData,
-            event_id: meetingId,
-            user_id: event.user_id
-          });
+      if (queueFetchError) {
+        console.error('❌ Error fetching queue:', queueFetchError);
+        throw new Error('Failed to fetch notetaker queue');
+      }
 
-    const { error: queueError } = await queueOperation;
-
-    if (queueError) {
-      console.error('❌ Error updating notetaker queue:', queueError);
-      throw new Error('Failed to update notetaker queue')
-    }
-
-    console.log('✅ Successfully updated notetaker queue');
-
-    // Create recording entry with 'waiting' status
-    console.log('📝 Creating recording entry...');
-    const { error: recordingError } = await supabaseClient
-      .from('recordings')
-      .insert({
-        user_id: event.user_id,
-        event_id: event.id,
+      // Prepare the common data for both insert and update operations
+      const queueData = {
         notetaker_id: data.data.notetaker_id,
-        recording_url: '',
-        status: 'waiting'
-      });
+        status: 'sent',
+        scheduled_for: scheduledFor
+      };
 
-    if (recordingError) {
-      console.error('❌ Error creating recording entry:', recordingError);
-      throw new Error('Failed to create recording entry')
+      // Update or insert the queue item
+      const queueOperation = existingQueue
+        ? supabaseClient
+            .from('notetaker_queue')
+            .update(queueData)
+            .eq('id', existingQueue.id)
+        : supabaseClient
+            .from('notetaker_queue')
+            .insert({
+              ...queueData,
+              event_id: meetingId,
+              user_id: event.user_id
+            });
+
+      const { error: queueError } = await queueOperation;
+
+      if (queueError) {
+        console.error('❌ Error updating notetaker queue:', queueError);
+        throw new Error('Failed to update notetaker queue')
+      }
+
+      console.log('✅ Successfully updated notetaker queue');
     }
-
-    console.log('✅ Successfully created recording entry');
 
     return new Response(
       JSON.stringify({ 
