@@ -1,29 +1,32 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { MembersList } from "./MembersList";
 import { OrganizationInfo } from "./OrganizationInfo";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface OrganizationSettingsContentProps {
   organization: any;
   members: any[];
   userId: string;
-  onOrganizationUpdate: () => Promise<void>;
 }
 
 export const OrganizationSettingsContent = ({ 
   organization, 
   members, 
   userId,
-  onOrganizationUpdate 
 }: OrganizationSettingsContentProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
   const isAdmin = members.some(
     member => member.user_id === userId && member.role === 'admin'
   );
+
+  const handleOrganizationUpdate = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: ['organization_data', userId],
+    });
+  };
 
   return (
     <Card>
@@ -52,8 +55,7 @@ export const OrganizationSettingsContent = ({
 
                 if (error) throw error;
 
-                await onOrganizationUpdate();
-
+                await handleOrganizationUpdate();
                 toast({
                   title: "Success",
                   description: "User promoted to admin successfully!",
@@ -84,8 +86,7 @@ export const OrganizationSettingsContent = ({
 
                 if (profileError) throw profileError;
 
-                await onOrganizationUpdate();
-
+                await handleOrganizationUpdate();
                 toast({
                   title: "Success",
                   description: "User removed successfully!",

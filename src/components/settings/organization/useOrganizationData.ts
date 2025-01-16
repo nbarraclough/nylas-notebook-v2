@@ -5,12 +5,17 @@ export function useOrganizationData(userId: string) {
   return useQuery({
     queryKey: ['organization_data', userId],
     queryFn: async () => {
-      console.log('Fetching organization data for user:', userId);
-      
-      // First get the organization ID directly from profiles
+      // Get user's profile with organization info
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('organization_id')
+        .select(`
+          organization_id,
+          organizations (
+            id,
+            name,
+            domain
+          )
+        `)
         .eq('id', userId)
         .single();
 
@@ -24,22 +29,16 @@ export function useOrganizationData(userId: string) {
         return { organization: null, members: [] };
       }
 
-      // Get organization details
-      const { data: organization, error: orgError } = await supabase
-        .from('organizations')
-        .select('*')
-        .eq('id', profile.organization_id)
-        .single();
-
-      if (orgError) {
-        console.error('Organization fetch error:', orgError);
-        throw orgError;
-      }
-
-      // Get member roles in a direct query
-      const { data: memberRoles, error: membersError } = await supabase
-        .from('organization_members')
-        .select('user_id, role')
+      // Get organization members with their profiles
+      const { data: members, error: membersError } = await supabase
+        .from('profiles')
+        .select(`
+          id,
+          email,
+          organization_members!inner (
+            role
+          )
+        `)
         .eq('organization_id', profile.organization_id);
 
       if (membersError) {
@@ -47,33 +46,18 @@ export function useOrganizationData(userId: string) {
         throw membersError;
       }
 
-      // Get profiles in a separate query
-      const memberIds = memberRoles?.map(m => m.user_id) || [];
-      const { data: memberProfiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, email')
-        .in('id', memberIds);
-
-      if (profilesError) {
-        console.error('Member profiles fetch error:', profilesError);
-        throw profilesError;
-      }
-
-      // Combine the data
-      const membersWithProfiles = memberRoles?.map(member => ({
-        user_id: member.user_id,
-        role: member.role,
-        profiles: memberProfiles?.find(p => p.id === member.user_id) || { email: 'Unknown' }
+      // Transform the data into the expected format
+      const formattedMembers = members?.map(member => ({
+        user_id: member.id,
+        role: member.organization_members[0].role,
+        profiles: {
+          email: member.email
+        }
       })) || [];
 
-      console.log('Successfully fetched organization data:', {
-        organizationId: profile.organization_id,
-        memberCount: membersWithProfiles?.length
-      });
-
       return {
-        organization,
-        members: membersWithProfiles
+        organization: profile.organizations,
+        members: formattedMembers
       };
     },
     enabled: !!userId,
