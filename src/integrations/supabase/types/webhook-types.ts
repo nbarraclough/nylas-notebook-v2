@@ -1,4 +1,18 @@
 import type { Json } from './json';
+import type { NylasWebhookBase } from './webhook-types/base';
+import type {
+  GrantCreatedWebhook,
+  GrantUpdatedWebhook,
+  GrantDeletedWebhook,
+  GrantExpiredWebhook
+} from './webhook-types/grant';
+import type {
+  EventCreatedWebhook,
+  EventUpdatedWebhook,
+  EventDeletedWebhook
+} from './webhook-types/event';
+import type { ManualMeeting, ManualMeetingInsert, ManualMeetingUpdate } from './manual-meetings';
+import type { NotetakerQueue, NotetakerQueueInsert, NotetakerQueueUpdate } from './notetaker-queue';
 
 export type Database = {
   public: {
