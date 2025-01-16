@@ -1,0 +1,13 @@
+project_id = "xqzlejcvvtjdrabofrxs"
+
+[global.env]
+NYLAS_CLIENT_ID = "env(NYLAS_CLIENT_ID)"
+NYLAS_CLIENT_SECRET = "env(NYLAS_CLIENT_SECRET)"
+NYLAS_WEBHOOK_SECRET = "env(NYLAS_WEBHOOK_SECRET)"
+NYLAS_PROD_CLIENT_ID = "env(NYLAS_PROD_CLIENT_ID)"
+NYLAS_PROD_CLIENT_SECRET = "env(NYLAS_PROD_CLIENT_SECRET)"
+NYLAS_PROD_WEBHOOK_SECRET = "env(NYLAS_PROD_WEBHOOK_SECRET)"
+
+[[functions]]
+name = "process-email-notifications"
+verify_jwt = false

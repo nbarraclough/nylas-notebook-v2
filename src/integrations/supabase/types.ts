@@ -64,6 +64,8 @@ export type Database = {
         Row: {
           email_type: string
           id: string
+          processed: boolean | null
+          processed_at: string | null
           sent_at: string | null
           sent_date: string | null
           user_id: string | null
@@ -71,6 +73,8 @@ export type Database = {
         Insert: {
           email_type: string
           id?: string
+          processed?: boolean | null
+          processed_at?: string | null
           sent_at?: string | null
           sent_date?: string | null
           user_id?: string | null
@@ -78,6 +82,8 @@ export type Database = {
         Update: {
           email_type?: string
           id?: string
+          processed?: boolean | null
+          processed_at?: string | null
           sent_at?: string | null
           sent_date?: string | null
           user_id?: string | null
