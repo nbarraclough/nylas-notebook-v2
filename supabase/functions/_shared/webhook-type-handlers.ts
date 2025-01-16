@@ -25,6 +25,17 @@ async function handleNotetakerMediaUpdated(notetakerId: string, status: string) 
       return { success: true, message: `Skipped media refresh for status: ${status}` };
     }
 
+    // Update recordings status to "retrieving" before processing
+    const { error: updateError } = await supabase
+      .from('recordings')
+      .update({ status: 'retrieving', updated_at: new Date().toISOString() })
+      .eq('notetaker_id', notetakerId);
+
+    if (updateError) {
+      console.error('❌ Error updating recording status:', updateError);
+      throw updateError;
+    }
+
     // Find all recordings for this notetaker
     const { data: recordings, error: recordingsError } = await supabase
       .from('recordings')

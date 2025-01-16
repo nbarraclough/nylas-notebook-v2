@@ -121,7 +121,7 @@ serve(async (req) => {
     if (!isValid) {
       console.error('Invalid Mux signature:', {
         signature,
-        bodyPreview: body.substring(0, 100) // Log first 100 chars of body
+        bodyPreview: body.substring(0, 100)
       });
       throw new Error("Invalid signature");
     }
@@ -138,6 +138,27 @@ serve(async (req) => {
 
     // Handle different event types
     switch (type) {
+      case "video.asset.created": {
+        const { id: assetId } = data;
+        console.log('Video asset created:', { assetId });
+
+        const { error } = await supabase
+          .from("recordings")
+          .update({
+            status: "processing",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("mux_asset_id", assetId);
+
+        if (error) {
+          console.error('Error updating recording:', error);
+          throw error;
+        }
+        
+        logWebhookSuccess('video.asset.created');
+        break;
+      }
+
       case "video.asset.ready": {
         const { playback_ids, id: assetId } = data;
         const playbackId = playback_ids?.[0]?.id;

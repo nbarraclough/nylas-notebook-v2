@@ -1,310 +1,117 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
-import { corsHeaders } from '../_shared/cors.ts'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { Upload } from "https://esm.sh/@aws-sdk/lib-storage@3.354.0";
+import { S3Client, GetObjectCommand } from "https://esm.sh/@aws-sdk/client-s3@3.354.0";
+import { Readable } from "https://deno.land/std@0.168.0/node/stream.ts";
 
-const NYLAS_API_URL = 'https://api.us.nylas.com';
-const MUX_API_URL = 'https://api.mux.com/video/v1';
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
-Deno.serve(async (req) => {
-  // Handle CORS
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { recordingId, notetakerId } = await req.json()
-    console.log('🎥 Processing request for recording:', recordingId, 'notetaker:', notetakerId)
-
-    if (!recordingId || !notetakerId) {
-      console.error('❌ Missing required parameters:', { recordingId, notetakerId });
-      return new Response(
-        JSON.stringify({ 
-          error: 'Missing required parameters',
-          details: { recordingId, notetakerId },
-          type: 'VALIDATION_ERROR'
-        }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    // Initialize Supabase client
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-
-    // Get the recording details
-    const { data: recording, error: recordingError } = await supabaseClient
-      .from('recordings')
-      .select('*, profiles:user_id(nylas_grant_id)')
-      .eq('id', recordingId)
-      .maybeSingle()
-
-    if (recordingError) {
-      console.error('❌ [Database] Error fetching recording:', recordingError)
-      return new Response(
-        JSON.stringify({ 
-          error: 'Database error while fetching recording',
-          details: recordingError,
-          type: 'DATABASE_ERROR'
-        }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    if (!recording) {
-      console.error('❌ [Database] Recording not found:', recordingId)
-      return new Response(
-        JSON.stringify({ 
-          error: 'Recording not found',
-          type: 'NOT_FOUND'
-        }),
-        { 
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    const grantId = recording.profiles?.nylas_grant_id
-    if (!grantId) {
-      console.error('❌ [Database] Nylas grant ID not found for user')
-      return new Response(
-        JSON.stringify({ 
-          error: 'Nylas grant ID not found',
-          type: 'CONFIGURATION_ERROR'
-        }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    console.log('📧 [Nylas] Fetching media for grant:', grantId)
-    const nylasUrl = `${NYLAS_API_URL}/v3/grants/${grantId}/notetakers/${notetakerId}/media`;
+    const { recordingId, notetakerId } = await req.json();
     
-    // Fetch media from Nylas
-    const response = await fetch(nylasUrl, {
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
-      },
-    })
-
-    const responseText = await response.text();
-    console.log('📧 [Nylas] Raw API response:', responseText);
-
-    if (!response.ok) {
-      console.error('❌ [Nylas] API error:', {
-        status: response.status,
-        statusText: response.statusText,
-        body: responseText
-      });
-      
-      if (response.status === 404) {
-        return new Response(
-          JSON.stringify({ 
-            error: 'MEDIA_NOT_READY',
-            message: 'Media is not available yet'
-          }),
-          { 
-            status: 202,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        )
-      }
-
-      return new Response(
-        JSON.stringify({ 
-          error: 'Failed to fetch media from Nylas',
-          status: response.status,
-          type: 'NYLAS_API_ERROR',
-          details: responseText
-        }),
-        { 
-          status: 502,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+    if (!recordingId || !notetakerId) {
+      throw new Error('Missing required parameters');
     }
 
-    // Parse the JSON response
-    let mediaData;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Attempt to get recording media
     try {
-      mediaData = JSON.parse(responseText);
-      console.log('📧 [Nylas] Parsed media data:', mediaData);
-    } catch (error) {
-      console.error('❌ [Nylas] Error parsing response:', error);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Invalid JSON response from Nylas',
-          details: error.message,
-          raw: responseText
-        }),
-        { 
-          status: 502,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
+      const s3Client = new S3Client({
+        region: Deno.env.get('AWS_REGION')!,
+        credentials: {
+          accessKeyId: Deno.env.get('AWS_ACCESS_KEY_ID')!,
+          secretAccessKey: Deno.env.get('AWS_SECRET_ACCESS_KEY')!,
+        },
+      });
 
-    // Download transcript content if available
-    let transcriptContent = null;
-    if (mediaData.data?.transcript?.url) {
-      try {
-        console.log('📝 [Transcript] Downloading transcript from:', mediaData.data.transcript.url);
-        const transcriptResponse = await fetch(mediaData.data.transcript.url);
-        if (transcriptResponse.ok) {
-          transcriptContent = await transcriptResponse.json();
-          console.log('📝 [Transcript] Successfully downloaded transcript');
-        } else {
-          console.error('❌ [Transcript] Failed to download:', transcriptResponse.statusText);
-        }
-      } catch (error) {
-        console.error('❌ [Transcript] Error downloading transcript:', error);
+      const getObjectCommand = new GetObjectCommand({
+        Bucket: Deno.env.get('AWS_BUCKET_NAME')!,
+        Key: `recordings/${notetakerId}/recording.webm`,
+      });
+
+      const { Body } = await s3Client.send(getObjectCommand);
+      if (!Body) throw new Error('No recording found');
+
+      const stream = Body as Readable;
+      const chunks: Uint8Array[] = [];
+      
+      for await (const chunk of stream) {
+        chunks.push(chunk);
       }
-    }
-
-    // Create Mux asset if we have a recording URL
-    if (mediaData.data?.recording?.url) {
-      try {
-        console.log('🎬 [Mux] Creating asset from recording URL:', mediaData.data.recording.url);
-        console.log('🎬 [Mux] File size reported by Nylas:', mediaData.data.recording.size);
-        
-        const muxResponse = await fetch(`${MUX_API_URL}/assets`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Basic ${btoa(`${Deno.env.get('MUX_TOKEN_ID')}:${Deno.env.get('MUX_TOKEN_SECRET')}`)}`,
-          },
-          body: JSON.stringify({
-            input: mediaData.data.recording.url,
-            playback_policy: ['public'],
-            video_quality: 'basic'
-          }),
-        });
-
-        const muxResponseText = await muxResponse.text();
-        console.log('🎬 [Mux] Raw API response:', muxResponseText);
-
-        if (!muxResponse.ok) {
-          console.error('❌ [Mux] API error:', {
-            status: muxResponse.status,
-            statusText: muxResponse.statusText,
-            headers: Object.fromEntries(muxResponse.headers.entries()),
-            body: muxResponseText
-          });
-          throw new Error(`Mux API error: ${muxResponse.status} ${muxResponseText}`);
-        }
-
-        let muxData;
-        try {
-          muxData = JSON.parse(muxResponseText);
-          console.log('🎬 [Mux] Parsed response data:', muxData);
-        } catch (error) {
-          console.error('❌ [Mux] Error parsing response:', error);
-          throw error;
-        }
-
-        // Update recording with Mux IDs, URLs, and transcript content
-        const { error: updateError } = await supabaseClient
-          .from('recordings')
-          .update({
-            video_url: mediaData.data.recording.url,
-            transcript_url: mediaData.data.transcript?.url,
-            transcript_content: transcriptContent,
-            mux_asset_id: muxData.data.id,
-            mux_playback_id: muxData.data.playback_ids[0].id,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', recordingId);
-
-        if (updateError) {
-          console.error('❌ [Database] Error updating recording with Mux data:', updateError);
-          throw updateError;
-        }
-
-        console.log('✅ Successfully updated recording with Mux data and transcript');
-      } catch (error) {
-        console.error('❌ [Mux] Error creating Mux asset:', {
-          error: error.message,
-          stack: error.stack,
-          cause: error.cause
-        });
-        // Update recording without Mux data, but with available URLs and transcript
-        const { error: updateError } = await supabaseClient
-          .from('recordings')
-          .update({
-            video_url: mediaData.data.recording?.url,
-            transcript_url: mediaData.data.transcript?.url,
-            transcript_content: transcriptContent,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', recordingId);
-
-        if (updateError) {
-          console.error('❌ [Database] Error updating recording:', updateError);
-          throw updateError;
-        }
+      
+      const buffer = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0));
+      let offset = 0;
+      for (const chunk of chunks) {
+        buffer.set(chunk, offset);
+        offset += chunk.length;
       }
-    } else {
-      console.log('⚠️ [Nylas] Recording URL not found in response. Full response:', mediaData);
-      // Update recording without Mux data
-      const { error: updateError } = await supabaseClient
+
+      const formData = new FormData();
+      const blob = new Blob([buffer], { type: 'video/webm' });
+      formData.append('file', blob, 'recording.webm');
+
+      const muxResponse = await fetch('https://api.mux.com/video/v1/assets', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${btoa(Deno.env.get('MUX_TOKEN_ID')! + ':' + Deno.env.get('MUX_TOKEN_SECRET')!)}`,
+        },
+        body: formData,
+      });
+
+      if (!muxResponse.ok) {
+        throw new Error(`Failed to upload to Mux: ${await muxResponse.text()}`);
+      }
+
+      const muxData = await muxResponse.json();
+      const assetId = muxData.data.id;
+
+      const { error: updateError } = await supabase
         .from('recordings')
         .update({
-          video_url: mediaData.data?.recording?.url,
-          transcript_url: mediaData.data?.transcript?.url,
-          transcript_content: transcriptContent,
-          updated_at: new Date().toISOString(),
+          mux_asset_id: assetId,
+          status: 'processing',
+          updated_at: new Date().toISOString()
         })
         .eq('id', recordingId);
 
-      if (updateError) {
-        console.error('❌ [Database] Error updating recording:', updateError);
-        return new Response(
-          JSON.stringify({ 
-            error: 'Failed to update recording with media data',
-            details: updateError,
-            type: 'DATABASE_ERROR'
-          }),
-          { 
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
-      }
+      if (updateError) throw updateError;
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+
+    } catch (error) {
+      // Update status to error if media retrieval fails
+      await supabase
+        .from('recordings')
+        .update({
+          status: 'error',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', recordingId);
+
+      throw error;
     }
 
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        videoUrl: mediaData.data?.recording?.url,
-        transcriptUrl: mediaData.data?.transcript?.url,
-        hasTranscript: !!transcriptContent
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    )
   } catch (error) {
-    console.error('❌ Error in get-recording-media:', error)
     return new Response(
-      JSON.stringify({ 
-        error: error.message,
-        type: 'INTERNAL_ERROR'
-      }),
-      {
+      JSON.stringify({ error: error.message }),
+      { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
+        status: 400 
       }
-    )
+    );
   }
-})
+});
