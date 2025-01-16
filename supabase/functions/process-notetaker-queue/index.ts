@@ -26,7 +26,8 @@ Deno.serve(async (req) => {
           conference_url,
           title,
           start_time,
-          end_time
+          end_time,
+          manual_meeting_id
         ),
         profiles (
           nylas_grant_id,
@@ -54,128 +55,131 @@ Deno.serve(async (req) => {
     }
 
     const results = await Promise.all(
-      queueItems.map(async (item) => {
-        console.log(`Processing queue item ${item.id} for event:`, item.events?.title)
-        
-        try {
-          if (!item.events?.conference_url) {
-            throw new Error('Conference URL not found for event')
-          }
-
-          if (!item.profiles?.nylas_grant_id) {
-            throw new Error('Nylas grant ID not found for user')
-          }
-
-          console.log('Sending notetaker request to Nylas for event:', item.events.title)
+      queueItems
+        // Filter out manual meetings
+        .filter(item => !item.events?.manual_meeting_id)
+        .map(async (item) => {
+          console.log(`Processing queue item ${item.id} for event:`, item.events?.title)
           
-          const response = await fetch(
-            `https://api.us.nylas.com/v3/grants/${item.profiles.nylas_grant_id}/notetakers`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json, application/gzip',
-                'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`
-              },
-              body: JSON.stringify({
-                meeting_link: item.events.conference_url,
-                notetaker_name: item.profiles.notetaker_name || 'Nylas Notetaker'
-              })
-            }
-          )
-
-          const responseText = await response.text();
-          console.log(`Raw Nylas API response for queue item ${item.id}:`, responseText);
-
-          let responseData;
           try {
-            responseData = JSON.parse(responseText);
-          } catch (e) {
-            console.error('Error parsing Nylas response:', e);
-            throw new Error(`Invalid JSON response from Nylas: ${responseText}`);
+            if (!item.events?.conference_url) {
+              throw new Error('Conference URL not found for event')
+            }
+
+            if (!item.profiles?.nylas_grant_id) {
+              throw new Error('Nylas grant ID not found for user')
+            }
+
+            console.log('Sending notetaker request to Nylas for event:', item.events.title)
+            
+            const response = await fetch(
+              `https://api.us.nylas.com/v3/grants/${item.profiles.nylas_grant_id}/notetakers`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json, application/gzip',
+                  'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`
+                },
+                body: JSON.stringify({
+                  meeting_link: item.events.conference_url,
+                  notetaker_name: item.profiles.notetaker_name || 'Nylas Notetaker'
+                })
+              }
+            )
+
+            const responseText = await response.text();
+            console.log(`Raw Nylas API response for queue item ${item.id}:`, responseText);
+
+            let responseData;
+            try {
+              responseData = JSON.parse(responseText);
+            } catch (e) {
+              console.error('Error parsing Nylas response:', e);
+              throw new Error(`Invalid JSON response from Nylas: ${responseText}`);
+            }
+
+            if (!response.ok) {
+              throw new Error(`Nylas API error: ${JSON.stringify(responseData)}`)
+            }
+
+            // Update queue item with notetaker_id and status using upsert
+            const { error: queueUpdateError } = await supabaseClient
+              .from('notetaker_queue')
+              .upsert({
+                id: item.id,
+                status: 'sent',
+                notetaker_id: responseData.data.notetaker_id,
+                attempts: (item.attempts || 0) + 1,
+                last_attempt: new Date().toISOString(),
+                error: null
+              }, {
+                onConflict: 'id',
+                ignoreDuplicates: false
+              });
+
+            if (queueUpdateError) {
+              console.error(`Error upserting queue item ${item.id}:`, queueUpdateError);
+              throw queueUpdateError;
+            }
+
+            // Upsert recording entry
+            const { error: recordingError } = await supabaseClient
+              .from('recordings')
+              .upsert({
+                user_id: item.user_id,
+                event_id: item.event_id,
+                notetaker_id: responseData.data.notetaker_id,
+                status: 'processing',
+                recording_url: responseData.data.recording_url || '',
+                updated_at: new Date().toISOString()
+              }, {
+                onConflict: 'notetaker_id',
+                ignoreDuplicates: false
+              });
+
+            if (recordingError) {
+              console.error(`Error upserting recording for queue item ${item.id}:`, recordingError);
+              throw recordingError;
+            }
+
+            return {
+              queueId: item.id,
+              status: 'success',
+              notetakerId: responseData.data.notetaker_id
+            }
+
+          } catch (error) {
+            console.error(`Error processing queue item ${item.id}:`, error)
+
+            const newAttempts = (item.attempts || 0) + 1;
+            const newStatus = newAttempts >= 3 ? 'failed' : 'pending';
+
+            // Update queue item with error using upsert
+            const { error: updateError } = await supabaseClient
+              .from('notetaker_queue')
+              .upsert({
+                id: item.id,
+                attempts: newAttempts,
+                last_attempt: new Date().toISOString(),
+                error: error.message,
+                status: newStatus
+              }, {
+                onConflict: 'id',
+                ignoreDuplicates: false
+              });
+
+            if (updateError) {
+              console.error(`Error updating error status for queue item ${item.id}:`, updateError);
+            }
+
+            return {
+              queueId: item.id,
+              status: 'error',
+              error: error.message
+            }
           }
-
-          if (!response.ok) {
-            throw new Error(`Nylas API error: ${JSON.stringify(responseData)}`)
-          }
-
-          // Update queue item with notetaker_id and status using upsert
-          const { error: queueUpdateError } = await supabaseClient
-            .from('notetaker_queue')
-            .upsert({
-              id: item.id,
-              status: 'sent',
-              notetaker_id: responseData.data.notetaker_id,
-              attempts: (item.attempts || 0) + 1,
-              last_attempt: new Date().toISOString(),
-              error: null
-            }, {
-              onConflict: 'id',
-              ignoreDuplicates: false
-            });
-
-          if (queueUpdateError) {
-            console.error(`Error upserting queue item ${item.id}:`, queueUpdateError);
-            throw queueUpdateError;
-          }
-
-          // Upsert recording entry
-          const { error: recordingError } = await supabaseClient
-            .from('recordings')
-            .upsert({
-              user_id: item.user_id,
-              event_id: item.event_id,
-              notetaker_id: responseData.data.notetaker_id,
-              status: 'processing',
-              recording_url: responseData.data.recording_url || '',
-              updated_at: new Date().toISOString()
-            }, {
-              onConflict: 'notetaker_id',
-              ignoreDuplicates: false
-            });
-
-          if (recordingError) {
-            console.error(`Error upserting recording for queue item ${item.id}:`, recordingError);
-            throw recordingError;
-          }
-
-          return {
-            queueId: item.id,
-            status: 'success',
-            notetakerId: responseData.data.notetaker_id
-          }
-
-        } catch (error) {
-          console.error(`Error processing queue item ${item.id}:`, error)
-
-          const newAttempts = (item.attempts || 0) + 1;
-          const newStatus = newAttempts >= 3 ? 'failed' : 'pending';
-
-          // Update queue item with error using upsert
-          const { error: updateError } = await supabaseClient
-            .from('notetaker_queue')
-            .upsert({
-              id: item.id,
-              attempts: newAttempts,
-              last_attempt: new Date().toISOString(),
-              error: error.message,
-              status: newStatus
-            }, {
-              onConflict: 'id',
-              ignoreDuplicates: false
-            });
-
-          if (updateError) {
-            console.error(`Error updating error status for queue item ${item.id}:`, updateError);
-          }
-
-          return {
-            queueId: item.id,
-            status: 'error',
-            error: error.message
-          }
-        }
-      })
+        })
     )
 
     return new Response(
