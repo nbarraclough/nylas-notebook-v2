@@ -19,9 +19,10 @@ export const SharedVideoPlayer = forwardRef<BaseVideoPlayerRef, SharedVideoPlaye
     return `https://stream.mux.com/${playbackId}.m3u8`;
   };
 
+  // Prioritize Mux playback URL over other sources
   const videoSource = muxPlaybackId 
     ? getMuxPlaybackUrl(muxPlaybackId)
-    : videoUrl || recordingUrl;
+    : videoUrl;
 
   console.log('SharedVideoPlayer initialized with:', {
     muxPlaybackId,

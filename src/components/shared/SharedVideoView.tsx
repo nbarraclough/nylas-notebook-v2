@@ -37,7 +37,7 @@ export function SharedVideoView() {
               <div className="aspect-video relative">
                 <SharedVideoPlayer
                   videoUrl={recording?.video_url}
-                  recordingUrl={recording?.recording_url}
+                  recordingUrl={null}
                   recordingId={recording?.id || ''}
                   notetakerId={recording?.notetaker_id}
                   muxPlaybackId={recording?.mux_playback_id}
