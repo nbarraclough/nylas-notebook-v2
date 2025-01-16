@@ -81,6 +81,24 @@ serve(async (req) => {
       }
     })
 
+    console.log('Checking if profile exists...')
+    // First check if profile exists
+    const { data: existingProfile, error: checkError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error('Error checking profile:', checkError)
+      throw new Error(`Failed to check profile: ${checkError.message}`)
+    }
+
+    if (!existingProfile) {
+      console.error('No profile found for user:', userId)
+      throw new Error('No profile found for user')
+    }
+
     console.log('Updating profile with grant info...')
     // Update the profile with new nylas_grant_id and grant status
     const { data: updateData, error: updateError } = await supabase
