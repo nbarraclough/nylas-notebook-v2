@@ -40,32 +40,76 @@ serve(async (req) => {
 
     // Attempt to get recording media
     try {
-      console.log('🔄 Fetching recording from AWS...');
-      
-      const response = await fetch(`https://api-staging.us.nylas.com/v3/notetakers/${notetakerId}/media`, {
+      const nylasUrl = `https://api-staging.us.nylas.com/v3/notetakers/${notetakerId}/media`;
+      const nylasHeaders = {
+        'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+
+      console.log('🔄 Preparing Nylas request:', {
+        url: nylasUrl,
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          ...nylasHeaders,
+          'Authorization': 'Bearer [REDACTED]' // Don't log the actual token
         },
+        notetakerId,
+      });
+      
+      const response = await fetch(nylasUrl, {
+        method: 'GET',
+        headers: nylasHeaders,
       });
 
+      const responseText = await response.text(); // Get raw response text first
+      console.log('📥 Nylas response status:', response.status);
+      console.log('📥 Nylas response headers:', Object.fromEntries(response.headers.entries()));
+      console.log('📥 Nylas response body:', responseText);
+
       if (!response.ok) {
-        console.error('❌ Failed to fetch media from Nylas:', response.status, await response.text());
+        console.error('❌ Failed to fetch media from Nylas:', {
+          status: response.status,
+          statusText: response.statusText,
+          responseBody: responseText,
+          headers: Object.fromEntries(response.headers.entries())
+        });
         throw new Error(`Failed to fetch media: ${response.statusText}`);
       }
 
-      const mediaData = await response.json();
-      console.log('✅ Successfully retrieved media data from Nylas');
+      let mediaData;
+      try {
+        mediaData = JSON.parse(responseText);
+      } catch (e) {
+        console.error('❌ Failed to parse Nylas response as JSON:', e);
+        throw new Error('Invalid JSON response from Nylas');
+      }
+
+      console.log('✅ Successfully retrieved media data from Nylas:', {
+        mediaData: {
+          ...mediaData,
+          download_url: mediaData.download_url ? '[REDACTED]' : undefined // Don't log the full URL
+        }
+      });
 
       // Prepare media for Mux upload
       console.log('🎥 Preparing to upload to Mux...');
       const formData = new FormData();
       
       // Fetch the actual media content
+      console.log('📥 Fetching media content from download URL...');
       const mediaResponse = await fetch(mediaData.download_url);
+      
+      if (!mediaResponse.ok) {
+        console.error('❌ Failed to fetch media content:', {
+          status: mediaResponse.status,
+          statusText: mediaResponse.statusText
+        });
+        throw new Error('Failed to fetch media content');
+      }
+
       const mediaBlob = await mediaResponse.blob();
+      console.log('📦 Media content size:', mediaBlob.size, 'bytes');
       formData.append('file', mediaBlob, 'recording.webm');
 
       console.log('📤 Uploading to Mux...');
@@ -78,7 +122,12 @@ serve(async (req) => {
       });
 
       if (!muxResponse.ok) {
-        console.error('❌ Failed to upload to Mux:', await muxResponse.text());
+        const muxErrorText = await muxResponse.text();
+        console.error('❌ Failed to upload to Mux:', {
+          status: muxResponse.status,
+          statusText: muxResponse.statusText,
+          error: muxErrorText
+        });
         throw new Error(`Failed to upload to Mux: ${muxResponse.statusText}`);
       }
 
