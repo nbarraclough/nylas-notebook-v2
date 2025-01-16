@@ -84,7 +84,6 @@ async function handleNotetakerMediaUpdated(notetakerId: string, status: Notetake
       // If processing failed, log detailed error
       if (status === 'media_processing_failed') {
         console.error(`❌ Recording processing failed for ${recording.id}`);
-        // Here we could add notification logic if needed
       }
 
       console.log(`✅ Successfully updated recording ${recording.id}`);
@@ -140,9 +139,9 @@ export const handleWebhookType = async (webhookData: any, grantId: string, reque
         console.log(`📝 [${requestId}] Processing ${webhookData.type} webhook`);
         console.log('Webhook data:', JSON.stringify(webhookData, null, 2));
         
-        // Extract notetaker_id and status from the correct path
-        const notetakerId = webhookData.data?.notetaker_id;
-        const mediaStatus = webhookData.data?.status as NotetakerMediaStatus;
+        // Extract notetaker_id and status from the correct path in the webhook data
+        const notetakerId = webhookData.data.object.notetaker_id;
+        const mediaStatus = webhookData.data.object.status as NotetakerMediaStatus;
         
         if (!notetakerId) {
           console.error('❌ Missing notetaker_id in media_updated webhook', webhookData);
