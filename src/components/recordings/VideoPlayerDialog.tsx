@@ -7,9 +7,10 @@ interface VideoPlayerDialogProps {
   videoUrl: string;
   title: string;
   children?: React.ReactNode;
+  onRetrieveMedia?: () => Promise<void>;
 }
 
-export const VideoPlayerDialog = ({ videoUrl, title, children }: VideoPlayerDialogProps) => {
+export const VideoPlayerDialog = ({ videoUrl, title, children, onRetrieveMedia }: VideoPlayerDialogProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
