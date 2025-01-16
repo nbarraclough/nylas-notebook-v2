@@ -8,6 +8,7 @@ import { ConnectNylas } from "@/components/calendar/ConnectNylas";
 import { EventsList } from "@/components/calendar/EventsList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRealtimeUpdates } from "@/hooks/use-realtime-updates";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 export default function Calendar() {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ export default function Calendar() {
   const [isLoading, setIsLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
+  const [isInitialSync, setIsInitialSync] = useState(false);
 
   // Add query for grant status
   const { data: profile } = useQuery({
@@ -47,6 +49,16 @@ export default function Calendar() {
         .order('start_time', { ascending: true });
 
       if (error) throw error;
+
+      // If this is the first successful fetch and we have events, show a success toast
+      if (data.length > 0 && isInitialSync) {
+        toast({
+          title: "Calendar Synced",
+          description: "Your calendar has been successfully connected and events synced!",
+        });
+        setIsInitialSync(false);
+      }
+
       return data;
     },
     enabled: !!userId,
@@ -80,6 +92,22 @@ export default function Calendar() {
       subscription.unsubscribe();
     };
   }, [navigate]);
+
+  // Check if we just connected Nylas (code param exists)
+  useEffect(() => {
+    if (searchParams.get('code')) {
+      setIsInitialSync(true);
+    }
+  }, [searchParams]);
+
+  // Show LoadingScreen during initial sync
+  if (isInitialSync && isLoadingEvents) {
+    return (
+      <PageLayout>
+        <LoadingScreen />
+      </PageLayout>
+    );
+  }
 
   // Show ConnectNylas if no grant_id or grant status is not active
   if (!profile?.nylas_grant_id || (profile?.grant_status && profile.grant_status !== 'active')) {
