@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { useState } from "react";
-import Hls from "hls.js";
-import { useEffect, useRef } from "react";
+import { BaseVideoPlayer, type BaseVideoPlayerRef } from "./player/BaseVideoPlayer";
+import { useRef } from "react";
 
 interface VideoPlayerDialogProps {
   videoUrl: string;
@@ -11,36 +11,7 @@ interface VideoPlayerDialogProps {
 
 export const VideoPlayerDialog = ({ videoUrl, title, children }: VideoPlayerDialogProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    if (!videoRef.current || !isOpen || !videoUrl) return;
-
-    const video = videoRef.current;
-    
-    if (Hls.isSupported()) {
-      const hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: true,
-      });
-      
-      hls.loadSource(videoUrl);
-      hls.attachMedia(video);
-      
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.play().catch(error => {
-          console.log("Playback failed:", error);
-        });
-      });
-
-      return () => {
-        hls.destroy();
-      };
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // For Safari
-      video.src = videoUrl;
-    }
-  }, [videoUrl, isOpen]);
+  const videoRef = useRef<BaseVideoPlayerRef>(null);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -55,16 +26,11 @@ export const VideoPlayerDialog = ({ videoUrl, title, children }: VideoPlayerDial
           </DialogDescription>
         </DialogHeader>
         <div className="aspect-video w-full relative">
-          <video 
+          <BaseVideoPlayer 
             ref={videoRef}
-            className="w-full h-full rounded-lg"
-            controls
-            playsInline
-            preload="metadata"
-            controlsList="nodownload"
-          >
-            Your browser does not support the video tag.
-          </video>
+            videoUrl={videoUrl}
+            recordingUrl={null}
+          />
         </div>
       </DialogContent>
     </Dialog>
