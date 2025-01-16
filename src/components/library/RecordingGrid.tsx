@@ -27,6 +27,21 @@ export function RecordingGrid({
     });
   };
 
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'waiting':
+        return 'secondary';
+      case 'retrieving':
+        return 'secondary';
+      case 'processing':
+        return 'default';
+      case 'error':
+        return 'destructive';
+      default:
+        return 'default';
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -87,22 +102,32 @@ export function RecordingGrid({
                         format(new Date(recording.event.start_time), "PPp")}
                     </p>
                   </div>
-                  <Badge 
-                    variant={internal ? "secondary" : "outline"}
-                    className={`text-xs ${internal ? 'bg-purple-100 hover:bg-purple-100 text-purple-800' : 'border-blue-200 text-blue-700 hover:bg-blue-50'}`}
-                  >
-                    {internal ? (
-                      <>
-                        <Shield className="w-3 h-3 mr-1" />
-                        Internal
-                      </>
-                    ) : (
-                      <>
-                        <Globe className="w-3 h-3 mr-1" />
-                        External
-                      </>
+                  <div className="flex flex-col gap-1">
+                    <Badge 
+                      variant={internal ? "secondary" : "outline"}
+                      className={`text-xs ${internal ? 'bg-purple-100 hover:bg-purple-100 text-purple-800' : 'border-blue-200 text-blue-700 hover:bg-blue-50'}`}
+                    >
+                      {internal ? (
+                        <>
+                          <Shield className="w-3 h-3 mr-1" />
+                          Internal
+                        </>
+                      ) : (
+                        <>
+                          <Globe className="w-3 h-3 mr-1" />
+                          External
+                        </>
+                      )}
+                    </Badge>
+                    {recording.status && recording.status !== 'ready' && (
+                      <Badge 
+                        variant={getStatusBadgeVariant(recording.status.toLowerCase())}
+                        className="text-xs"
+                      >
+                        {recording.status}
+                      </Badge>
                     )}
-                  </Badge>
+                  </div>
                 </div>
               </CardContent>
             </Card>
