@@ -1,5 +1,3 @@
-// Follow this setup to create Supabase client in Edge Functions
-// https://supabase.com/docs/guides/functions/connect-to-supabase
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 const corsHeaders = {
@@ -8,7 +6,6 @@ const corsHeaders = {
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -16,13 +13,11 @@ Deno.serve(async (req) => {
   try {
     console.log('Processing notetaker queue...')
     
-    // Initialize Supabase client with service role key for admin access
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get all pending queue items without notetaker_id and less than 3 attempts
     const { data: queueItems, error: queueError } = await supabaseClient
       .from('notetaker_queue')
       .select(`
@@ -40,9 +35,9 @@ Deno.serve(async (req) => {
       `)
       .eq('status', 'pending')
       .is('notetaker_id', null)
-      .lt('attempts', 3) // Only process items that haven't failed too many times
-      .gt('scheduled_for', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // Only process items scheduled within last 24 hours
-      .lt('scheduled_for', new Date().toISOString()) // Only process items scheduled for now or the past
+      .lt('attempts', 3)
+      .gt('scheduled_for', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+      .lt('scheduled_for', new Date().toISOString())
 
     if (queueError) {
       console.error('Error fetching queue items:', queueError)
@@ -58,7 +53,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Process each queue item
     const results = await Promise.all(
       queueItems.map(async (item) => {
         console.log(`Processing queue item ${item.id} for event:`, item.events?.title)
@@ -74,9 +68,6 @@ Deno.serve(async (req) => {
 
           console.log('Sending notetaker request to Nylas for event:', item.events.title)
           
-          // Send notetaker request to Nylas
-
-          // Send notetaker request to Nylas using production URL
           const response = await fetch(
             `https://api.us.nylas.com/v3/grants/${item.profiles.nylas_grant_id}/notetakers`,
             {
@@ -108,24 +99,27 @@ Deno.serve(async (req) => {
             throw new Error(`Nylas API error: ${JSON.stringify(responseData)}`)
           }
 
-          // Update queue item with notetaker_id and status
-          const { error: successError } = await supabaseClient
+          // Update queue item with notetaker_id and status using upsert
+          const { error: queueUpdateError } = await supabaseClient
             .from('notetaker_queue')
-            .update({
-              status: 'success',
+            .upsert({
+              id: item.id,
+              status: 'sent',
               notetaker_id: responseData.data.notetaker_id,
               attempts: (item.attempts || 0) + 1,
               last_attempt: new Date().toISOString(),
-              error: null // Clear any previous errors
-            })
-            .eq('id', item.id)
+              error: null
+            }, {
+              onConflict: 'id',
+              ignoreDuplicates: false
+            });
 
-          if (successError) {
-            console.error(`Error updating queue item ${item.id} status:`, successError)
-            throw successError
+          if (queueUpdateError) {
+            console.error(`Error upserting queue item ${item.id}:`, queueUpdateError);
+            throw queueUpdateError;
           }
 
-          // Create or update recording entry using upsert with notetaker_id as the conflict target
+          // Upsert recording entry
           const { error: recordingError } = await supabaseClient
             .from('recordings')
             .upsert({
@@ -138,11 +132,11 @@ Deno.serve(async (req) => {
             }, {
               onConflict: 'notetaker_id',
               ignoreDuplicates: false
-            })
+            });
 
           if (recordingError) {
-            console.error(`Error upserting recording for queue item ${item.id}:`, recordingError)
-            throw recordingError
+            console.error(`Error upserting recording for queue item ${item.id}:`, recordingError);
+            throw recordingError;
           }
 
           return {
@@ -157,19 +151,22 @@ Deno.serve(async (req) => {
           const newAttempts = (item.attempts || 0) + 1;
           const newStatus = newAttempts >= 3 ? 'failed' : 'pending';
 
-          // Update queue item with error and increment attempts
+          // Update queue item with error using upsert
           const { error: updateError } = await supabaseClient
             .from('notetaker_queue')
-            .update({
+            .upsert({
+              id: item.id,
               attempts: newAttempts,
               last_attempt: new Date().toISOString(),
               error: error.message,
-              status: newStatus // Mark as failed after 3 attempts
-            })
-            .eq('id', item.id)
+              status: newStatus
+            }, {
+              onConflict: 'id',
+              ignoreDuplicates: false
+            });
 
           if (updateError) {
-            console.error(`Error updating error status for queue item ${item.id}:`, updateError)
+            console.error(`Error updating error status for queue item ${item.id}:`, updateError);
           }
 
           return {

@@ -4,7 +4,6 @@ import { corsHeaders } from '../_shared/cors.ts'
 const NYLAS_API_URL = 'https://api.us.nylas.com';
 
 Deno.serve(async (req) => {
-  // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -23,14 +22,12 @@ Deno.serve(async (req) => {
       throw new Error('Missing required parameters')
     }
 
-    // Initialize Supabase client
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
     console.log('🔍 Fetching event details...');
-    // Get user's profile for notetaker name
     const { data: event, error: eventError } = await supabaseClient
       .from('events')
       .select(`
@@ -64,7 +61,6 @@ Deno.serve(async (req) => {
       notetakerName: event.profiles?.notetaker_name || 'Nylas Notetaker'
     });
 
-    // Send notetaker to the meeting
     const response = await fetch(
       `${NYLAS_API_URL}/v3/grants/${grantId}/notetakers`,
       {
@@ -101,73 +97,45 @@ Deno.serve(async (req) => {
       headers: Object.fromEntries(response.headers.entries())
     });
 
-    // For manual meetings, we don't need to update the queue
-    // The recording entry is created directly
-    if (isManualMeeting) {
-      console.log('📝 Creating recording entry for manual meeting...');
-      const { error: recordingError } = await supabaseClient
-        .from('recordings')
-        .insert({
+    // Use upsert for recordings table
+    const { error: recordingError } = await supabaseClient
+      .from('recordings')
+      .upsert({
+        user_id: event.user_id,
+        event_id: event.id,
+        notetaker_id: data.data.notetaker_id,
+        recording_url: '',
+        status: 'waiting',
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'notetaker_id',
+        ignoreDuplicates: false
+      });
+
+    if (recordingError) {
+      console.error('❌ Error upserting recording:', recordingError);
+      throw new Error('Failed to upsert recording')
+    }
+
+    // For calendar meetings, update the queue
+    if (!isManualMeeting) {
+      const { error: queueError } = await supabaseClient
+        .from('notetaker_queue')
+        .upsert({
           user_id: event.user_id,
           event_id: event.id,
           notetaker_id: data.data.notetaker_id,
-          recording_url: '',
-          status: 'waiting'
+          status: 'sent',
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'event_id',
+          ignoreDuplicates: false
         });
 
-      if (recordingError) {
-        console.error('❌ Error creating recording entry:', recordingError);
-        throw new Error('Failed to create recording entry')
-      }
-
-      console.log('✅ Successfully created recording entry for manual meeting');
-    } else {
-      // Calculate scheduled_for time based on event start time
-      const scheduledFor = event.start_time > new Date().toISOString() 
-        ? event.start_time 
-        : new Date().toISOString();
-
-      // First, get the existing queue item
-      const { data: existingQueue, error: queueFetchError } = await supabaseClient
-        .from('notetaker_queue')
-        .select('id')
-        .eq('event_id', meetingId)
-        .maybeSingle();
-
-      if (queueFetchError) {
-        console.error('❌ Error fetching queue:', queueFetchError);
-        throw new Error('Failed to fetch notetaker queue');
-      }
-
-      // Prepare the common data for both insert and update operations
-      const queueData = {
-        notetaker_id: data.data.notetaker_id,
-        status: 'sent',
-        scheduled_for: scheduledFor
-      };
-
-      // Update or insert the queue item
-      const queueOperation = existingQueue
-        ? supabaseClient
-            .from('notetaker_queue')
-            .update(queueData)
-            .eq('id', existingQueue.id)
-        : supabaseClient
-            .from('notetaker_queue')
-            .insert({
-              ...queueData,
-              event_id: meetingId,
-              user_id: event.user_id
-            });
-
-      const { error: queueError } = await queueOperation;
-
       if (queueError) {
-        console.error('❌ Error updating notetaker queue:', queueError);
-        throw new Error('Failed to update notetaker queue')
+        console.error('❌ Error upserting queue:', queueError);
+        throw new Error('Failed to upsert queue')
       }
-
-      console.log('✅ Successfully updated notetaker queue');
     }
 
     return new Response(
