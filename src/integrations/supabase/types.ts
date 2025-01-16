@@ -729,6 +729,7 @@ export type Database = {
           recording_url: string
           notetaker_id: string
           transcript_content: Json
+          mux_playback_id: string
           event: Json
         }[]
       }
