@@ -7,7 +7,7 @@ export function useOrganizationData(userId: string) {
     queryFn: async () => {
       console.log('Fetching organization data for user:', userId);
       
-      // First get the user's organization ID
+      // First get the organization ID directly from profiles
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('organization_id')
@@ -36,8 +36,8 @@ export function useOrganizationData(userId: string) {
         throw orgError;
       }
 
-      // Get member roles and user emails in separate queries
-      const { data: members, error: membersError } = await supabase
+      // Get member roles in a direct query
+      const { data: memberRoles, error: membersError } = await supabase
         .from('organization_members')
         .select('user_id, role')
         .eq('organization_id', profile.organization_id);
@@ -47,23 +47,23 @@ export function useOrganizationData(userId: string) {
         throw membersError;
       }
 
-      // Get all member profiles in a separate query
-      const memberIds = members?.map(m => m.user_id) || [];
-      const { data: profiles, error: profilesError } = await supabase
+      // Get profiles in a separate query
+      const memberIds = memberRoles?.map(m => m.user_id) || [];
+      const { data: memberProfiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, email')
         .in('id', memberIds);
 
       if (profilesError) {
-        console.error('Profiles fetch error:', profilesError);
+        console.error('Member profiles fetch error:', profilesError);
         throw profilesError;
       }
 
       // Combine the data
-      const membersWithProfiles = members?.map(member => ({
+      const membersWithProfiles = memberRoles?.map(member => ({
         user_id: member.user_id,
         role: member.role,
-        profiles: profiles?.find(p => p.id === member.user_id) || { email: 'Unknown' }
+        profiles: memberProfiles?.find(p => p.id === member.user_id) || { email: 'Unknown' }
       })) || [];
 
       console.log('Successfully fetched organization data:', {
