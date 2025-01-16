@@ -1,8 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { Upload } from "https://esm.sh/@aws-sdk/lib-storage@3.354.0";
-import { S3Client, GetObjectCommand } from "https://esm.sh/@aws-sdk/client-s3@3.354.0";
-import { Readable } from "https://deno.land/std@0.168.0/node/stream.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -43,46 +40,33 @@ serve(async (req) => {
 
     // Attempt to get recording media
     try {
-      console.log('🔄 Initializing S3 client...');
-      const s3Client = new S3Client({
-        region: Deno.env.get('AWS_REGION')!,
-        credentials: {
-          accessKeyId: Deno.env.get('AWS_ACCESS_KEY_ID')!,
-          secretAccessKey: Deno.env.get('AWS_SECRET_ACCESS_KEY')!,
+      console.log('🔄 Fetching recording from AWS...');
+      
+      const response = await fetch(`https://api-staging.us.nylas.com/v3/notetakers/${notetakerId}/media`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
       });
 
-      console.log('📥 Fetching recording from S3...');
-      const getObjectCommand = new GetObjectCommand({
-        Bucket: Deno.env.get('AWS_BUCKET_NAME')!,
-        Key: `recordings/${notetakerId}/recording.webm`,
-      });
-
-      const { Body } = await s3Client.send(getObjectCommand);
-      if (!Body) {
-        console.error('❌ No recording found in S3');
-        throw new Error('No recording found');
+      if (!response.ok) {
+        console.error('❌ Failed to fetch media from Nylas:', response.status, await response.text());
+        throw new Error(`Failed to fetch media: ${response.statusText}`);
       }
 
-      console.log('✅ Successfully retrieved recording from S3');
-      const stream = Body as Readable;
-      const chunks: Uint8Array[] = [];
-      
-      for await (const chunk of stream) {
-        chunks.push(chunk);
-      }
-      
-      const buffer = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0));
-      let offset = 0;
-      for (const chunk of chunks) {
-        buffer.set(chunk, offset);
-        offset += chunk.length;
-      }
+      const mediaData = await response.json();
+      console.log('✅ Successfully retrieved media data from Nylas');
 
+      // Prepare media for Mux upload
       console.log('🎥 Preparing to upload to Mux...');
       const formData = new FormData();
-      const blob = new Blob([buffer], { type: 'video/webm' });
-      formData.append('file', blob, 'recording.webm');
+      
+      // Fetch the actual media content
+      const mediaResponse = await fetch(mediaData.download_url);
+      const mediaBlob = await mediaResponse.blob();
+      formData.append('file', mediaBlob, 'recording.webm');
 
       console.log('📤 Uploading to Mux...');
       const muxResponse = await fetch('https://api.mux.com/video/v1/assets', {
