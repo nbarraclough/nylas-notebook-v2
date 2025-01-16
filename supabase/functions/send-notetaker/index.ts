@@ -95,6 +95,11 @@ Deno.serve(async (req) => {
       headers: Object.fromEntries(response.headers.entries())
     });
 
+    // Calculate scheduled_for time based on event start time
+    const scheduledFor = event.start_time > new Date().toISOString() 
+      ? event.start_time 
+      : new Date().toISOString();
+
     // First, get the existing queue item
     const { data: existingQueue, error: queueFetchError } = await supabaseClient
       .from('notetaker_queue')
@@ -107,23 +112,25 @@ Deno.serve(async (req) => {
       throw new Error('Failed to fetch notetaker queue');
     }
 
+    // Prepare the common data for both insert and update operations
+    const queueData = {
+      notetaker_id: data.data.notetaker_id,
+      status: 'sent',
+      scheduled_for: scheduledFor
+    };
+
     // Update or insert the queue item
     const queueOperation = existingQueue
       ? supabaseClient
           .from('notetaker_queue')
-          .update({ 
-            notetaker_id: data.data.notetaker_id,
-            status: 'sent'
-          })
+          .update(queueData)
           .eq('id', existingQueue.id)
       : supabaseClient
           .from('notetaker_queue')
           .insert({
+            ...queueData,
             event_id: meetingId,
-            user_id: event.user_id,
-            notetaker_id: data.data.notetaker_id,
-            status: 'sent',
-            scheduled_for: new Date().toISOString()
+            user_id: event.user_id
           });
 
     const { error: queueError } = await queueOperation;
