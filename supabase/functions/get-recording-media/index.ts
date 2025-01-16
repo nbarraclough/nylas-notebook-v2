@@ -98,22 +98,30 @@ Deno.serve(async (req) => {
         throw new Error('Invalid JSON response from Nylas');
       }
 
-      if (!mediaData.download_url) {
-        console.error('❌ No download URL in Nylas response:', mediaData);
-        throw new Error('No download URL in Nylas response');
+      // Get the recording URL from the correct location in the response
+      const recordingUrl = mediaData.data?.recording?.url;
+      if (!recordingUrl) {
+        console.error('❌ No recording URL in Nylas response:', mediaData);
+        throw new Error('No recording URL in Nylas response');
       }
 
       console.log('✅ Successfully retrieved media data from Nylas:', {
         mediaData: {
           ...mediaData,
-          download_url: '[REDACTED]'
+          data: {
+            ...mediaData.data,
+            recording: {
+              ...mediaData.data.recording,
+              url: '[REDACTED]'
+            }
+          }
         }
       });
 
       // Prepare Mux request payload
       const muxPayload = {
         input: [{
-          url: mediaData.download_url
+          url: recordingUrl
         }],
         playback_policy: ["public"],
         video_quality: "basic"
@@ -150,11 +158,16 @@ Deno.serve(async (req) => {
         playbackId: muxData.data.playback_ids?.[0]?.id
       });
 
+      // Store transcript URL if available
+      const transcriptUrl = mediaData.data?.transcript?.url;
+
       const { error: finalUpdateError } = await supabaseClient
         .from('recordings')
         .update({
           mux_asset_id: muxData.data.id,
           mux_playback_id: muxData.data.playback_ids?.[0]?.id,
+          recording_url: recordingUrl,
+          transcript_url: transcriptUrl,
           status: 'processing',
           updated_at: new Date().toISOString()
         })
