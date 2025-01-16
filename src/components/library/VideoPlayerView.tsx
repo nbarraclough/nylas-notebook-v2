@@ -8,7 +8,7 @@ import { useRecordingData } from "./video/useRecordingData";
 import { useProfileData } from "./video/useProfileData";
 import type { EventParticipant } from "@/types/calendar";
 import type { Json } from "@/integrations/supabase/types";
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 
 interface VideoPlayerViewProps {
   recordingId: string;
@@ -25,6 +25,15 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   const { data: recording, isLoading: isRecordingLoading } = useRecordingData(recordingId);
   const { data: profile } = useProfileData();
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
+
+  // Cleanup effect to ensure video is paused when component unmounts
+  useEffect(() => {
+    return () => {
+      if (videoPlayerRef.current) {
+        videoPlayerRef.current.pause();
+      }
+    };
+  }, []);
 
   const handleClose = () => {
     if (videoPlayerRef.current) {
@@ -132,8 +141,8 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
               <VideoPlayer
                 ref={videoPlayerRef}
                 recordingId={recordingId}
-                videoUrl={recording.video_url}
-                recordingUrl={recording.recording_url}
+                videoUrl={null}
+                recordingUrl={null}
                 title={recording.event?.title || ''}
                 participants={participants}
                 grantId={profile?.nylas_grant_id}
