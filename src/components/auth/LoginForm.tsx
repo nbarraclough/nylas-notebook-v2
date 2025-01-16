@@ -31,6 +31,7 @@ export function LoginForm() {
 
     // Subscribe to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth state changed:", event, !!session); // Add logging
       if (event === 'SIGNED_IN' && session) {
         navigate("/calendar");
       }
@@ -74,6 +75,11 @@ export function LoginForm() {
             theme="light"
             providers={['google']}
             redirectTo={`${siteUrl}/calendar`}
+            onlyThirdPartyProviders={true}
+            queryParams={{
+              access_type: 'offline',
+              prompt: 'consent',
+            }}
           />
         </CardContent>
       </Card>
