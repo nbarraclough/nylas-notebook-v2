@@ -28,8 +28,7 @@ export const RecordingActions = ({
         {videoUrl && (
           <VideoPlayerDialog 
             videoUrl={videoUrl} 
-            title={title} 
-            onRetrieveMedia={onRetrieveMedia}
+            title={title}
           />
         )}
         {notetakerId && (
