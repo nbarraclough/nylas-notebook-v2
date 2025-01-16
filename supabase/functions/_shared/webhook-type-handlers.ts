@@ -15,10 +15,16 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function handleNotetakerMediaUpdated(notetakerId: string) {
+async function handleNotetakerMediaUpdated(notetakerId: string, status: string) {
   try {
-    console.log(`🎥 Processing media update for notetaker: ${notetakerId}`);
+    console.log(`🎥 Processing media update for notetaker: ${notetakerId}, status: ${status}`);
     
+    // Only proceed if status is "media_available"
+    if (status !== "media_available") {
+      console.log(`⏭️ Skipping media refresh for status: ${status}`);
+      return { success: true, message: `Skipped media refresh for status: ${status}` };
+    }
+
     // Find all recordings for this notetaker
     const { data: recordings, error: recordingsError } = await supabase
       .from('recordings')
@@ -102,6 +108,7 @@ export const handleWebhookType = async (webhookData: any, grantId: string, reque
       case 'notetaker.media_updated':
         console.log(`📝 [${requestId}] Processing ${webhookData.type} webhook`);
         const notetakerId = webhookData.data?.object?.notetaker_id;
+        const mediaStatus = webhookData.data?.object?.status;
         
         if (!notetakerId) {
           console.error('❌ Missing notetaker_id in media_updated webhook');
@@ -111,7 +118,7 @@ export const handleWebhookType = async (webhookData: any, grantId: string, reque
           };
         }
 
-        const mediaResult = await handleNotetakerMediaUpdated(notetakerId);
+        const mediaResult = await handleNotetakerMediaUpdated(notetakerId, mediaStatus);
         logWebhookSuccess(webhookData.type);
         return { success: true, result: mediaResult };
 
