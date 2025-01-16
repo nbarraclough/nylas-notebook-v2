@@ -9,7 +9,7 @@ import {
   handleGrantExpired 
 } from './webhook-handlers.ts';
 import { logWebhookSuccess, logWebhookError } from './webhook-logger.ts';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
