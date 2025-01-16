@@ -56,11 +56,20 @@ export function RecordingGrid({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {recordings.map((recording) => {
           const internal = isInternalMeeting(recording);
+          const isError = recording.status === "error";
+          const isProcessing = ["waiting", "retrieving", "processing"].includes(recording.status);
+          
           return (
             <Card
               key={recording.id}
-              className="cursor-pointer card-hover-effect"
-              onClick={() => onRecordingSelect(recording.id)}
+              className={`${
+                isError 
+                  ? 'bg-red-50 cursor-not-allowed' 
+                  : isProcessing 
+                    ? 'bg-blue-50 cursor-pointer card-hover-effect'
+                    : 'cursor-pointer card-hover-effect'
+              }`}
+              onClick={() => !isError && onRecordingSelect(recording.id)}
             >
               <div className="aspect-video bg-muted relative">
                 {(recording.video_url || recording.recording_url) && (
@@ -73,6 +82,13 @@ export function RecordingGrid({
                 {recording.duration && (
                   <div className="absolute bottom-2 right-2 bg-black/75 text-white text-sm px-2 py-1 rounded">
                     {Math.floor(recording.duration / 60)} min
+                  </div>
+                )}
+                {recording.status && recording.status !== "ready" && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-gray-500 bg-white/90 px-3 py-1 rounded-full text-sm">
+                      {recording.status.charAt(0).toUpperCase() + recording.status.slice(1)}
+                    </span>
                   </div>
                 )}
               </div>
