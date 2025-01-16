@@ -67,3 +67,7 @@ verify_jwt = true
 [[functions]]
 name = "incremental-cant-trust-webhooks"
 verify_jwt = true
+
+[[functions]]
+name = "send-grant-expired-email"
+verify_jwt = true
