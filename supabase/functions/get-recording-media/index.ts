@@ -118,6 +118,24 @@ Deno.serve(async (req) => {
         }
       });
 
+      // Download transcript if available
+      let transcriptContent = null;
+      const transcriptUrl = mediaData.data?.transcript?.url;
+      if (transcriptUrl) {
+        console.log('📥 Downloading transcript from:', transcriptUrl);
+        try {
+          const transcriptResponse = await fetch(transcriptUrl);
+          if (transcriptResponse.ok) {
+            transcriptContent = await transcriptResponse.json();
+            console.log('✅ Successfully downloaded transcript');
+          } else {
+            console.error('❌ Failed to download transcript:', transcriptResponse.statusText);
+          }
+        } catch (error) {
+          console.error('❌ Error downloading transcript:', error);
+        }
+      }
+
       // Prepare Mux request payload
       const muxPayload = {
         input: [{
@@ -158,9 +176,6 @@ Deno.serve(async (req) => {
         playbackId: muxData.data.playback_ids?.[0]?.id
       });
 
-      // Store transcript URL if available
-      const transcriptUrl = mediaData.data?.transcript?.url;
-
       const { error: finalUpdateError } = await supabaseClient
         .from('recordings')
         .update({
@@ -168,6 +183,7 @@ Deno.serve(async (req) => {
           mux_playback_id: muxData.data.playback_ids?.[0]?.id,
           recording_url: recordingUrl,
           transcript_url: transcriptUrl,
+          transcript_content: transcriptContent,
           status: 'processing',
           updated_at: new Date().toISOString()
         })
