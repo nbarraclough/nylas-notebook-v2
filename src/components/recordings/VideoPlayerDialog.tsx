@@ -1,43 +1,44 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Play } from "lucide-react";
 import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
+import Hls from "hls.js";
+import { useEffect, useRef } from "react";
 
 interface VideoPlayerDialogProps {
   videoUrl: string;
   title: string;
   children?: React.ReactNode;
-  onRetrieveMedia?: () => Promise<void>;
 }
 
-export const VideoPlayerDialog = ({ videoUrl, title, children, onRetrieveMedia }: VideoPlayerDialogProps) => {
-  const { toast } = useToast();
-  const [isRefreshing, setIsRefreshing] = useState(false);
+export const VideoPlayerDialog = ({ videoUrl, title, children }: VideoPlayerDialogProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-  const handleError = async (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
-    if (onRetrieveMedia) {
-      setIsRefreshing(true);
-      try {
-        await onRetrieveMedia();
-        toast({
-          title: "Video URL refreshed",
-          description: "Please try playing the video again.",
+  useEffect(() => {
+    if (!videoRef.current || !isOpen) return;
+
+    const video = videoRef.current;
+    
+    if (Hls.isSupported()) {
+      const hls = new Hls();
+      hls.loadSource(videoUrl);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        video.play().catch(error => {
+          console.log("Playback failed:", error);
         });
-      } catch (error) {
-        toast({
-          title: "Error refreshing video",
-          description: "Could not refresh the video URL. Please try again later.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsRefreshing(false);
-      }
+      });
+
+      return () => {
+        hls.destroy();
+      };
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      // For Safari
+      video.src = videoUrl;
     }
-  };
+  }, [videoUrl, isOpen]);
 
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
@@ -47,22 +48,15 @@ export const VideoPlayerDialog = ({ videoUrl, title, children, onRetrieveMedia }
         </DialogHeader>
         <div className="aspect-video w-full relative">
           <video 
-            src={videoUrl} 
-            controls 
+            ref={videoRef}
             className="w-full h-full rounded-lg"
+            controls
             playsInline
             preload="metadata"
             controlsList="nodownload"
-            onError={handleError}
           >
-            <source src={videoUrl} type="video/webm" />
             Your browser does not support the video tag.
           </video>
-          {isRefreshing && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
-              <div className="text-white text-sm sm:text-base">Refreshing video URL...</div>
-            </div>
-          )}
         </div>
       </DialogContent>
     </Dialog>
