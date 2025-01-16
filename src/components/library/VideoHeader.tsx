@@ -72,26 +72,28 @@ export function VideoHeader({
             )}
           </Badge>
           
-          <HoverCard>
-            <HoverCardTrigger>
-              <Badge variant="secondary" className="flex items-center gap-1 cursor-pointer">
-                <Users className="w-3 h-3" />
-                {participants?.length || 0} participants
-              </Badge>
-            </HoverCardTrigger>
-            <HoverCardContent className="w-80">
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold">Participants</h4>
-                <div className="text-sm space-y-1">
-                  {participants?.map((participant, index) => (
-                    <div key={index} className="text-muted-foreground">
-                      {participant.name} ({participant.email})
-                    </div>
-                  ))}
+          {participants && participants.length > 1 && (
+            <HoverCard>
+              <HoverCardTrigger>
+                <Badge variant="secondary" className="flex items-center gap-1 cursor-pointer">
+                  <Users className="w-3 h-3" />
+                  {participants.length} participants
+                </Badge>
+              </HoverCardTrigger>
+              <HoverCardContent className="w-80">
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold">Participants</h4>
+                  <div className="text-sm space-y-1">
+                    {participants.map((participant, index) => (
+                      <div key={index} className="text-muted-foreground">
+                        {participant.name} ({participant.email})
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </HoverCardContent>
-          </HoverCard>
+              </HoverCardContent>
+            </HoverCard>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-2">
