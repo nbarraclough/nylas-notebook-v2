@@ -95,14 +95,38 @@ Deno.serve(async (req) => {
       headers: Object.fromEntries(response.headers.entries())
     });
 
-    // Update the notetaker queue with the notetaker_id
-    const { error: queueError } = await supabaseClient
+    // First, get the existing queue item
+    const { data: existingQueue, error: queueFetchError } = await supabaseClient
       .from('notetaker_queue')
-      .update({ 
-        notetaker_id: data.data.notetaker_id,
-        status: 'sent'
-      })
+      .select('id')
       .eq('event_id', meetingId)
+      .maybeSingle();
+
+    if (queueFetchError) {
+      console.error('❌ Error fetching queue:', queueFetchError);
+      throw new Error('Failed to fetch notetaker queue');
+    }
+
+    // Update or insert the queue item
+    const queueOperation = existingQueue
+      ? supabaseClient
+          .from('notetaker_queue')
+          .update({ 
+            notetaker_id: data.data.notetaker_id,
+            status: 'sent'
+          })
+          .eq('id', existingQueue.id)
+      : supabaseClient
+          .from('notetaker_queue')
+          .insert({
+            event_id: meetingId,
+            user_id: event.user_id,
+            notetaker_id: data.data.notetaker_id,
+            status: 'sent',
+            scheduled_for: new Date().toISOString()
+          });
+
+    const { error: queueError } = await queueOperation;
 
     if (queueError) {
       console.error('❌ Error updating notetaker queue:', queueError);
