@@ -34,7 +34,7 @@ const getStatusBadgeVariant = (status: string) => {
     case 'waiting':
       return 'secondary';
     case 'retrieving':
-      return 'warning';
+      return 'secondary'; // Changed from 'warning' to 'secondary'
     case 'processing':
       return 'default';
     case 'error':
