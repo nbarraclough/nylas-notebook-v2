@@ -36,7 +36,7 @@ export function useOrganizationData(userId: string) {
         throw orgError;
       }
 
-      // First get member roles
+      // Get member roles and user emails in separate queries
       const { data: members, error: membersError } = await supabase
         .from('organization_members')
         .select('user_id, role')
@@ -47,11 +47,12 @@ export function useOrganizationData(userId: string) {
         throw membersError;
       }
 
-      // Then get profiles data separately
+      // Get all member profiles in a separate query
+      const memberIds = members?.map(m => m.user_id) || [];
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, email')
-        .in('id', members?.map(m => m.user_id) || []);
+        .in('id', memberIds);
 
       if (profilesError) {
         console.error('Profiles fetch error:', profilesError);
