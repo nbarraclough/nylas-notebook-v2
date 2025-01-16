@@ -6,45 +6,28 @@ interface SharedVideoPlayerProps {
   recordingUrl: string | null;
   recordingId: string;
   notetakerId?: string | null;
-  onRefreshMedia?: (recordingId: string, notetakerId: string | null) => Promise<void>;
-  isRefreshing?: boolean;
+  muxPlaybackId?: string | null;
 }
 
 export const SharedVideoPlayer = forwardRef<BaseVideoPlayerRef, SharedVideoPlayerProps>(({ 
   videoUrl, 
-  recordingUrl, 
-  recordingId, 
-  notetakerId,
-  onRefreshMedia,
-  isRefreshing 
+  recordingUrl,
+  muxPlaybackId
 }, ref) => {
-  const handleRefreshMedia = async () => {
-    if (onRefreshMedia) {
-      await onRefreshMedia(recordingId, notetakerId);
-    }
-  };
-
   // Get Mux playback URL if available
-  const getMuxPlaybackUrl = (url: string) => {
-    if (url.includes('mux.com')) {
-      return url;
-    }
-    // If it's a Mux playback ID, construct the URL
-    if (url.startsWith('https://stream.mux.com')) {
-      return url;
-    }
-    return url;
+  const getMuxPlaybackUrl = (playbackId: string) => {
+    return `https://stream.mux.com/${playbackId}.m3u8`;
   };
 
-  const videoSource = videoUrl ? getMuxPlaybackUrl(videoUrl) : recordingUrl;
+  const videoSource = muxPlaybackId 
+    ? getMuxPlaybackUrl(muxPlaybackId)
+    : videoUrl || recordingUrl;
 
   return (
     <BaseVideoPlayer
       ref={ref}
       videoUrl={videoSource}
       recordingUrl={recordingUrl}
-      onRefreshMedia={handleRefreshMedia}
-      isRefreshing={isRefreshing}
     />
   );
 });

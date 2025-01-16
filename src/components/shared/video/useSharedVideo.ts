@@ -12,6 +12,7 @@ interface SharedRecording {
   recording_url: string | null;
   notetaker_id: string | null;
   transcript_content: Json | null;
+  mux_playback_id: string | null;
   event: {
     title: string;
     description: string | null;
@@ -27,6 +28,7 @@ interface SharedRecordingResponse {
   recording_url: string | null;
   notetaker_id: string | null;
   transcript_content: Json | null;
+  mux_playback_id: string | null;
   event: {
     title: string;
     description: string | null;
@@ -43,7 +45,6 @@ export function useSharedVideo() {
   const [recording, setRecording] = useState<SharedRecording | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [eventData, setEventData] = useState<SharedRecording['event'] | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const transformParticipants = (participants: Json): EventParticipant[] => {
     if (!Array.isArray(participants)) return [];
@@ -51,38 +52,6 @@ export function useSharedVideo() {
       name: (p as any)?.name || 'Unknown',
       email: (p as any)?.email || ''
     }));
-  };
-
-  const refreshMedia = async (recordingId: string, notetakerId: string | null) => {
-    try {
-      setIsRefreshing(true);
-      console.log('Refreshing media for recording:', recordingId);
-      
-      const { error } = await supabase.functions.invoke('get-recording-media', {
-        body: { 
-          recordingId,
-          notetakerId: notetakerId || undefined
-        },
-      });
-
-      if (error) throw error;
-
-      await fetchSharedVideo();
-      
-      toast({
-        title: "Success",
-        description: "Video refreshed successfully",
-      });
-    } catch (error) {
-      console.error('Error refreshing media:', error);
-      toast({
-        title: "Error",
-        description: "Failed to refresh video. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsRefreshing(false);
-    }
   };
 
   const fetchSharedVideo = async () => {
@@ -132,6 +101,7 @@ export function useSharedVideo() {
         recording_url: sharedRecording.recording_url,
         notetaker_id: sharedRecording.notetaker_id,
         transcript_content: sharedRecording.transcript_content,
+        mux_playback_id: sharedRecording.mux_playback_id,
         event: eventInfo
       };
 
@@ -159,8 +129,6 @@ export function useSharedVideo() {
   return {
     recording,
     isLoading,
-    eventData,
-    isRefreshing,
-    refreshMedia
+    eventData
   };
 }

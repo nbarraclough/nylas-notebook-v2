@@ -10,7 +10,7 @@ import { LoadingState } from "./video/LoadingState";
 import { ErrorState } from "./video/ErrorState";
 
 export function SharedVideoView() {
-  const { recording, isLoading, eventData, isRefreshing, refreshMedia } = useSharedVideo();
+  const { recording, isLoading, eventData } = useSharedVideo();
 
   if (isLoading) {
     return <LoadingState />;
@@ -34,21 +34,12 @@ export function SharedVideoView() {
           <CardContent className="p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="aspect-video relative">
-                {isRefreshing && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
-                    <div className="flex flex-col items-center gap-2">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                      <p className="text-sm text-muted-foreground">Refreshing video...</p>
-                    </div>
-                  </div>
-                )}
                 <SharedVideoPlayer
                   videoUrl={recording?.video_url}
                   recordingUrl={recording?.recording_url}
                   recordingId={recording?.id || ''}
                   notetakerId={recording?.notetaker_id}
-                  onRefreshMedia={refreshMedia}
-                  isRefreshing={isRefreshing}
+                  muxPlaybackId={recording?.mux_playback_id}
                 />
               </div>
               
