@@ -9,6 +9,57 @@ import {
   handleGrantExpired 
 } from './webhook-handlers.ts';
 import { logWebhookSuccess, logWebhookError } from './webhook-logger.ts';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+async function handleNotetakerMediaUpdated(notetakerId: string) {
+  try {
+    console.log(`🎥 Processing media update for notetaker: ${notetakerId}`);
+    
+    // Find all recordings for this notetaker
+    const { data: recordings, error: recordingsError } = await supabase
+      .from('recordings')
+      .select('id, notetaker_id')
+      .eq('notetaker_id', notetakerId);
+
+    if (recordingsError) {
+      throw recordingsError;
+    }
+
+    console.log(`📝 Found ${recordings?.length || 0} recordings for notetaker ${notetakerId}`);
+
+    // For each recording, trigger media refresh
+    const refreshPromises = recordings?.map(async (recording) => {
+      console.log(`🔄 Refreshing media for recording: ${recording.id}`);
+      
+      const { error } = await supabase.functions.invoke('get-recording-media', {
+        body: { 
+          recordingId: recording.id,
+          notetakerId: recording.notetaker_id
+        },
+      });
+
+      if (error) {
+        console.error(`❌ Error refreshing media for recording ${recording.id}:`, error);
+        throw error;
+      }
+
+      console.log(`✅ Successfully refreshed media for recording ${recording.id}`);
+    });
+
+    if (refreshPromises?.length) {
+      await Promise.all(refreshPromises);
+    }
+
+    return { success: true, message: `Processed media update for ${recordings?.length || 0} recordings` };
+  } catch (error) {
+    console.error('❌ Error handling notetaker media update:', error);
+    throw error;
+  }
+}
 
 export const handleWebhookType = async (webhookData: any, grantId: string, requestId: string) => {
   try {
@@ -48,16 +99,23 @@ export const handleWebhookType = async (webhookData: any, grantId: string, reque
         logWebhookSuccess(webhookData.type);
         return { success: true, result: grantExpireResult };
 
-      default:
-        if (webhookData.type.startsWith('notetaker.')) {
-          console.log(`📝 [${requestId}] Processing ${webhookData.type} webhook`);
-          logWebhookSuccess(webhookData.type);
+      case 'notetaker.media_updated':
+        console.log(`📝 [${requestId}] Processing ${webhookData.type} webhook`);
+        const notetakerId = webhookData.data?.object?.notetaker_id;
+        
+        if (!notetakerId) {
+          console.error('❌ Missing notetaker_id in media_updated webhook');
           return { 
-            success: true, 
-            message: `Successfully processed ${webhookData.type} webhook` 
+            success: false, 
+            message: 'Missing notetaker_id in webhook data' 
           };
         }
-        
+
+        const mediaResult = await handleNotetakerMediaUpdated(notetakerId);
+        logWebhookSuccess(webhookData.type);
+        return { success: true, result: mediaResult };
+
+      default:
         console.log(`⚠️ [${requestId}] Unhandled webhook type: ${webhookData.type}`);
         return { 
           success: false, 
