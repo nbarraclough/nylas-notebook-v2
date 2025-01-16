@@ -4,6 +4,7 @@ import type { Database } from '../_shared/types.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const nylasApiKey = Deno.env.get('NYLAS_CLIENT_SECRET')!;
 
 const supabase = createClient<Database>(supabaseUrl, supabaseServiceRoleKey);
 
@@ -24,7 +25,8 @@ Deno.serve(async (req) => {
           manual_meeting_id,
           user_id,
           profiles!inner(
-            nylas_grant_id
+            nylas_grant_id,
+            notetaker_name
           )
         )
       `)
@@ -52,6 +54,7 @@ Deno.serve(async (req) => {
         try {
           const event = item.events;
           const grantId = event.profiles.nylas_grant_id;
+          const notetakerName = event.profiles.notetaker_name || 'Nylas Notetaker';
 
           if (!grantId) {
             throw new Error('No grant ID found for user');
@@ -61,35 +64,47 @@ Deno.serve(async (req) => {
             throw new Error('No conference URL found for event');
           }
 
-          // Send notetaker request to Nylas
+          console.log(`Processing queue item ${item.id} for event ${event.id}`);
+          console.log(`Using grant ID: ${grantId}`);
+          console.log(`Conference URL: ${event.conference_url}`);
+
+          // Send notetaker request to Nylas with correct API structure
           const nylasResponse = await fetch(
-            `https://api-staging.us.nylas.com/v3/grants/${grantId}/notetaker`,
+            `https://api.us.nylas.com/v3/grants/${grantId}/notetakers`,
             {
               method: 'POST',
               headers: {
+                'Accept': 'application/json, application/gzip',
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
+                'Authorization': `Bearer ${nylasApiKey}`,
               },
               body: JSON.stringify({
-                meeting_url: event.conference_url,
+                meeting_link: event.conference_url,
+                notetaker_name: notetakerName,
               }),
             }
           );
 
           if (!nylasResponse.ok) {
+            const errorText = await nylasResponse.text();
+            console.error(`Nylas API error (${nylasResponse.status}):`, errorText);
             throw new Error(`Nylas API error: ${nylasResponse.statusText}`);
           }
 
           const notetakerData = await nylasResponse.json();
+          console.log('Nylas API response:', notetakerData);
 
-          // Create recording entry
+          if (!notetakerData.data?.notetaker_id) {
+            throw new Error('No notetaker_id in response');
+          }
+
+          // Create recording entry with notetaker_id
           const { error: recordingError } = await supabase
             .from('recordings')
             .insert({
               user_id: event.user_id,
               event_id: event.id,
-              recording_url: notetakerData.recording_url,
-              notetaker_id: notetakerData.id,
+              notetaker_id: notetakerData.data.notetaker_id,
               status: 'waiting',
             });
 
@@ -97,12 +112,12 @@ Deno.serve(async (req) => {
             throw recordingError;
           }
 
-          // Update queue item status
+          // Update queue item status with notetaker_id
           const { error: updateError } = await supabase
             .from('notetaker_queue')
             .update({
               status: 'completed',
-              notetaker_id: notetakerData.id,
+              notetaker_id: notetakerData.data.notetaker_id,
             })
             .eq('id', item.id);
 
@@ -113,7 +128,7 @@ Deno.serve(async (req) => {
           return {
             queueId: item.id,
             status: 'success',
-            notetakerId: notetakerData.id,
+            notetakerId: notetakerData.data.notetaker_id,
           };
         } catch (error) {
           console.error(`Error processing queue item ${item.id}:`, error);
