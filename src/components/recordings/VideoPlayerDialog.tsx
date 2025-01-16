@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { useState } from "react";
 import Hls from "hls.js";
 import { useEffect, useRef } from "react";
@@ -46,6 +46,9 @@ export const VideoPlayerDialog = ({ videoUrl, title, children, onRetrieveMedia }
       <DialogContent className="w-[95vw] max-w-4xl mx-auto">
         <DialogHeader>
           <DialogTitle className="text-base sm:text-lg line-clamp-2">{title}</DialogTitle>
+          <DialogDescription>
+            Recording playback for {title}
+          </DialogDescription>
         </DialogHeader>
         <div className="aspect-video w-full relative">
           <video 
