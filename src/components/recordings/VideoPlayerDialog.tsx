@@ -7,22 +7,26 @@ interface VideoPlayerDialogProps {
   videoUrl: string;
   title: string;
   children?: React.ReactNode;
-  onRetrieveMedia?: () => Promise<void>;
 }
 
-export const VideoPlayerDialog = ({ videoUrl, title, children, onRetrieveMedia }: VideoPlayerDialogProps) => {
+export const VideoPlayerDialog = ({ videoUrl, title, children }: VideoPlayerDialogProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    if (!videoRef.current || !isOpen) return;
+    if (!videoRef.current || !isOpen || !videoUrl) return;
 
     const video = videoRef.current;
     
     if (Hls.isSupported()) {
-      const hls = new Hls();
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+      });
+      
       hls.loadSource(videoUrl);
       hls.attachMedia(video);
+      
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         video.play().catch(error => {
           console.log("Playback failed:", error);

@@ -23,7 +23,8 @@ export function RecentRecordings() {
             description,
             start_time
           ),
-          video_url
+          video_url,
+          mux_playback_id
         `)
         .order('created_at', { ascending: false })
         .limit(3);
@@ -44,6 +45,10 @@ export function RecentRecordings() {
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const getMuxPlaybackUrl = (playbackId: string): string => {
+    return `https://stream.mux.com/${playbackId}.m3u8`;
   };
 
   return (
@@ -104,7 +109,7 @@ export function RecentRecordings() {
                 <div className="flex justify-end">
                   {recording.mux_playback_id ? (
                     <VideoPlayerDialog
-                      videoUrl={`https://stream.mux.com/${recording.mux_playback_id}.m3u8`}
+                      videoUrl={getMuxPlaybackUrl(recording.mux_playback_id)}
                       title={recording.event?.title || ''}
                     >
                       <Button size="sm" variant="ghost" className="hover:bg-blue-50">
