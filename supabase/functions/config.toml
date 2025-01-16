@@ -29,10 +29,6 @@ name = "handle-nylas-webhook"
 verify_jwt = false
 
 [[functions]]
-name = "handle-nylas-webhook-prod"
-verify_jwt = false
-
-[[functions]]
 name = "handle-mux-webhook"
 verify_jwt = false
 
