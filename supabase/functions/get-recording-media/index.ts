@@ -1,14 +1,9 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+import { corsHeaders } from '../_shared/cors.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
@@ -20,12 +15,13 @@ serve(async (req) => {
       throw new Error('Missing required parameters');
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
 
     // Update status to retrieving before attempting to get media
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseClient
       .from('recordings')
       .update({
         status: 'retrieving',
@@ -40,7 +36,7 @@ serve(async (req) => {
 
     // Attempt to get recording media
     try {
-      const nylasUrl = `https://api-staging.us.nylas.com/v3/notetakers/${notetakerId}/media`;
+      const nylasUrl = `https://api.us.nylas.com/v3/notetakers/${notetakerId}/media`;
       const nylasHeaders = {
         'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
         'Content-Type': 'application/json',
@@ -135,7 +131,7 @@ serve(async (req) => {
       const assetId = muxData.data.id;
       console.log('✅ Successfully uploaded to Mux. Asset ID:', assetId);
 
-      const { error: finalUpdateError } = await supabase
+      const { error: finalUpdateError } = await supabaseClient
         .from('recordings')
         .update({
           mux_asset_id: assetId,
@@ -158,7 +154,7 @@ serve(async (req) => {
       console.error('❌ Error processing media:', error);
       
       // Update status to error if media retrieval fails
-      await supabase
+      await supabaseClient
         .from('recordings')
         .update({
           status: 'error',
