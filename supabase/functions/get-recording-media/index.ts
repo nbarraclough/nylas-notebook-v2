@@ -98,40 +98,39 @@ Deno.serve(async (req) => {
         throw new Error('Invalid JSON response from Nylas');
       }
 
+      if (!mediaData.download_url) {
+        console.error('❌ No download URL in Nylas response:', mediaData);
+        throw new Error('No download URL in Nylas response');
+      }
+
       console.log('✅ Successfully retrieved media data from Nylas:', {
         mediaData: {
           ...mediaData,
-          download_url: mediaData.download_url ? '[REDACTED]' : undefined
+          download_url: '[REDACTED]'
         }
       });
 
-      // Prepare media for Mux upload
-      console.log('🎥 Preparing to upload to Mux...');
-      const formData = new FormData();
-      
-      // Fetch the actual media content
-      console.log('📥 Fetching media content from download URL...');
-      const mediaResponse = await fetch(mediaData.download_url);
-      
-      if (!mediaResponse.ok) {
-        console.error('❌ Failed to fetch media content:', {
-          status: mediaResponse.status,
-          statusText: mediaResponse.statusText
-        });
-        throw new Error('Failed to fetch media content');
-      }
+      // Prepare Mux request payload
+      const muxPayload = {
+        input: [{
+          url: mediaData.download_url
+        }],
+        playback_policy: ["public"],
+        video_quality: "basic"
+      };
 
-      const mediaBlob = await mediaResponse.blob();
-      console.log('📦 Media content size:', mediaBlob.size, 'bytes');
-      formData.append('file', mediaBlob, 'recording.webm');
+      console.log('📤 Preparing Mux request payload:', {
+        ...muxPayload,
+        input: [{ url: '[REDACTED]' }]
+      });
 
-      console.log('📤 Uploading to Mux...');
       const muxResponse = await fetch('https://api.mux.com/video/v1/assets', {
         method: 'POST',
         headers: {
           'Authorization': `Basic ${btoa(Deno.env.get('MUX_TOKEN_ID')! + ':' + Deno.env.get('MUX_TOKEN_SECRET')!)}`,
+          'Content-Type': 'application/json'
         },
-        body: formData,
+        body: JSON.stringify(muxPayload)
       });
 
       if (!muxResponse.ok) {
@@ -145,13 +144,17 @@ Deno.serve(async (req) => {
       }
 
       const muxData = await muxResponse.json();
-      const assetId = muxData.data.id;
-      console.log('✅ Successfully uploaded to Mux. Asset ID:', assetId);
+      console.log('✅ Mux response:', {
+        status: muxData.data.status,
+        assetId: muxData.data.id,
+        playbackId: muxData.data.playback_ids?.[0]?.id
+      });
 
       const { error: finalUpdateError } = await supabaseClient
         .from('recordings')
         .update({
-          mux_asset_id: assetId,
+          mux_asset_id: muxData.data.id,
+          mux_playback_id: muxData.data.playback_ids?.[0]?.id,
           status: 'processing',
           updated_at: new Date().toISOString()
         })
@@ -163,7 +166,11 @@ Deno.serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ success: true, assetId }),
+        JSON.stringify({ 
+          success: true, 
+          assetId: muxData.data.id,
+          playbackId: muxData.data.playback_ids?.[0]?.id
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
 
