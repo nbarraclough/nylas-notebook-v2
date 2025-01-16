@@ -53,9 +53,9 @@ Deno.serve(async (req) => {
       throw updateError;
     }
 
-    // Attempt to get recording media
+    // Attempt to get recording media using the correct endpoint
     try {
-      const nylasUrl = `https://api.us.nylas.com/v3/grants/${grantId}/notetakers/${notetakerId}`;
+      const nylasUrl = `https://api.us.nylas.com/v3/grants/${grantId}/notetakers/${notetakerId}/media`;
       const nylasHeaders = {
         'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
         'Accept': 'application/json, application/gzip',
