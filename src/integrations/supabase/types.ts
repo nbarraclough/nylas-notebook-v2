@@ -60,6 +60,38 @@ export type Database = {
         }
         Relationships: []
       }
+      email_notifications: {
+        Row: {
+          email_type: string
+          id: string
+          sent_at: string | null
+          sent_date: string | null
+          user_id: string | null
+        }
+        Insert: {
+          email_type: string
+          id?: string
+          sent_at?: string | null
+          sent_date?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          email_type?: string
+          id?: string
+          sent_at?: string | null
+          sent_date?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_shares: {
         Row: {
           created_at: string | null
