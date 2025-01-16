@@ -20,6 +20,25 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    // Get the user's grant ID from the recordings table by joining with profiles
+    const { data: recordingData, error: recordingError } = await supabaseClient
+      .from('recordings')
+      .select(`
+        user_id,
+        profiles:user_id (
+          nylas_grant_id
+        )
+      `)
+      .eq('id', recordingId)
+      .single();
+
+    if (recordingError || !recordingData?.profiles?.nylas_grant_id) {
+      console.error('❌ Error fetching grant ID:', recordingError);
+      throw new Error('Could not find grant ID for recording');
+    }
+
+    const grantId = recordingData.profiles.nylas_grant_id;
+
     // Update status to retrieving before attempting to get media
     const { error: updateError } = await supabaseClient
       .from('recordings')
@@ -36,11 +55,10 @@ Deno.serve(async (req) => {
 
     // Attempt to get recording media
     try {
-      const nylasUrl = `https://api.us.nylas.com/v3/notetakers/${notetakerId}/media`;
+      const nylasUrl = `https://api.us.nylas.com/v3/grants/${grantId}/notetakers/${notetakerId}`;
       const nylasHeaders = {
         'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
+        'Accept': 'application/json, application/gzip',
       };
 
       console.log('🔄 Preparing Nylas request:', {
@@ -48,9 +66,8 @@ Deno.serve(async (req) => {
         method: 'GET',
         headers: {
           ...nylasHeaders,
-          'Authorization': 'Bearer [REDACTED]' // Don't log the actual token
-        },
-        notetakerId,
+          'Authorization': 'Bearer [REDACTED]'
+        }
       });
       
       const response = await fetch(nylasUrl, {
@@ -58,7 +75,7 @@ Deno.serve(async (req) => {
         headers: nylasHeaders,
       });
 
-      const responseText = await response.text(); // Get raw response text first
+      const responseText = await response.text();
       console.log('📥 Nylas response status:', response.status);
       console.log('📥 Nylas response headers:', Object.fromEntries(response.headers.entries()));
       console.log('📥 Nylas response body:', responseText);
@@ -84,7 +101,7 @@ Deno.serve(async (req) => {
       console.log('✅ Successfully retrieved media data from Nylas:', {
         mediaData: {
           ...mediaData,
-          download_url: mediaData.download_url ? '[REDACTED]' : undefined // Don't log the full URL
+          download_url: mediaData.download_url ? '[REDACTED]' : undefined
         }
       });
 
