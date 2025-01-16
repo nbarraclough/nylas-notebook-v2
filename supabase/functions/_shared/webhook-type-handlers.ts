@@ -15,63 +15,83 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function handleNotetakerMediaUpdated(notetakerId: string, status: string) {
+type NotetakerMediaStatus = 'media_processing' | 'media_available' | 'media_processing_failed';
+type RecordingStatus = 'processing' | 'retrieving' | 'failed';
+
+const mediaStatusMap: Record<NotetakerMediaStatus, RecordingStatus> = {
+  media_processing: 'processing',
+  media_available: 'retrieving',
+  media_processing_failed: 'failed'
+};
+
+async function handleNotetakerMediaUpdated(notetakerId: string, status: NotetakerMediaStatus) {
   try {
     console.log(`🎥 Processing media update for notetaker: ${notetakerId}, status: ${status}`);
     
-    // Only proceed if status is "media_available"
-    if (status !== "media_available") {
-      console.log(`⏭️ Skipping media refresh for status: ${status}`);
-      return { success: true, message: `Skipped media refresh for status: ${status}` };
+    if (!Object.keys(mediaStatusMap).includes(status)) {
+      console.error('❌ Invalid media status received:', status);
+      throw new Error(`Invalid media status: ${status}`);
     }
 
-    // Update recordings status to "retrieving" before processing
-    const { error: updateError } = await supabase
-      .from('recordings')
-      .update({ status: 'retrieving', updated_at: new Date().toISOString() })
-      .eq('notetaker_id', notetakerId);
-
-    if (updateError) {
-      console.error('❌ Error updating recording status:', updateError);
-      throw updateError;
-    }
-
-    // Find all recordings for this notetaker
+    const recordingStatus = mediaStatusMap[status];
+    
+    // Find recordings for this notetaker
     const { data: recordings, error: recordingsError } = await supabase
       .from('recordings')
-      .select('id, notetaker_id')
+      .select('id, status')
       .eq('notetaker_id', notetakerId);
 
     if (recordingsError) {
+      console.error('❌ Error finding recordings:', recordingsError);
       throw recordingsError;
     }
 
-    console.log(`📝 Found ${recordings?.length || 0} recordings for notetaker ${notetakerId}`);
-
-    // For each recording, trigger media refresh
-    const refreshPromises = recordings?.map(async (recording) => {
-      console.log(`🔄 Refreshing media for recording: ${recording.id}`);
-      
-      const { error } = await supabase.functions.invoke('get-recording-media', {
-        body: { 
-          recordingId: recording.id,
-          notetakerId: recording.notetaker_id
-        },
-      });
-
-      if (error) {
-        console.error(`❌ Error refreshing media for recording ${recording.id}:`, error);
-        throw error;
-      }
-
-      console.log(`✅ Successfully refreshed media for recording ${recording.id}`);
-    });
-
-    if (refreshPromises?.length) {
-      await Promise.all(refreshPromises);
+    if (!recordings?.length) {
+      console.error('❌ No recordings found for notetaker:', notetakerId);
+      throw new Error('No recordings found for notetaker');
     }
 
-    return { success: true, message: `Processed media update for ${recordings?.length || 0} recordings` };
+    console.log(`📝 Found ${recordings.length} recordings for notetaker ${notetakerId}`);
+
+    // Update all recordings for this notetaker
+    const updatePromises = recordings.map(async (recording) => {
+      console.log(`🔄 Updating recording ${recording.id} status to ${recordingStatus}`);
+      
+      const { error: updateError } = await supabase
+        .from('recordings')
+        .update({ 
+          status: recordingStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', recording.id);
+
+      if (updateError) {
+        console.error(`❌ Error updating recording ${recording.id}:`, updateError);
+        throw updateError;
+      }
+
+      // If media is available, trigger media retrieval
+      if (status === 'media_available') {
+        console.log(`📥 Triggering media retrieval for recording ${recording.id}`);
+        await supabase.functions.invoke('get-recording-media', {
+          body: { 
+            recordingId: recording.id,
+            notetakerId
+          },
+        });
+      }
+
+      // If processing failed, log detailed error
+      if (status === 'media_processing_failed') {
+        console.error(`❌ Recording processing failed for ${recording.id}`);
+        // Here we could add notification logic if needed
+      }
+
+      console.log(`✅ Successfully updated recording ${recording.id}`);
+    });
+
+    await Promise.all(updatePromises);
+    return { success: true, message: `Processed media update for ${recordings.length} recordings` };
   } catch (error) {
     console.error('❌ Error handling notetaker media update:', error);
     throw error;
@@ -120,9 +140,9 @@ export const handleWebhookType = async (webhookData: any, grantId: string, reque
         console.log(`📝 [${requestId}] Processing ${webhookData.type} webhook`);
         console.log('Webhook data:', JSON.stringify(webhookData, null, 2));
         
-        // Extract notetaker_id and status from the nested structure
-        const notetakerId = webhookData.data?.object?.notetaker_id;
-        const mediaStatus = webhookData.data?.object?.status;
+        // Extract notetaker_id and status from the correct path
+        const notetakerId = webhookData.data?.notetaker_id;
+        const mediaStatus = webhookData.data?.status as NotetakerMediaStatus;
         
         if (!notetakerId) {
           console.error('❌ Missing notetaker_id in media_updated webhook', webhookData);
