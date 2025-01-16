@@ -118,8 +118,9 @@ export const handleWebhookType = async (webhookData: any, grantId: string, reque
 
       case 'notetaker.media_updated':
         console.log(`📝 [${requestId}] Processing ${webhookData.type} webhook`);
-        const notetakerId = webhookData.data?.object?.notetaker_id;
-        const mediaStatus = webhookData.data?.object?.status;
+        // Extract notetaker_id and status from the nested structure
+        const notetakerId = webhookData.data?.data?.object?.notetaker_id;
+        const mediaStatus = webhookData.data?.data?.object?.status;
         
         if (!notetakerId) {
           console.error('❌ Missing notetaker_id in media_updated webhook');
