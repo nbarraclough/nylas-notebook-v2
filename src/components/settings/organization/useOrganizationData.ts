@@ -36,16 +36,10 @@ export function useOrganizationData(userId: string) {
         throw orgError;
       }
 
-      // Get member roles and profiles in a single query
+      // First get member roles
       const { data: members, error: membersError } = await supabase
         .from('organization_members')
-        .select(`
-          user_id,
-          role,
-          profiles:user_id (
-            email
-          )
-        `)
+        .select('user_id, role')
         .eq('organization_id', profile.organization_id);
 
       if (membersError) {
@@ -53,14 +47,32 @@ export function useOrganizationData(userId: string) {
         throw membersError;
       }
 
+      // Then get profiles data separately
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .in('id', members?.map(m => m.user_id) || []);
+
+      if (profilesError) {
+        console.error('Profiles fetch error:', profilesError);
+        throw profilesError;
+      }
+
+      // Combine the data
+      const membersWithProfiles = members?.map(member => ({
+        user_id: member.user_id,
+        role: member.role,
+        profiles: profiles?.find(p => p.id === member.user_id) || { email: 'Unknown' }
+      })) || [];
+
       console.log('Successfully fetched organization data:', {
         organizationId: profile.organization_id,
-        memberCount: members?.length
+        memberCount: membersWithProfiles?.length
       });
 
       return {
         organization,
-        members: members || []
+        members: membersWithProfiles
       };
     },
     enabled: !!userId,
