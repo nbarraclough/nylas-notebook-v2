@@ -1,6 +1,16 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
-import { WebhookData } from './webhook-types';
 import { corsHeaders } from '../_shared/cors';
+
+interface WebhookData {
+  type: string;
+  data: {
+    application_id: string;
+    object: {
+      notetaker_id?: string;
+      status?: string;
+    };
+  };
+}
 
 export async function handleWebhookType(
   webhookData: WebhookData,
