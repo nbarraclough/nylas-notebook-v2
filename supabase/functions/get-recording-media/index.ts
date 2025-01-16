@@ -16,8 +16,10 @@ serve(async (req) => {
 
   try {
     const { recordingId, notetakerId } = await req.json();
+    console.log('📝 Processing media request for:', { recordingId, notetakerId });
     
     if (!recordingId || !notetakerId) {
+      console.error('❌ Missing required parameters:', { recordingId, notetakerId });
       throw new Error('Missing required parameters');
     }
 
@@ -25,8 +27,23 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Update status to retrieving before attempting to get media
+    const { error: updateError } = await supabase
+      .from('recordings')
+      .update({
+        status: 'retrieving',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', recordingId);
+
+    if (updateError) {
+      console.error('❌ Error updating recording status:', updateError);
+      throw updateError;
+    }
+
     // Attempt to get recording media
     try {
+      console.log('🔄 Initializing S3 client...');
       const s3Client = new S3Client({
         region: Deno.env.get('AWS_REGION')!,
         credentials: {
@@ -35,14 +52,19 @@ serve(async (req) => {
         },
       });
 
+      console.log('📥 Fetching recording from S3...');
       const getObjectCommand = new GetObjectCommand({
         Bucket: Deno.env.get('AWS_BUCKET_NAME')!,
         Key: `recordings/${notetakerId}/recording.webm`,
       });
 
       const { Body } = await s3Client.send(getObjectCommand);
-      if (!Body) throw new Error('No recording found');
+      if (!Body) {
+        console.error('❌ No recording found in S3');
+        throw new Error('No recording found');
+      }
 
+      console.log('✅ Successfully retrieved recording from S3');
       const stream = Body as Readable;
       const chunks: Uint8Array[] = [];
       
@@ -57,10 +79,12 @@ serve(async (req) => {
         offset += chunk.length;
       }
 
+      console.log('🎥 Preparing to upload to Mux...');
       const formData = new FormData();
       const blob = new Blob([buffer], { type: 'video/webm' });
       formData.append('file', blob, 'recording.webm');
 
+      console.log('📤 Uploading to Mux...');
       const muxResponse = await fetch('https://api.mux.com/video/v1/assets', {
         method: 'POST',
         headers: {
@@ -70,13 +94,15 @@ serve(async (req) => {
       });
 
       if (!muxResponse.ok) {
-        throw new Error(`Failed to upload to Mux: ${await muxResponse.text()}`);
+        console.error('❌ Failed to upload to Mux:', await muxResponse.text());
+        throw new Error(`Failed to upload to Mux: ${muxResponse.statusText}`);
       }
 
       const muxData = await muxResponse.json();
       const assetId = muxData.data.id;
+      console.log('✅ Successfully uploaded to Mux. Asset ID:', assetId);
 
-      const { error: updateError } = await supabase
+      const { error: finalUpdateError } = await supabase
         .from('recordings')
         .update({
           mux_asset_id: assetId,
@@ -85,14 +111,19 @@ serve(async (req) => {
         })
         .eq('id', recordingId);
 
-      if (updateError) throw updateError;
+      if (finalUpdateError) {
+        console.error('❌ Error updating recording with Mux asset ID:', finalUpdateError);
+        throw finalUpdateError;
+      }
 
       return new Response(
-        JSON.stringify({ success: true }),
+        JSON.stringify({ success: true, assetId }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
 
     } catch (error) {
+      console.error('❌ Error processing media:', error);
+      
       // Update status to error if media retrieval fails
       await supabase
         .from('recordings')
@@ -106,11 +137,15 @@ serve(async (req) => {
     }
 
   } catch (error) {
+    console.error('❌ Function error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: error.stack 
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400 
+        status: 500
       }
     );
   }
