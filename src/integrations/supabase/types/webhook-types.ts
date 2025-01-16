@@ -341,13 +341,17 @@ export type CompositeTypes<
     ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
 
-interface NotetakerMediaWebhook extends NylasWebhookBase {
+interface NotetakerMediaData {
+  status: 'media_processing' | 'media_available' | 'media_processing_failed';
+  notetaker_id: string;
+}
+
+interface NotetakerMediaWebhook extends NylasWebhookBase<NotetakerMediaData> {
   type: 'notetaker.media_updated';
   data: {
     application_id: string;
     grant_id: string;
-    status: 'media_processing' | 'media_available' | 'media_processing_failed';
-    notetaker_id: string;
+    object: NotetakerMediaData;
   };
 }
 
