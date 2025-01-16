@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useState } from "react";
 
 export const RecordingRules = ({
   userId,
@@ -19,6 +20,12 @@ export const RecordingRules = ({
   }) => void;
 }) => {
   const { toast } = useToast();
+  const [localState, setLocalState] = useState({
+    record_external_meetings: false,
+    record_internal_meetings: false,
+    share_external_recordings: false,
+    share_internal_recordings: false
+  });
 
   // Fetch user's current recording preferences
   const { data: profile, isLoading } = useQuery({
@@ -31,6 +38,15 @@ export const RecordingRules = ({
         .single();
 
       if (error) throw error;
+      
+      // Update local state when data is fetched
+      setLocalState({
+        record_external_meetings: data.record_external_meetings || false,
+        record_internal_meetings: data.record_internal_meetings || false,
+        share_external_recordings: data.share_external_recordings || false,
+        share_internal_recordings: data.share_internal_recordings || false
+      });
+      
       return data;
     },
   });
@@ -71,6 +87,7 @@ export const RecordingRules = ({
     },
     onSuccess: (_, variables) => {
       onRulesChange(variables);
+      setLocalState(prev => ({ ...prev, ...variables }));
       toast({
         title: "Success",
         description: "Settings updated successfully!",
@@ -78,6 +95,15 @@ export const RecordingRules = ({
     },
     onError: (error) => {
       console.error('Error updating profile:', error);
+      // Revert local state on error
+      if (profile) {
+        setLocalState({
+          record_external_meetings: profile.record_external_meetings || false,
+          record_internal_meetings: profile.record_internal_meetings || false,
+          share_external_recordings: profile.share_external_recordings || false,
+          share_internal_recordings: profile.share_internal_recordings || false
+        });
+      }
       toast({
         title: "Error",
         description: "Failed to update settings. Please try again.",
@@ -87,26 +113,26 @@ export const RecordingRules = ({
   });
 
   const handleRecordExternalChange = () => {
-    const newValue = !(profile?.record_external_meetings ?? false);
-    console.log('Updating record_external_meetings to:', newValue);
+    const newValue = !localState.record_external_meetings;
+    setLocalState(prev => ({ ...prev, record_external_meetings: newValue }));
     updateProfile.mutate({ record_external_meetings: newValue });
   };
 
   const handleRecordInternalChange = () => {
-    const newValue = !(profile?.record_internal_meetings ?? false);
-    console.log('Updating record_internal_meetings to:', newValue);
+    const newValue = !localState.record_internal_meetings;
+    setLocalState(prev => ({ ...prev, record_internal_meetings: newValue }));
     updateProfile.mutate({ record_internal_meetings: newValue });
   };
 
   const handleShareExternalChange = () => {
-    const newValue = !(profile?.share_external_recordings ?? false);
-    console.log('Updating share_external_recordings to:', newValue);
+    const newValue = !localState.share_external_recordings;
+    setLocalState(prev => ({ ...prev, share_external_recordings: newValue }));
     updateProfile.mutate({ share_external_recordings: newValue });
   };
 
   const handleShareInternalChange = () => {
-    const newValue = !(profile?.share_internal_recordings ?? false);
-    console.log('Updating share_internal_recordings to:', newValue);
+    const newValue = !localState.share_internal_recordings;
+    setLocalState(prev => ({ ...prev, share_internal_recordings: newValue }));
     updateProfile.mutate({ share_internal_recordings: newValue });
   };
 
@@ -163,7 +189,7 @@ export const RecordingRules = ({
               </p>
             </div>
             <Switch 
-              checked={profile?.record_external_meetings ?? false}
+              checked={localState.record_external_meetings}
               onCheckedChange={handleRecordExternalChange}
               disabled={updateProfile.isPending}
             />
@@ -176,7 +202,7 @@ export const RecordingRules = ({
               </p>
             </div>
             <Switch 
-              checked={profile?.record_internal_meetings ?? false}
+              checked={localState.record_internal_meetings}
               onCheckedChange={handleRecordInternalChange}
               disabled={updateProfile.isPending}
             />
@@ -197,7 +223,7 @@ export const RecordingRules = ({
               </p>
             </div>
             <Switch 
-              checked={profile?.share_internal_recordings ?? false}
+              checked={localState.share_internal_recordings}
               onCheckedChange={handleShareInternalChange}
               disabled={updateProfile.isPending}
             />
@@ -210,7 +236,7 @@ export const RecordingRules = ({
               </p>
             </div>
             <Switch 
-              checked={profile?.share_external_recordings ?? false}
+              checked={localState.share_external_recordings}
               onCheckedChange={handleShareExternalChange}
               disabled={updateProfile.isPending}
             />
