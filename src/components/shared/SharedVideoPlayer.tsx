@@ -23,11 +23,18 @@ export const SharedVideoPlayer = forwardRef<BaseVideoPlayerRef, SharedVideoPlaye
     ? getMuxPlaybackUrl(muxPlaybackId)
     : videoUrl || recordingUrl;
 
+  console.log('SharedVideoPlayer initialized with:', {
+    muxPlaybackId,
+    videoSource,
+    videoUrl,
+    recordingUrl
+  });
+
   return (
     <BaseVideoPlayer
       ref={ref}
       videoUrl={videoSource}
-      recordingUrl={recordingUrl}
+      recordingUrl={null}
     />
   );
 });

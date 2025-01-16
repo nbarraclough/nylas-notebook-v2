@@ -82,6 +82,7 @@ export function useSharedVideo() {
       }
 
       const sharedRecording = recordingData[0] as SharedRecordingResponse;
+      console.log('Received recording data:', sharedRecording);
 
       // Transform event data from the JSON response
       const eventInfo = sharedRecording.event ? {
@@ -92,7 +93,7 @@ export function useSharedVideo() {
         participants: transformParticipants(sharedRecording.event.participants)
       } : null;
 
-      console.log('Setting event info');
+      console.log('Setting event info:', eventInfo);
       setEventData(eventInfo);
 
       const transformedRecording: SharedRecording = {
@@ -105,7 +106,7 @@ export function useSharedVideo() {
         event: eventInfo
       };
 
-      console.log('Setting recording data');
+      console.log('Setting recording data:', transformedRecording);
       setRecording(transformedRecording);
       
       console.log('Tracking view');

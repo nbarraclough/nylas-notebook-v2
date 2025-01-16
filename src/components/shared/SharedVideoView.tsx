@@ -1,6 +1,5 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
 import { SharedEventHeader } from "./SharedEventHeader";
 import { SharedVideoPlayer } from "./SharedVideoPlayer";
 import { EventDescription } from "@/components/calendar/EventDescription";
@@ -11,6 +10,8 @@ import { ErrorState } from "./video/ErrorState";
 
 export function SharedVideoView() {
   const { recording, isLoading, eventData } = useSharedVideo();
+
+  console.log('SharedVideoView data:', { recording, eventData });
 
   if (isLoading) {
     return <LoadingState />;
