@@ -10,25 +10,18 @@ interface SharedVideoPlayerProps {
 }
 
 export const SharedVideoPlayer = forwardRef<BaseVideoPlayerRef, SharedVideoPlayerProps>(({ 
-  videoUrl, 
-  recordingUrl,
   muxPlaybackId
 }, ref) => {
-  // Get Mux playback URL if available
+  // Only use Mux playback URL
   const getMuxPlaybackUrl = (playbackId: string) => {
     return `https://stream.mux.com/${playbackId}.m3u8`;
   };
 
-  // Prioritize Mux playback URL over other sources
-  const videoSource = muxPlaybackId 
-    ? getMuxPlaybackUrl(muxPlaybackId)
-    : videoUrl;
+  const videoSource = muxPlaybackId ? getMuxPlaybackUrl(muxPlaybackId) : null;
 
   console.log('SharedVideoPlayer initialized with:', {
     muxPlaybackId,
-    videoSource,
-    videoUrl,
-    recordingUrl
+    videoSource
   });
 
   return (

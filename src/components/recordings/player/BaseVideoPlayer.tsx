@@ -30,7 +30,10 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
     const video = videoRef.current;
     const url = videoUrl || recordingUrl;
 
-    if (!url) return;
+    if (!url) {
+      console.log('No video URL provided');
+      return;
+    }
 
     if (hlsRef.current) {
       hlsRef.current.destroy();
@@ -80,9 +83,6 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
         console.log('Using native HLS support');
         video.src = url;
       }
-    } else {
-      console.log('Using standard video player with URL:', url);
-      video.src = url;
     }
 
     return () => {
@@ -115,6 +115,14 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
       }
     }
   }, [ref]);
+
+  if (!videoUrl && !recordingUrl) {
+    return (
+      <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-500">
+        No video available
+      </div>
+    );
+  }
 
   return (
     <video
