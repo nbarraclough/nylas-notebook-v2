@@ -111,6 +111,25 @@ Deno.serve(async (req) => {
 
     console.log('✅ Successfully updated notetaker queue');
 
+    // Create recording entry with 'waiting' status
+    console.log('📝 Creating recording entry...');
+    const { error: recordingError } = await supabaseClient
+      .from('recordings')
+      .insert({
+        user_id: event.user_id,
+        event_id: event.id,
+        notetaker_id: data.data.notetaker_id,
+        recording_url: '',
+        status: 'waiting'
+      });
+
+    if (recordingError) {
+      console.error('❌ Error creating recording entry:', recordingError);
+      throw new Error('Failed to create recording entry')
+    }
+
+    console.log('✅ Successfully created recording entry');
+
     return new Response(
       JSON.stringify({ 
         success: true,
