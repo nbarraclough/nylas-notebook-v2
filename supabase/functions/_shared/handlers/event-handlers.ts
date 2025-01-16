@@ -86,11 +86,11 @@ export const handleEventCreated = async (objectData: any, grantId: string) => {
       last_updated_at: new Date().toISOString()
     };
 
-    // Insert or update the event in our database
+    // Insert or update the event in our database using the new constraint
     const { error: eventError } = await supabaseAdmin
       .from('events')
       .upsert(eventData, {
-        onConflict: 'nylas_event_id',
+        onConflict: 'nylas_event_id,user_id',
         ignoreDuplicates: false
       });
 
@@ -128,11 +128,11 @@ export const handleEventUpdated = async (objectData: any, grantId: string) => {
       last_updated_at: new Date().toISOString()
     };
 
-    // Update the event in our database
+    // Update the event in our database using the new constraint
     const { error: eventError } = await supabaseAdmin
       .from('events')
       .upsert(eventData, {
-        onConflict: 'nylas_event_id',
+        onConflict: 'nylas_event_id,user_id',
         ignoreDuplicates: false
       });
 
