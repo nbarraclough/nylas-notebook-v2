@@ -8,6 +8,8 @@ const nylasApiKey = Deno.env.get('NYLAS_CLIENT_SECRET')!;
 
 const supabase = createClient<Database>(supabaseUrl, supabaseServiceRoleKey);
 
+const MAX_ATTEMPTS = 3;
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -88,7 +90,30 @@ Deno.serve(async (req) => {
           if (!nylasResponse.ok) {
             const errorText = await nylasResponse.text();
             console.error(`Nylas API error (${nylasResponse.status}):`, errorText);
-            throw new Error(`Nylas API error: ${nylasResponse.statusText}`);
+            
+            // Increment attempts and handle retry logic
+            const newAttempts = (item.attempts || 0) + 1;
+            const updateData = {
+              attempts: newAttempts,
+              last_attempt: new Date().toISOString(),
+              error: `Nylas API error: ${nylasResponse.statusText}`,
+              // Only set to failed if we've reached max attempts
+              status: newAttempts >= MAX_ATTEMPTS ? 'failed' : 'pending'
+            };
+            
+            const { error: updateError } = await supabase
+              .from('notetaker_queue')
+              .update(updateData)
+              .eq('id', item.id);
+
+            if (updateError) throw updateError;
+
+            return {
+              queueId: item.id,
+              status: 'error',
+              error: `Nylas API error: ${nylasResponse.statusText}`,
+              attempts: newAttempts
+            };
           }
 
           const notetakerData = await nylasResponse.json();
@@ -133,21 +158,26 @@ Deno.serve(async (req) => {
         } catch (error) {
           console.error(`Error processing queue item ${item.id}:`, error);
 
-          // Update queue item with error
+          // Increment attempts and handle retry logic for any error
+          const newAttempts = (item.attempts || 0) + 1;
+          const updateData = {
+            attempts: newAttempts,
+            last_attempt: new Date().toISOString(),
+            error: error.message,
+            // Only set to failed if we've reached max attempts
+            status: newAttempts >= MAX_ATTEMPTS ? 'failed' : 'pending'
+          };
+
           await supabase
             .from('notetaker_queue')
-            .update({
-              status: 'failed',
-              error: error.message,
-              attempts: (item.attempts || 0) + 1,
-              last_attempt: new Date().toISOString(),
-            })
+            .update(updateData)
             .eq('id', item.id);
 
           return {
             queueId: item.id,
             status: 'error',
             error: error.message,
+            attempts: newAttempts
           };
         }
       })
