@@ -57,6 +57,10 @@ name = "send-recording-email"
 verify_jwt = true
 
 [[functions]]
+name = "send-recording-ready-email"
+verify_jwt = true
+
+[[functions]]
 name = "sync-nylas-events"
 verify_jwt = true
 

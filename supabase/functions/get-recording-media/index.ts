@@ -190,7 +190,7 @@ Deno.serve(async (req) => {
           recording_url: recordingUrl,
           transcript_url: transcriptUrl,
           transcript_content: transcriptContent,
-          status: 'processing',
+          status: 'ready',
           updated_at: new Date().toISOString()
         })
         .eq('id', recordingId);
@@ -199,6 +199,28 @@ Deno.serve(async (req) => {
         console.error('❌ Error updating recording with Mux asset ID:', finalUpdateError);
         throw finalUpdateError;
       }
+
+      // Get user's grant ID for sending email
+      const { data: userData, error: userError } = await supabaseClient
+        .from('profiles')
+        .select('nylas_grant_id')
+        .eq('id', recordingData.user_id)
+        .single();
+
+      if (userError || !userData?.nylas_grant_id) {
+        console.error('❌ Error getting user grant ID:', userError);
+        throw new Error('Could not get user grant ID');
+      }
+
+      // Trigger email notification
+      console.log('📧 Triggering recording ready email notification');
+      await supabaseClient.functions.invoke('send-recording-ready-email', {
+        body: {
+          recordingId,
+          userId: recordingData.user_id,
+          grantId: userData.nylas_grant_id
+        }
+      });
 
       return new Response(
         JSON.stringify({ 
