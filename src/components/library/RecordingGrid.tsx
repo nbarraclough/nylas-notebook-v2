@@ -9,13 +9,15 @@ interface RecordingGridProps {
   isLoading: boolean;
   selectedRecording: string | null;
   onRecordingSelect: (id: string | null) => void;
+  showErrors?: boolean;
 }
 
 export function RecordingGrid({ 
   recordings, 
   isLoading, 
   selectedRecording,
-  onRecordingSelect 
+  onRecordingSelect,
+  showErrors = false
 }: RecordingGridProps) {
   const isInternalMeeting = (recording: any) => {
     const organizerDomain = recording.event?.organizer?.email?.split('@')[1];
@@ -26,6 +28,11 @@ export function RecordingGrid({
       return participantDomain === organizerDomain;
     });
   };
+
+  // Filter out error recordings unless showErrors is true
+  const filteredRecordings = recordings.filter(recording => 
+    showErrors || recording.status !== "error"
+  );
 
   if (isLoading) {
     return (
@@ -43,7 +50,7 @@ export function RecordingGrid({
     );
   }
 
-  if (recordings.length === 0) {
+  if (filteredRecordings.length === 0) {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">No recordings found</p>
@@ -54,7 +61,7 @@ export function RecordingGrid({
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {recordings.map((recording) => {
+        {filteredRecordings.map((recording) => {
           const internal = isInternalMeeting(recording);
           const isError = recording.status === "error";
           const isProcessing = ["waiting", "retrieving", "processing"].includes(recording.status);

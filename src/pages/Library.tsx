@@ -8,6 +8,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { LibraryError } from "@/components/library/LibraryError";
 import { PaginationControls } from "@/components/recurring/PaginationControls";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const ITEMS_PER_PAGE = 8;
 
@@ -17,6 +19,7 @@ export default function Library() {
   const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
   const [myRecordingsPage, setMyRecordingsPage] = useState(1);
   const [sharedRecordingsPage, setSharedRecordingsPage] = useState(1);
+  const [showErrors, setShowErrors] = useState(false);
   const [filters, setFilters] = useState({
     types: [] as string[],
     meetingTypes: [] as string[],
@@ -168,6 +171,7 @@ export default function Library() {
               isLoading={isLoadingMyRecordings}
               selectedRecording={selectedRecording}
               onRecordingSelect={handleRecordingSelect}
+              showErrors={showErrors}
             />
             {myRecordings && myRecordings.length > 0 && (
               <PaginationControls
@@ -186,6 +190,7 @@ export default function Library() {
               isLoading={isLoadingShared}
               selectedRecording={selectedRecording}
               onRecordingSelect={handleRecordingSelect}
+              showErrors={showErrors}
             />
             {sharedRecordings && sharedRecordings.length > 0 && (
               <PaginationControls
@@ -195,6 +200,16 @@ export default function Library() {
               />
             )}
           </section>
+        </div>
+
+        {/* Show Errors Toggle */}
+        <div className="flex items-center justify-end space-x-2 pt-4 border-t">
+          <Switch
+            id="show-errors"
+            checked={showErrors}
+            onCheckedChange={setShowErrors}
+          />
+          <Label htmlFor="show-errors">Show error recordings</Label>
         </div>
       </div>
     </PageLayout>
