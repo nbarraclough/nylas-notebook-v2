@@ -19,15 +19,15 @@ export function TitleFilter({ onTitleSearch }: TitleFilterProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-2">
+    <form onSubmit={handleSubmit} className="flex w-full gap-2">
       <Input
         type="text"
         placeholder="Search by meeting title"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        className="w-64"
+        className="flex-1"
       />
-      <Button type="submit" variant="outline" size="icon">
+      <Button type="submit" variant="outline" size="icon" className="shrink-0">
         <Search className="h-4 w-4" />
       </Button>
     </form>
