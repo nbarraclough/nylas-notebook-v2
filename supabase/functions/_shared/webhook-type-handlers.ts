@@ -73,12 +73,17 @@ async function handleNotetakerMediaUpdated(notetakerId: string, status: Notetake
       // If media is available, trigger media retrieval
       if (status === 'media_available') {
         console.log(`📥 Triggering media retrieval for recording ${recording.id}`);
-        await supabase.functions.invoke('get-recording-media', {
+        const { error: retrievalError } = await supabase.functions.invoke('get-recording-media', {
           body: { 
             recordingId: recording.id,
             notetakerId
           },
         });
+
+        if (retrievalError) {
+          console.error(`❌ Error triggering media retrieval for recording ${recording.id}:`, retrievalError);
+          throw retrievalError;
+        }
       }
 
       // If processing failed, log detailed error
