@@ -91,8 +91,10 @@ Deno.serve(async (req) => {
     }
 
     const data = JSON.parse(responseText);
+    const notetakerId = data.data.id;
+
     console.log('✅ Nylas API success:', {
-      notetakerId: data.data.notetaker_id,
+      notetakerId,
       status: response.status,
       headers: Object.fromEntries(response.headers.entries())
     });
@@ -103,7 +105,7 @@ Deno.serve(async (req) => {
       .upsert({
         user_id: event.user_id,
         event_id: event.id,
-        notetaker_id: data.data.notetaker_id,
+        notetaker_id: notetakerId,
         recording_url: '',
         status: 'waiting',
         updated_at: new Date().toISOString()
@@ -124,7 +126,7 @@ Deno.serve(async (req) => {
         .upsert({
           user_id: event.user_id,
           event_id: event.id,
-          notetaker_id: data.data.notetaker_id,
+          notetaker_id: notetakerId,
           status: 'sent',
           updated_at: new Date().toISOString()
         }, {
@@ -141,7 +143,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true,
-        notetaker_id: data.data.notetaker_id 
+        notetaker_id: notetakerId 
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
