@@ -24,6 +24,20 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
 
+  // Cleanup function to properly destroy HLS instance
+  const cleanupHls = () => {
+    if (hlsRef.current) {
+      hlsRef.current.stopLoad();
+      hlsRef.current.detachMedia();
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.src = '';
+      videoRef.current.load();
+    }
+  };
+
   useEffect(() => {
     if (!videoRef.current) return;
 
@@ -35,10 +49,8 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
       return;
     }
 
-    if (hlsRef.current) {
-      hlsRef.current.destroy();
-      hlsRef.current = null;
-    }
+    // Clean up existing HLS instance before creating a new one
+    cleanupHls();
 
     if (url.includes('.m3u8')) {
       if (Hls.isSupported()) {
@@ -86,10 +98,7 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
     }
 
     return () => {
-      if (hlsRef.current) {
-        console.log('Cleaning up HLS instance');
-        hlsRef.current.destroy();
-      }
+      cleanupHls();
     };
   }, [videoUrl, recordingUrl]);
 
@@ -98,8 +107,16 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
 
     if (ref) {
       const controls = {
-        pause: () => videoRef.current?.pause(),
-        play: () => videoRef.current?.play(),
+        pause: () => {
+          if (videoRef.current) {
+            videoRef.current.pause();
+          }
+        },
+        play: () => {
+          if (videoRef.current) {
+            videoRef.current.play();
+          }
+        },
         seek: (time: number) => {
           if (videoRef.current) {
             videoRef.current.currentTime = time;

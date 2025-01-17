@@ -26,18 +26,42 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   const { data: profile } = useProfileData();
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
 
-  // Cleanup effect to ensure video is paused when component unmounts
+  // Enhanced cleanup effect to ensure video is properly stopped
   useEffect(() => {
     return () => {
       if (videoPlayerRef.current) {
+        // Ensure video is paused
         videoPlayerRef.current.pause();
+        // Get video element and stop any ongoing streams
+        const videoElement = videoPlayerRef.current.getVideoElement();
+        if (videoElement) {
+          videoElement.src = '';
+          videoElement.load();
+        }
       }
     };
   }, []);
 
+  // Also cleanup when recordingId changes
+  useEffect(() => {
+    if (videoPlayerRef.current) {
+      videoPlayerRef.current.pause();
+      const videoElement = videoPlayerRef.current.getVideoElement();
+      if (videoElement) {
+        videoElement.src = '';
+        videoElement.load();
+      }
+    }
+  }, [recordingId]);
+
   const handleClose = () => {
     if (videoPlayerRef.current) {
       videoPlayerRef.current.pause();
+      const videoElement = videoPlayerRef.current.getVideoElement();
+      if (videoElement) {
+        videoElement.src = '';
+        videoElement.load();
+      }
     }
     onClose();
   };
