@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
       headers: Object.fromEntries(response.headers.entries())
     });
 
-    // Use upsert for recordings table
+    // Update recording with notetaker_id
     const { error: recordingError } = await supabaseClient
       .from('recordings')
       .upsert({
@@ -119,8 +119,9 @@ Deno.serve(async (req) => {
       throw new Error('Failed to upsert recording')
     }
 
-    // For calendar meetings, update the queue
+    // Only create queue entry for calendar events (non-manual meetings)
     if (!isManualMeeting) {
+      console.log('📋 Creating queue entry for calendar event...');
       const { error: queueError } = await supabaseClient
         .from('notetaker_queue')
         .upsert({
