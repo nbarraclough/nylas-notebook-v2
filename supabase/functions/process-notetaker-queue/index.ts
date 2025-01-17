@@ -97,7 +97,6 @@ Deno.serve(async (req) => {
               attempts: newAttempts,
               last_attempt: new Date().toISOString(),
               error: `Nylas API error: ${nylasResponse.statusText}`,
-              // Only set to failed if we've reached max attempts
               status: newAttempts >= MAX_ATTEMPTS ? 'failed' : 'pending'
             };
             
@@ -116,12 +115,19 @@ Deno.serve(async (req) => {
             };
           }
 
-          const notetakerData = await nylasResponse.json();
-          console.log('Nylas API response:', notetakerData);
+          const responseText = await nylasResponse.text();
+          console.log('Raw Nylas response:', responseText);
+          
+          const notetakerData = JSON.parse(responseText);
+          console.log('Parsed Nylas response:', notetakerData);
 
-          if (!notetakerData.data?.id) {
-            throw new Error('No id in response');
+          // Extract notetaker ID from the correct path in response
+          const notetakerId = notetakerData.data?.id;
+          if (!notetakerId) {
+            throw new Error('No notetaker ID in response');
           }
+
+          console.log('Extracted notetaker ID:', notetakerId);
 
           // Create recording entry with notetaker_id
           const { error: recordingError } = await supabase
@@ -129,7 +135,7 @@ Deno.serve(async (req) => {
             .insert({
               user_id: event.user_id,
               event_id: event.id,
-              notetaker_id: notetakerData.data.id,
+              notetaker_id: notetakerId,
               status: 'waiting',
             });
 
@@ -142,7 +148,7 @@ Deno.serve(async (req) => {
             .from('notetaker_queue')
             .update({
               status: 'completed',
-              notetaker_id: notetakerData.data.id,
+              notetaker_id: notetakerId,
             })
             .eq('id', item.id);
 
@@ -153,7 +159,7 @@ Deno.serve(async (req) => {
           return {
             queueId: item.id,
             status: 'success',
-            notetakerId: notetakerData.data.id,
+            notetakerId: notetakerId,
           };
         } catch (error) {
           console.error(`Error processing queue item ${item.id}:`, error);
@@ -164,7 +170,6 @@ Deno.serve(async (req) => {
             attempts: newAttempts,
             last_attempt: new Date().toISOString(),
             error: error.message,
-            // Only set to failed if we've reached max attempts
             status: newAttempts >= MAX_ATTEMPTS ? 'failed' : 'pending'
           };
 
