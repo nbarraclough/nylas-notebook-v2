@@ -8,6 +8,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { LibraryError } from "@/components/library/LibraryError";
 import { PaginationControls } from "@/components/recurring/PaginationControls";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const ITEMS_PER_PAGE = 8;
 
@@ -17,6 +19,7 @@ export default function Library() {
   const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
   const [myRecordingsPage, setMyRecordingsPage] = useState(1);
   const [sharedRecordingsPage, setSharedRecordingsPage] = useState(1);
+  const [showErrors, setShowErrors] = useState(false);
   const [filters, setFilters] = useState({
     types: [] as string[],
     meetingTypes: [] as string[],
@@ -27,14 +30,12 @@ export default function Library() {
     hasPublicLink: false
   });
 
-  // Handle deep linking
   useEffect(() => {
     if (recordingId) {
       setSelectedRecording(recordingId);
     }
   }, [recordingId]);
 
-  // Query for my recordings
   const { data: myRecordings, isLoading: isLoadingMyRecordings, error: myRecordingsError } = useQuery({
     queryKey: ["my-recordings", filters, myRecordingsPage],
     queryFn: async () => {
@@ -84,7 +85,6 @@ export default function Library() {
     },
   });
 
-  // Query for shared recordings
   const { data: sharedRecordings, isLoading: isLoadingShared, error: sharedError } = useQuery({
     queryKey: ["shared-recordings", filters, sharedRecordingsPage],
     queryFn: async () => {
@@ -154,10 +154,20 @@ export default function Library() {
     <PageLayout>
       <div className="container mx-auto px-4 py-8 space-y-8">
         <LibraryHeader recordingsCount={(myRecordings?.length || 0) + (sharedRecordings?.length || 0)} />
-        <LibraryFilters
-          filters={filters}
-          onFiltersChange={setFilters}
-        />
+        <div className="flex items-center justify-between">
+          <LibraryFilters
+            filters={filters}
+            onFiltersChange={setFilters}
+          />
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="show-errors"
+              checked={showErrors}
+              onCheckedChange={setShowErrors}
+            />
+            <Label htmlFor="show-errors">Show errors</Label>
+          </div>
+        </div>
         
         <div className="space-y-12">
           {/* My Recordings Section */}
@@ -168,6 +178,7 @@ export default function Library() {
               isLoading={isLoadingMyRecordings}
               selectedRecording={selectedRecording}
               onRecordingSelect={handleRecordingSelect}
+              showErrors={showErrors}
             />
             {myRecordings && myRecordings.length > 0 && (
               <PaginationControls
@@ -186,6 +197,7 @@ export default function Library() {
               isLoading={isLoadingShared}
               selectedRecording={selectedRecording}
               onRecordingSelect={handleRecordingSelect}
+              showErrors={showErrors}
             />
             {sharedRecordings && sharedRecordings.length > 0 && (
               <PaginationControls
