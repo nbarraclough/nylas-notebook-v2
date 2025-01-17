@@ -90,8 +90,8 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to send notetaker`)
     }
 
-    const data = JSON.parse(responseText);
-    const notetakerId = data.data.id;
+    const nylasResponse = JSON.parse(responseText);
+    const notetakerId = nylasResponse.data.id;
 
     console.log('✅ Nylas API success:', {
       notetakerId,
