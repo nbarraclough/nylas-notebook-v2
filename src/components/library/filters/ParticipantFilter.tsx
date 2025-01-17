@@ -19,15 +19,15 @@ export function ParticipantFilter({ onParticipantSearch }: ParticipantFilterProp
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex w-full gap-2">
+    <form onSubmit={handleSubmit} className="flex gap-2">
       <Input
         type="email"
         placeholder="Search by participant email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        className="flex-1"
+        className="w-64"
       />
-      <Button type="submit" variant="outline" size="icon" className="shrink-0">
+      <Button type="submit" variant="outline" size="icon">
         <Search className="h-4 w-4" />
       </Button>
     </form>

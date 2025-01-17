@@ -194,44 +194,33 @@ export function LibraryFilters({ filters, onFiltersChange }: LibraryFiltersProps
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:gap-6">
-        {/* Primary Filters Row */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <OwnerFilter
-              selectedTypes={filters.types}
-              onTypeChange={(types) => onFiltersChange({ ...filters, types })}
-            />
-            <MeetingTypeFilter
-              selectedTypes={filters.meetingTypes}
-              onTypeChange={(types) => onFiltersChange({ ...filters, meetingTypes: types })}
-            />
-            <DateFilter
-              startDate={filters.startDate}
-              endDate={filters.endDate}
-              onDateChange={(start, end) =>
-                onFiltersChange({
-                  ...filters,
-                  startDate: start,
-                  endDate: end,
-                })
-              }
-            />
-          </div>
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap gap-2">
+          <OwnerFilter
+            selectedTypes={filters.types}
+            onTypeChange={(types) => onFiltersChange({ ...filters, types })}
+          />
+          <MeetingTypeFilter
+            selectedTypes={filters.meetingTypes}
+            onTypeChange={(types) => onFiltersChange({ ...filters, meetingTypes: types })}
+          />
+          <DateFilter
+            startDate={filters.startDate}
+            endDate={filters.endDate}
+            onDateChange={(start, end) =>
+              onFiltersChange({
+                ...filters,
+                startDate: start,
+                endDate: end,
+              })
+            }
+          />
         </div>
-
-        {/* Search Filters Row */}
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex-1 min-w-[280px] max-w-xl flex items-center gap-4">
-            <div className="flex-1">
-              <ParticipantFilter onParticipantSearch={handleParticipantSearch} />
-            </div>
-            <div className="flex-1">
-              <TitleFilter onTitleSearch={handleTitleSearch} />
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap gap-2">
+          <ParticipantFilter onParticipantSearch={handleParticipantSearch} />
+          <TitleFilter onTitleSearch={handleTitleSearch} />
+          <div className="flex items-center space-x-2">
             <Switch
               id="public-link"
               checked={filters.hasPublicLink}
@@ -239,16 +228,13 @@ export function LibraryFilters({ filters, onFiltersChange }: LibraryFiltersProps
                 onFiltersChange({ ...filters, hasPublicLink: checked })
               }
             />
-            <Label htmlFor="public-link" className="text-sm font-medium">
-              Public Link
-            </Label>
+            <Label htmlFor="public-link">Public Link</Label>
           </div>
         </div>
       </div>
 
-      {/* Active Filters */}
       {renderFilterBadges().length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 pt-2">
+        <div className="flex flex-wrap gap-2">
           {renderFilterBadges()}
           <Button
             variant="ghost"
