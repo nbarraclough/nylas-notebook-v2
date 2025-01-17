@@ -43,9 +43,12 @@ export default function Calendar() {
     queryKey: ['events', userId],
     queryFn: async () => {
       if (!userId) return [];
+      
+      // Modified query to only fetch user's own events
       const { data, error } = await supabase
         .from('events')
         .select('*')
+        .eq('user_id', userId) // Only fetch events where user_id matches
         .order('start_time', { ascending: true });
 
       if (error) throw error;
