@@ -15,6 +15,12 @@ Deno.serve(async (req) => {
       throw new Error('Missing required parameters');
     }
 
+    // Validate notetakerId format (should be a string of hex characters)
+    if (!/^[a-f0-9]+$/i.test(notetakerId)) {
+      console.error('❌ Invalid notetaker ID format:', notetakerId);
+      throw new Error('Invalid notetaker ID format');
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
