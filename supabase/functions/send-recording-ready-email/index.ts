@@ -1,5 +1,4 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
-import { format } from "https://deno.land/x/date_fns@v2.22.1/index.js"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,7 +11,7 @@ interface EmailRequest {
   grantId: string;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -63,8 +62,22 @@ serve(async (req) => {
       .join('<br>');
 
     // Format date and time
-    const meetingDate = format(new Date(recording.event.start_time), "MMMM d, yyyy");
-    const meetingTime = `${format(new Date(recording.event.start_time), "h:mm a")} - ${format(new Date(recording.event.end_time), "h:mm a")}`;
+    const startDate = new Date(recording.event.start_time);
+    const endDate = new Date(recording.event.end_time);
+    
+    const meetingDate = startDate.toLocaleDateString('en-US', { 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+    
+    const meetingTime = `${startDate.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit' 
+    })} - ${endDate.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit' 
+    })}`;
 
     // Create deep link to recording
     const recordingUrl = `${Deno.env.get('PUBLIC_APP_URL')}/library/${recordingId}`;
@@ -110,7 +123,7 @@ serve(async (req) => {
 
     // Send email via Nylas
     console.log('📤 Sending email via Nylas API');
-    const response = await fetch(`https://api.us.nylas.com/v3/grants/${grantId}/messages/send`, {
+    const response = await fetch(`https://api.us.nylas.com/v3/grants/${grantId}/messages`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
@@ -120,6 +133,7 @@ serve(async (req) => {
       body: JSON.stringify({
         subject: `Recording Ready: ${recording.event.title}`,
         to: [{ email: recording.owner.email }],
+        from: [{ email: recording.owner.email }],
         body: htmlContent,
       }),
     });
