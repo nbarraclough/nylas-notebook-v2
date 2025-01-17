@@ -119,8 +119,8 @@ Deno.serve(async (req) => {
           const notetakerData = await nylasResponse.json();
           console.log('Nylas API response:', notetakerData);
 
-          if (!notetakerData.data?.notetaker_id) {
-            throw new Error('No notetaker_id in response');
+          if (!notetakerData.data?.id) {
+            throw new Error('No id in response');
           }
 
           // Create recording entry with notetaker_id
@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
             .insert({
               user_id: event.user_id,
               event_id: event.id,
-              notetaker_id: notetakerData.data.notetaker_id,
+              notetaker_id: notetakerData.data.id,
               status: 'waiting',
             });
 
@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
             .from('notetaker_queue')
             .update({
               status: 'completed',
-              notetaker_id: notetakerData.data.notetaker_id,
+              notetaker_id: notetakerData.data.id,
             })
             .eq('id', item.id);
 
@@ -153,7 +153,7 @@ Deno.serve(async (req) => {
           return {
             queueId: item.id,
             status: 'success',
-            notetakerId: notetakerData.data.notetaker_id,
+            notetakerId: notetakerData.data.id,
           };
         } catch (error) {
           console.error(`Error processing queue item ${item.id}:`, error);
