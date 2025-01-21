@@ -1,14 +1,26 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+};
 
 interface EmailRequest {
   recordingId: string;
   userId: string;
   grantId: string;
+}
+
+interface NylasResponse {
+  request_id: string;
+  grant_id: string;
+  data: {
+    subject: string;
+    body: string;
+    from: Array<{ name: string; email: string }>;
+    to: Array<{ name: string; email: string }>;
+  };
 }
 
 Deno.serve(async (req) => {
@@ -26,7 +38,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get recording details with event info
+    // Get recording details with event info and owner profile
     const { data: recording, error: recordingError } = await supabaseClient
       .from('recordings')
       .select(`
@@ -52,13 +64,17 @@ Deno.serve(async (req) => {
       throw new Error('Recording not found');
     }
 
-    const ownerName = recording.owner.first_name 
-      ? `${recording.owner.first_name} ${recording.owner.last_name || ''}`
+    // Format sender name
+    const senderName = recording.owner.first_name && recording.owner.last_name
+      ? `${recording.owner.first_name} ${recording.owner.last_name}`
       : recording.owner.email.split('@')[0];
 
-    // Format participants list
+    // Format participants list for email
     const participants = recording.event.participants
-      .map((p: any) => `${p.name || p.email.split('@')[0]} (${p.email})`)
+      .map((p: any) => {
+        const name = p.name || p.email.split('@')[0];
+        return `${name} (${p.email})`;
+      })
       .join('<br>');
 
     // Format date and time
@@ -87,7 +103,7 @@ Deno.serve(async (req) => {
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #2563eb;">Your Meeting Recording is Ready</h2>
         
-        <p>Hi ${ownerName},</p>
+        <p>Hi ${senderName},</p>
         
         <p>Your recording for the following meeting is now ready to watch:</p>
         
@@ -121,21 +137,36 @@ Deno.serve(async (req) => {
       </div>
     `;
 
+    // Prepare email request for Nylas API
+    const emailRequest = {
+      subject: `Recording Ready: ${recording.event.title}`,
+      body: htmlContent,
+      from: [{
+        name: senderName,
+        email: recording.owner.email
+      }],
+      to: [{
+        name: senderName,
+        email: recording.owner.email
+      }]
+    };
+
+    console.log('📤 Sending email via Nylas API:', {
+      grantId,
+      subject: emailRequest.subject,
+      from: emailRequest.from,
+      to: emailRequest.to
+    });
+
     // Send email via Nylas
-    console.log('📤 Sending email via Nylas API');
-    const response = await fetch(`https://api.us.nylas.com/v3/grants/${grantId}/messages`, {
+    const response = await fetch(`https://api.us.nylas.com/v3/grants/${grantId}/messages/send`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: JSON.stringify({
-        subject: `Recording Ready: ${recording.event.title}`,
-        to: [{ email: recording.owner.email }],
-        from: [{ email: recording.owner.email }],
-        body: htmlContent,
-      }),
+      body: JSON.stringify(emailRequest),
     });
 
     if (!response.ok) {
@@ -144,8 +175,12 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to send email: ${response.statusText}`);
     }
 
-    const emailData = await response.json();
-    console.log('✅ Email sent successfully:', emailData);
+    const nylasResponse = await response.json() as NylasResponse;
+    console.log('✅ Email sent successfully:', {
+      requestId: nylasResponse.request_id,
+      grantId: nylasResponse.grant_id,
+      messageData: nylasResponse.data
+    });
 
     // Log notification in database
     const { error: notificationError } = await supabaseClient
@@ -164,7 +199,11 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, messageId: emailData.data.id }),
+      JSON.stringify({ 
+        success: true, 
+        requestId: nylasResponse.request_id,
+        messageData: nylasResponse.data 
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
