@@ -6,6 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const BASE_URL = 'https://notebook.nylas.ai';
+
 interface EmailRequest {
   recordingId: string;
   userId: string;
@@ -95,8 +97,8 @@ Deno.serve(async (req) => {
       minute: '2-digit' 
     })}`;
 
-    // Create deep link to recording
-    const recordingUrl = `${Deno.env.get('PUBLIC_APP_URL')}/library/${recordingId}`;
+    // Create deep link to recording using BASE_URL
+    const recordingUrl = `${BASE_URL}/library/${recordingId}`;
 
     // Format HTML email content
     const htmlContent = `
@@ -187,7 +189,6 @@ Deno.serve(async (req) => {
       .from('email_notifications')
       .insert({
         user_id: userId,
-        recording_id: recordingId,
         email_type: 'recording_ready',
         processed: true,
         processed_at: new Date().toISOString(),
@@ -207,7 +208,7 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error in send-recording-ready-email function:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
