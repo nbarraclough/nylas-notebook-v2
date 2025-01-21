@@ -48,8 +48,6 @@ Deno.serve(async (req) => {
         event:events (
           title,
           description,
-          start_time,
-          end_time,
           participants
         ),
         owner:profiles!inner (
@@ -75,66 +73,54 @@ Deno.serve(async (req) => {
     const participants = recording.event.participants
       .map((p: any) => {
         const name = p.name || p.email.split('@')[0];
-        return `${name} (${p.email})`;
+        return `<li style="margin: 4px 0; color: #475569;">${name} (${p.email})</li>`;
       })
-      .join('<br>');
-
-    // Format date and time
-    const startDate = new Date(recording.event.start_time);
-    const endDate = new Date(recording.event.end_time);
-    
-    const meetingDate = startDate.toLocaleDateString('en-US', { 
-      month: 'long', 
-      day: 'numeric', 
-      year: 'numeric' 
-    });
-    
-    const meetingTime = `${startDate.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit' 
-    })} - ${endDate.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit' 
-    })}`;
+      .join('');
 
     // Create deep link to recording using BASE_URL
     const recordingUrl = `${BASE_URL}/library/${recordingId}`;
 
-    // Format HTML email content
+    // Format HTML email content with enhanced styling
     const htmlContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #2563eb;">Your Meeting Recording is Ready</h2>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <h1 style="color: #1e293b; font-size: 24px; margin: 0;">Your Recording is Ready</h1>
+          <div style="width: 50px; height: 4px; background: #2563eb; margin: 16px auto;"></div>
+        </div>
         
-        <p>Hi ${senderName},</p>
+        <p style="color: #475569; font-size: 16px; line-height: 1.6;">
+          Hi ${senderName},
+        </p>
         
-        <p>Your recording for the following meeting is now ready to watch:</p>
-        
-        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <h3 style="margin: 0 0 15px 0; color: #1e293b;">${recording.event.title}</h3>
+        <div style="background: #f8fafc; padding: 24px; border-radius: 8px; margin: 24px 0; border-left: 4px solid #2563eb;">
+          <h2 style="margin: 0 0 16px 0; color: #1e293b; font-size: 20px;">${recording.event.title}</h2>
           
-          <p style="margin: 5px 0; color: #475569;">
-            <strong>Date:</strong> ${meetingDate}
-          </p>
+          ${recording.event.description ? `
+            <p style="color: #475569; margin: 12px 0; line-height: 1.6;">
+              ${recording.event.description}
+            </p>
+          ` : ''}
           
-          <p style="margin: 5px 0; color: #475569;">
-            <strong>Time:</strong> ${meetingTime}
-          </p>
-          
-          <div style="margin: 15px 0;">
-            <strong>Participants:</strong><br>
-            <span style="color: #475569;">${participants}</span>
+          <div style="margin: 20px 0;">
+            <h3 style="color: #1e293b; font-size: 16px; margin: 0 0 8px 0;">Participants:</h3>
+            <ul style="list-style-type: none; padding: 0; margin: 0;">
+              ${participants}
+            </ul>
           </div>
         </div>
 
-        <a href="${recordingUrl}" 
-           style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; 
-                  text-decoration: none; border-radius: 6px; margin: 20px 0;">
-          Watch Recording
-        </a>
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${recordingUrl}" 
+             style="display: inline-block; background: #2563eb; color: white; padding: 14px 28px; 
+                    text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;
+                    transition: background-color 0.2s ease;">
+            Watch Recording
+          </a>
+        </div>
 
-        <p style="color: #64748b; font-size: 14px; margin-top: 30px;">
-          This recording is accessible through your Notebook account. If you have any questions,
-          please contact your administrator.
+        <p style="color: #64748b; font-size: 14px; text-align: center; margin-top: 32px; line-height: 1.6;">
+          This recording is accessible through your Notebook account.<br>
+          If you have any questions, please contact your administrator.
         </p>
       </div>
     `;
