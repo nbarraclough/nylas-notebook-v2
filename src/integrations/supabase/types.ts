@@ -66,6 +66,7 @@ export type Database = {
           id: string
           processed: boolean | null
           processed_at: string | null
+          recording_id: string | null
           sent_at: string | null
           sent_date: string | null
           user_id: string | null
@@ -75,6 +76,7 @@ export type Database = {
           id?: string
           processed?: boolean | null
           processed_at?: string | null
+          recording_id?: string | null
           sent_at?: string | null
           sent_date?: string | null
           user_id?: string | null
@@ -84,11 +86,19 @@ export type Database = {
           id?: string
           processed?: boolean | null
           processed_at?: string | null
+          recording_id?: string | null
           sent_at?: string | null
           sent_date?: string | null
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "email_notifications_recording_id_fkey"
+            columns: ["recording_id"]
+            isOneToOne: false
+            referencedRelation: "recordings"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "email_notifications_user_id_fkey"
             columns: ["user_id"]

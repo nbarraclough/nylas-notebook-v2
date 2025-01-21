@@ -184,12 +184,13 @@ Deno.serve(async (req) => {
       messageData: nylasResponse.data
     });
 
-    // Log notification in database
+    // Log notification in database with recording_id
     const { error: notificationError } = await supabaseClient
       .from('email_notifications')
       .insert({
         user_id: userId,
         email_type: 'recording_ready',
+        recording_id: recordingId,
         processed: true,
         processed_at: new Date().toISOString(),
       });
