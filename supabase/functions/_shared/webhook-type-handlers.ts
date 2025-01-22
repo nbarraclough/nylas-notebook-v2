@@ -16,7 +16,6 @@ const statusMapping = {
 
 const convertUnixTimestamp = (timestamp: number | null): string | null => {
   if (!timestamp) return null;
-  // Convert Unix timestamp (seconds) to milliseconds and create ISO string
   return new Date(Number(timestamp) * 1000).toISOString();
 };
 
@@ -67,6 +66,23 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
         console.log(`📝 [${requestId}] Processing event ${webhookData.type}:`, webhookData.data.object.id);
         const eventData = webhookData.data.object;
         
+        // Find user associated with this grant
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('nylas_grant_id', grantId)
+          .single();
+
+        if (profileError) {
+          console.error(`❌ [${requestId}] Error finding profile for grant:`, profileError);
+          return { success: false, message: profileError.message };
+        }
+
+        if (!profile) {
+          console.error(`❌ [${requestId}] No profile found for grant:`, grantId);
+          return { success: false, message: `No profile found for grant: ${grantId}` };
+        }
+
         // Convert timestamps
         const startTime = convertUnixTimestamp(eventData.when.start_time);
         const endTime = convertUnixTimestamp(eventData.when.end_time);
@@ -80,13 +96,11 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
           createdAt
         });
         
-        // For upsert operations, we'll use the nylas_event_id to find the existing record
-        // but let Postgres generate a new UUID if it's a new record
         const { data: event, error: eventError } = await supabase
           .from('events')
           .upsert({
+            user_id: profile.id,
             nylas_event_id: eventData.id,
-            user_id: eventData.calendar_id,
             title: eventData.title,
             description: eventData.description,
             location: eventData.location,
@@ -125,10 +139,24 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
 
       case 'event.deleted': {
         console.log(`📝 [${requestId}] Processing event deleted:`, webhookData.data.object.id);
+        
+        // Find user associated with this grant
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('nylas_grant_id', grantId)
+          .single();
+
+        if (profileError || !profile) {
+          console.error(`❌ [${requestId}] Error finding profile:`, profileError);
+          return { success: false, message: 'Profile not found' };
+        }
+
         const { error: eventError } = await supabase
           .from('events')
           .delete()
-          .eq('nylas_event_id', webhookData.data.object.id);
+          .eq('nylas_event_id', webhookData.data.object.id)
+          .eq('user_id', profile.id);
 
         if (eventError) {
           console.error(`❌ [${requestId}] Error deleting event:`, eventError);
