@@ -1,40 +1,36 @@
-export type Database = {
-  public: {
-    Tables: {
-      notetaker_queue: {
-        Row: {
-          id: string;
-          user_id: string;
-          event_id: string;
-          status: string;
-          attempts: number | null;
-          last_attempt: string | null;
-          error: string | null;
-          created_at: string;
-          scheduled_for: string;
-          notetaker_id: string | null;
-        }
-      }
-      events: {
-        Row: {
-          id: string;
-          conference_url: string | null;
-          manual_meeting_id: string | null;
-          user_id: string;
-          profiles: {
-            nylas_grant_id: string | null;
-          }
-        }
-      }
-      recordings: {
-        Row: {
-          user_id: string;
-          event_id: string;
-          recording_url: string;
-          notetaker_id: string | null;
-          status: string;
-        }
-      }
-    }
-  }
+export interface NotetakerStatusData {
+  status: 'joining' | 'waiting_for_admission' | 'failed_entry' | 'attending' | 'leaving' | 'concluded';
+  notetaker_id: string;
+}
+
+export interface NotetakerMediaData {
+  status: 'media_available' | 'processing';
+  notetaker_id: string;
+}
+
+export interface NylasWebhookBase<T = any> {
+  type: string;
+  id: string;
+  data: {
+    application_id: string;
+    grant_id: string;
+    object: T;
+  };
+}
+
+export type NylasWebhookPayload = 
+  | GrantWebhook
+  | EventWebhook
+  | NotetakerWebhook;
+
+interface GrantWebhook extends NylasWebhookBase {
+  type: 'grant.created' | 'grant.updated' | 'grant.deleted' | 'grant.expired';
+}
+
+interface EventWebhook extends NylasWebhookBase {
+  type: 'event.created' | 'event.updated' | 'event.deleted';
+}
+
+interface NotetakerWebhook extends NylasWebhookBase<NotetakerStatusData | NotetakerMediaData> {
+  type: 'notetaker.status_updated' | 'notetaker.media_updated';
 }
