@@ -25,30 +25,21 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // First get the queue entry and recording that have this notetaker
-    const { data: queueData, error: queueError } = await supabaseClient
-      .from('notetaker_queue')
-      .select('id, event_id, user_id')
-      .eq('notetaker_id', notetakerId)
-      .single()
-
-    if (queueError) {
-      console.error('Error fetching queue entry:', queueError)
-      throw new Error('Failed to fetch queue entry')
-    }
-
-    console.log('Found queue entry:', queueData)
-
-    // Get the recording entry
+    // Find the recording with this notetaker
     const { data: recordingData, error: recordingError } = await supabaseClient
       .from('recordings')
-      .select('id')
+      .select('id, user_id')
       .eq('notetaker_id', notetakerId)
-      .single()
+      .maybeSingle()
 
-    if (recordingError && recordingError.code !== 'PGRST116') { // Ignore not found error
+    if (recordingError) {
       console.error('Error fetching recording:', recordingError)
       throw new Error('Failed to fetch recording')
+    }
+
+    if (!recordingData) {
+      console.log('No recording found with notetaker ID:', notetakerId)
+      throw new Error('No recording found with this notetaker ID')
     }
 
     console.log('Found recording:', recordingData)
@@ -57,7 +48,7 @@ Deno.serve(async (req) => {
     const { data: profileData, error: profileError } = await supabaseClient
       .from('profiles')
       .select('nylas_grant_id')
-      .eq('id', queueData.user_id)
+      .eq('id', recordingData.user_id)
       .single()
 
     if (profileError) {
@@ -69,7 +60,7 @@ Deno.serve(async (req) => {
       throw new Error('No Nylas grant ID found for user')
     }
 
-    // Send kick request to Nylas using the production URL format
+    // Send kick request to Nylas
     const response = await fetch(
       `https://api.us.nylas.com/v3/grants/${profileData.nylas_grant_id}/notetakers/${notetakerId}`,
       {
@@ -103,31 +94,18 @@ Deno.serve(async (req) => {
 
     console.log('Successfully kicked notetaker')
 
-    // Update recording status if it exists
-    if (recordingData) {
-      const { error: updateError } = await supabaseClient
-        .from('recordings')
-        .update({ 
-          status: 'failed',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', recordingData.id)
+    // Update recording status to waiting
+    const { error: updateError } = await supabaseClient
+      .from('recordings')
+      .update({ 
+        status: 'waiting',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', recordingData.id)
 
-      if (updateError) {
-        console.error('Error updating recording:', updateError)
-        throw new Error('Failed to update recording status')
-      }
-    }
-
-    // Remove from queue
-    const { error: deleteError } = await supabaseClient
-      .from('notetaker_queue')
-      .delete()
-      .eq('id', queueData.id)
-
-    if (deleteError) {
-      console.error('Error removing from queue:', deleteError)
-      throw new Error('Failed to remove from queue')
+    if (updateError) {
+      console.error('Error updating recording:', updateError)
+      throw new Error('Failed to update recording status')
     }
 
     return new Response(
