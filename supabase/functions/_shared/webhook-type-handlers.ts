@@ -14,6 +14,12 @@ const statusMapping = {
   concluded: { status: 'concluded', notetaker_status: 'concluded' },
 };
 
+const convertUnixTimestamp = (timestamp: number | null): string | null => {
+  if (!timestamp) return null;
+  // Convert Unix timestamp (seconds) to milliseconds and create ISO string
+  return new Date(Number(timestamp) * 1000).toISOString();
+};
+
 export async function handleWebhookType(webhookData: NylasWebhookPayload, grantId: string, requestId: string) {
   console.log(`🎯 [${requestId}] Processing webhook type: ${webhookData.type}`);
 
@@ -61,6 +67,19 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
         console.log(`📝 [${requestId}] Processing event ${webhookData.type}:`, webhookData.data.object.id);
         const eventData = webhookData.data.object;
         
+        // Convert timestamps
+        const startTime = convertUnixTimestamp(eventData.when.start_time);
+        const endTime = convertUnixTimestamp(eventData.when.end_time);
+        const originalStartTime = convertUnixTimestamp(eventData.original_start_time);
+        const createdAt = convertUnixTimestamp(eventData.created_at);
+
+        console.log(`🕒 [${requestId}] Converted timestamps:`, {
+          startTime,
+          endTime,
+          originalStartTime,
+          createdAt
+        });
+        
         const { data: event, error: eventError } = await supabase
           .from('events')
           .upsert({
@@ -70,14 +89,16 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
             title: eventData.title,
             description: eventData.description,
             location: eventData.location,
-            start_time: eventData.when.start_time,
-            end_time: eventData.when.end_time,
+            start_time: startTime,
+            end_time: endTime,
             participants: eventData.participants,
             status: eventData.status,
             busy: eventData.busy,
             read_only: eventData.read_only,
-            created_at: new Date(eventData.created_at * 1000).toISOString(),
-            last_updated_at: new Date().toISOString()
+            created_at: createdAt,
+            last_updated_at: new Date().toISOString(),
+            original_start_time: originalStartTime,
+            conference_url: eventData.conferencing?.details?.url || null
           })
           .select()
           .single();
