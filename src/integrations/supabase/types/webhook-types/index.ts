@@ -12,4 +12,5 @@ export type NylasWebhookPayload =
   | import('./event').EventUpdatedWebhook
   | import('./event').EventDeletedWebhook
   | import('./message').MessageOpenedWebhook
-  | import('./message').MessageLinkClickedWebhook;
+  | import('./message').MessageLinkClickedWebhook
+  | import('./base').NotetakerStatusWebhook;

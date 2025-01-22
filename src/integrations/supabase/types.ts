@@ -493,6 +493,7 @@ export type Database = {
           mux_asset_id: string | null
           mux_playback_id: string | null
           notetaker_id: string | null
+          notetaker_status: string | null
           recording_url: string | null
           status: string
           transcript_content: Json | null
@@ -509,6 +510,7 @@ export type Database = {
           mux_asset_id?: string | null
           mux_playback_id?: string | null
           notetaker_id?: string | null
+          notetaker_status?: string | null
           recording_url?: string | null
           status?: string
           transcript_content?: Json | null
@@ -525,6 +527,7 @@ export type Database = {
           mux_asset_id?: string | null
           mux_playback_id?: string | null
           notetaker_id?: string | null
+          notetaker_status?: string | null
           recording_url?: string | null
           status?: string
           transcript_content?: Json | null
