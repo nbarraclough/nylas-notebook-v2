@@ -203,17 +203,26 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
           console.log(`🎥 [${requestId}] Media available, triggering retrieval for recording:`, recording.id);
           
           try {
-            const { error: mediaError } = await supabase.functions.invoke('get-recording-media', {
-              body: { 
+            const response = await fetch(`${supabaseUrl}/functions/v1/get-recording-media`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${supabaseServiceKey}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ 
                 recordingId: recording.id,
                 notetakerId: notetaker_id
-              }
+              })
             });
 
-            if (mediaError) {
-              console.error(`❌ [${requestId}] Error triggering media retrieval:`, mediaError);
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error(`❌ [${requestId}] Error response from get-recording-media:`, {
+                status: response.status,
+                statusText: response.statusText,
+                error: errorText
+              });
               // Don't return error here - we've already updated the status successfully
-              // Just log the error and continue
             } else {
               console.log(`✅ [${requestId}] Successfully triggered media retrieval for recording:`, recording.id);
             }
