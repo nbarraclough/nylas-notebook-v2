@@ -746,6 +746,14 @@ export type Database = {
           event: Json
         }[]
       }
+      process_missing_recording_media: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          recording_id: string
+          notetaker_id: string
+          status: string
+        }[]
+      }
       queue_notetaker_request: {
         Args: {
           p_queue_name: string
