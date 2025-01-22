@@ -23,12 +23,18 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
   console.log(`🎯 [${requestId}] Processing webhook type: ${webhookData.type}`);
 
   try {
+    // Extract grant ID from the correct location in the webhook payload
+    const eventGrant = webhookData.data?.object?.grant_id;
+    const effectiveGrantId = grantId || eventGrant;
+
+    console.log(`📝 [${requestId}] Using grant ID:`, effectiveGrantId);
+
     switch (webhookData.type) {
       case 'grant.created': {
-        console.log(`📝 [${requestId}] Processing grant created:`, grantId);
+        console.log(`📝 [${requestId}] Processing grant created:`, effectiveGrantId);
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .update({ nylas_grant_id: grantId })
+          .update({ nylas_grant_id: effectiveGrantId })
           .eq('id', webhookData.data.object.user_id)
           .select()
           .single();
@@ -44,11 +50,11 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
 
       case 'grant.deleted':
       case 'grant.expired': {
-        console.log(`📝 [${requestId}] Processing grant ${webhookData.type}:`, grantId);
+        console.log(`📝 [${requestId}] Processing grant ${webhookData.type}:`, effectiveGrantId);
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .update({ nylas_grant_id: null })
-          .eq('nylas_grant_id', grantId)
+          .eq('nylas_grant_id', effectiveGrantId)
           .select()
           .single();
 
@@ -70,7 +76,7 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('id')
-          .eq('nylas_grant_id', grantId)
+          .eq('nylas_grant_id', effectiveGrantId)
           .maybeSingle();
 
         if (profileError) {
@@ -79,8 +85,8 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
         }
 
         if (!profile) {
-          console.log(`ℹ️ [${requestId}] No profile found for grant: ${grantId}. This might be expected during initial sync.`);
-          return { success: false, message: `No profile found for grant: ${grantId}` };
+          console.error(`❌ [${requestId}] No profile found for grant: ${effectiveGrantId}`);
+          return { success: false, message: `No profile found for grant: ${effectiveGrantId}` };
         }
 
         // Convert timestamps
@@ -144,7 +150,7 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('id')
-          .eq('nylas_grant_id', grantId)
+          .eq('nylas_grant_id', effectiveGrantId)
           .maybeSingle();
 
         if (profileError) {
@@ -153,8 +159,8 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
         }
 
         if (!profile) {
-          console.log(`ℹ️ [${requestId}] No profile found for grant: ${grantId}. This might be expected during cleanup.`);
-          return { success: true, message: 'No profile found, skipping delete' };
+          console.error(`❌ [${requestId}] No profile found for grant: ${effectiveGrantId}`);
+          return { success: false, message: 'Profile not found' };
         }
 
         const { error: eventError } = await supabase
