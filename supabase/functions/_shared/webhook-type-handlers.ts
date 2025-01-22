@@ -182,6 +182,7 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
         const { status, notetaker_id } = webhookData.data.object;
         console.log(`📝 [${requestId}] Processing notetaker media update:`, { status, notetaker_id });
 
+        // First update the recording status as before
         const { data: recording, error: recordingError } = await supabase
           .from('recordings')
           .update({
@@ -195,6 +196,31 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
         if (recordingError) {
           console.error(`❌ [${requestId}] Error updating recording:`, recordingError);
           return { success: false, message: recordingError.message };
+        }
+
+        // If status is media_available, trigger media retrieval
+        if (status === 'media_available' && recording) {
+          console.log(`🎥 [${requestId}] Media available, triggering retrieval for recording:`, recording.id);
+          
+          try {
+            const { error: mediaError } = await supabase.functions.invoke('get-recording-media', {
+              body: { 
+                recordingId: recording.id,
+                notetakerId: notetaker_id
+              }
+            });
+
+            if (mediaError) {
+              console.error(`❌ [${requestId}] Error triggering media retrieval:`, mediaError);
+              // Don't return error here - we've already updated the status successfully
+              // Just log the error and continue
+            } else {
+              console.log(`✅ [${requestId}] Successfully triggered media retrieval for recording:`, recording.id);
+            }
+          } catch (mediaError) {
+            console.error(`❌ [${requestId}] Exception during media retrieval:`, mediaError);
+            // Don't throw - we want to preserve the status update
+          }
         }
 
         console.log(`✅ [${requestId}] Successfully updated recording status:`, recording);
