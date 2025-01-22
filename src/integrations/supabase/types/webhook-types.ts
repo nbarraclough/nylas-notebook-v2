@@ -341,6 +341,15 @@ export type CompositeTypes<
     ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
 
+interface NotetakerMediaData {
+  status: 'media_available' | 'processing';
+  notetaker_id: string;
+}
+
+interface NotetakerMediaWebhook extends NylasWebhookBase<NotetakerMediaData> {
+  type: 'notetaker.media_updated';
+}
+
 interface NotetakerStatusData {
   status: 'joining' | 'waiting_for_admission' | 'failed_entry' | 'attending' | 'leaving' | 'concluded';
   notetaker_id: string;
@@ -348,11 +357,6 @@ interface NotetakerStatusData {
 
 interface NotetakerStatusWebhook extends NylasWebhookBase<NotetakerStatusData> {
   type: 'notetaker.status_updated';
-  data: {
-    application_id: string;
-    grant_id: string;
-    object: NotetakerStatusData;
-  };
 }
 
 export type NylasWebhookPayload = 

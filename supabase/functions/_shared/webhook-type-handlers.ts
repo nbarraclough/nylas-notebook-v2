@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
 import { NylasWebhookPayload } from '../types';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -134,7 +134,7 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
         const { status, notetaker_id } = webhookData.data.object;
         console.log(`📝 [${requestId}] Processing notetaker status update:`, { status, notetaker_id });
 
-        const mappedStatus = statusMapping[status];
+        const mappedStatus = statusMapping[status as keyof typeof statusMapping];
         if (!mappedStatus) {
           console.error(`❌ [${requestId}] Unknown notetaker status:`, status);
           return { success: false, message: `Unknown notetaker status: ${status}` };
