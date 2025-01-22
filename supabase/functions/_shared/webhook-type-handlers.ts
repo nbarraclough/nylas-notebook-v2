@@ -80,10 +80,11 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
           createdAt
         });
         
+        // For upsert operations, we'll use the nylas_event_id to find the existing record
+        // but let Postgres generate a new UUID if it's a new record
         const { data: event, error: eventError } = await supabase
           .from('events')
           .upsert({
-            id: eventData.id,
             nylas_event_id: eventData.id,
             user_id: eventData.calendar_id,
             title: eventData.title,
@@ -98,7 +99,17 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
             created_at: createdAt,
             last_updated_at: new Date().toISOString(),
             original_start_time: originalStartTime,
-            conference_url: eventData.conferencing?.details?.url || null
+            conference_url: eventData.conferencing?.details?.url || null,
+            organizer: eventData.organizer || {},
+            resources: eventData.resources || [],
+            reminders: eventData.reminders || {},
+            recurrence: eventData.recurrence || null,
+            visibility: eventData.visibility || null,
+            master_event_id: eventData.master_event_id || null,
+            ical_uid: eventData.ical_uid || null,
+            html_link: eventData.html_link || null
+          }, {
+            onConflict: 'nylas_event_id,user_id'
           })
           .select()
           .single();
