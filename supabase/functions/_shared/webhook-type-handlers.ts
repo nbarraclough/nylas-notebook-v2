@@ -71,7 +71,7 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
           .from('profiles')
           .select('id')
           .eq('nylas_grant_id', grantId)
-          .single();
+          .maybeSingle();
 
         if (profileError) {
           console.error(`❌ [${requestId}] Error finding profile for grant:`, profileError);
@@ -79,7 +79,7 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
         }
 
         if (!profile) {
-          console.error(`❌ [${requestId}] No profile found for grant:`, grantId);
+          console.log(`ℹ️ [${requestId}] No profile found for grant: ${grantId}. This might be expected during initial sync.`);
           return { success: false, message: `No profile found for grant: ${grantId}` };
         }
 
@@ -145,11 +145,16 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
           .from('profiles')
           .select('id')
           .eq('nylas_grant_id', grantId)
-          .single();
+          .maybeSingle();
 
-        if (profileError || !profile) {
+        if (profileError) {
           console.error(`❌ [${requestId}] Error finding profile:`, profileError);
-          return { success: false, message: 'Profile not found' };
+          return { success: false, message: profileError.message };
+        }
+
+        if (!profile) {
+          console.log(`ℹ️ [${requestId}] No profile found for grant: ${grantId}. This might be expected during cleanup.`);
+          return { success: true, message: 'No profile found, skipping delete' };
         }
 
         const { error: eventError } = await supabase
