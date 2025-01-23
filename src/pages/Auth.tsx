@@ -3,14 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { useToast } from "@/hooks/use-toast";
-import { OrganizationForm } from "@/components/auth/OrganizationForm";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { ProfileForm } from "@/components/auth/ProfileForm";
 
 export default function Auth() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [showOrgForm, setShowOrgForm] = useState(false);
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [session, setSession] = useState<any>(null);
 
@@ -23,7 +21,7 @@ export default function Auth() {
         // Check if profile exists and is complete
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('*, organizations(*)')
+          .select('first_name, last_name')
           .eq('id', currentSession.user.id)
           .maybeSingle();
 
@@ -37,46 +35,14 @@ export default function Auth() {
           return;
         }
 
-        // If profile exists and has organization, redirect to calendar
-        if (profile?.organization_id) {
+        // If profile exists and is complete, redirect to calendar
+        if (profile?.first_name && profile?.last_name) {
           navigate("/calendar");
           return;
         }
 
         // If profile exists but incomplete, show profile form
-        if (profile && (!profile.first_name || !profile.last_name)) {
-          setShowProfileForm(true);
-          return;
-        }
-
-        // If profile exists but no organization, show org form
-        if (profile && !profile.organization_id) {
-          setShowOrgForm(true);
-          return;
-        }
-
-        // If no profile exists, create one
-        if (!profile) {
-          const { error: insertError } = await supabase
-            .from('profiles')
-            .insert([
-              {
-                id: currentSession.user.id,
-                email: currentSession.user.email,
-              }
-            ]);
-
-          if (insertError) {
-            console.error('Error creating profile:', insertError);
-            toast({
-              title: "Error",
-              description: "Failed to create user profile.",
-              variant: "destructive",
-            });
-            return;
-          }
-          setShowProfileForm(true);
-        }
+        setShowProfileForm(true);
       }
     };
 
@@ -88,16 +54,14 @@ export default function Auth() {
           setSession(currentSession);
           const { data: profile } = await supabase
             .from('profiles')
-            .select('organization_id, first_name, last_name')
+            .select('first_name, last_name')
             .eq('id', currentSession.user.id)
             .maybeSingle();
 
-          if (profile?.organization_id) {
+          if (profile?.first_name && profile?.last_name) {
             navigate("/calendar");
-          } else if (!profile?.first_name || !profile?.last_name) {
-            setShowProfileForm(true);
           } else {
-            setShowOrgForm(true);
+            setShowProfileForm(true);
           }
         }
       }
@@ -109,16 +73,13 @@ export default function Auth() {
   }, [navigate, toast]);
 
   const handleProfileComplete = () => {
-    setShowProfileForm(false);
-    setShowOrgForm(true);
+    navigate("/calendar");
   };
 
   return (
     <PageLayout>
       {showProfileForm ? (
         <ProfileForm session={session} onComplete={handleProfileComplete} />
-      ) : showOrgForm ? (
-        <OrganizationForm session={session} />
       ) : (
         <LoginForm />
       )}
