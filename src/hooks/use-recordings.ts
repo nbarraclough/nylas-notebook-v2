@@ -5,6 +5,8 @@ import type { Database } from "@/integrations/supabase/types";
 interface UseRecordingsProps {
   isAuthenticated: boolean | null;
   recordingId?: string | null;
+  page?: number;
+  pageSize?: number;
   filters?: {
     startDate: Date | null;
     endDate: Date | null;
@@ -14,9 +16,20 @@ interface UseRecordingsProps {
   };
 }
 
-export function useRecordings({ isAuthenticated, recordingId, filters }: UseRecordingsProps) {
+interface PaginatedResponse<T> {
+  data: T[];
+  count: number;
+}
+
+export function useRecordings({ 
+  isAuthenticated, 
+  recordingId, 
+  page = 1, 
+  pageSize = 8,
+  filters 
+}: UseRecordingsProps) {
   return useQuery({
-    queryKey: ['library-recordings', filters, isAuthenticated, recordingId],
+    queryKey: ['library-recordings', filters, isAuthenticated, recordingId, page, pageSize],
     queryFn: async () => {
       console.log('Fetching recordings with auth status:', isAuthenticated);
       
@@ -26,6 +39,10 @@ export function useRecordings({ isAuthenticated, recordingId, filters }: UseReco
         console.error('No active session found');
         throw new Error('Authentication required');
       }
+
+      // Calculate range for pagination
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
       
       let query = supabase
         .from('recordings')
@@ -39,12 +56,13 @@ export function useRecordings({ isAuthenticated, recordingId, filters }: UseReco
             share_type,
             organization_id
           )
-        `)
-        .order('created_at', { ascending: false });
+        `, { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       // If not authenticated, only fetch the shared recording
       if (!isAuthenticated) {
-        if (!recordingId) return [];
+        if (!recordingId) return { data: [], count: 0 };
         query = query.eq('id', recordingId);
       }
 
@@ -76,12 +94,12 @@ export function useRecordings({ isAuthenticated, recordingId, filters }: UseReco
             query = query.in('id', recordingIds);
           } else {
             // If no recordings have public links, return empty result
-            return [];
+            return { data: [], count: 0 };
           }
         }
       }
 
-      const { data, error } = await query;
+      const { data, error, count } = await query;
 
       if (error) {
         console.error('Error fetching recordings:', error);
@@ -91,12 +109,12 @@ export function useRecordings({ isAuthenticated, recordingId, filters }: UseReco
         throw error;
       }
 
-      if (recordingId && data.length === 0) {
+      if (recordingId && (!data || data.length === 0)) {
         throw new Error('Recording not found or you do not have permission to view it.');
       }
 
       // Process recordings
-      return data.map(recording => ({
+      const processedData = (data || []).map(recording => ({
         ...recording,
         event: {
           ...recording.event,
@@ -108,6 +126,11 @@ export function useRecordings({ isAuthenticated, recordingId, filters }: UseReco
             : []
         }
       }));
+
+      return {
+        data: processedData,
+        count: count || 0
+      } as PaginatedResponse<typeof processedData[0]>;
     },
     enabled: isAuthenticated !== null || !!recordingId,
     retry: false

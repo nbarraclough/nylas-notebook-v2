@@ -10,6 +10,7 @@ import { LibraryError } from "@/components/library/LibraryError";
 import { PaginationControls } from "@/components/recurring/PaginationControls";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { useRecordings } from "@/hooks/use-recordings";
 
 const ITEMS_PER_PAGE = 8;
 
@@ -37,62 +38,31 @@ export default function Library() {
     }
   }, [recordingId]);
 
-  // Query for my recordings
-  const { data: myRecordings, isLoading: isLoadingMyRecordings, error: myRecordingsError } = useQuery({
-    queryKey: ["my-recordings", filters, myRecordingsPage],
-    queryFn: async () => {
-      let query = supabase
-        .from("recordings")
-        .select(`
-          *,
-          owner:profiles!inner (
-            email
-          ),
-          event:events (
-            title,
-            description,
-            start_time,
-            end_time,
-            participants,
-            organizer,
-            manual_meeting:manual_meetings (*)
-          ),
-          video_shares (
-            share_type,
-            organization_id,
-            external_token
-          )
-        `)
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-        .order("created_at", { ascending: false })
-        .range((myRecordingsPage - 1) * ITEMS_PER_PAGE, myRecordingsPage * ITEMS_PER_PAGE - 1);
-
-      // Apply filters
-      if (filters.titleSearch) {
-        query = query.textSearch("(event->title).text", filters.titleSearch.replace(/\s+/g, " & "));
-      }
-
-      if (filters.startDate) {
-        query = query.gte("created_at", filters.startDate.toISOString());
-      }
-
-      if (filters.endDate) {
-        query = query.lte("created_at", filters.endDate.toISOString());
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      return data;
-    },
+  // Query for my recordings with pagination
+  const { 
+    data: myRecordingsData, 
+    isLoading: isLoadingMyRecordings, 
+    error: myRecordingsError 
+  } = useRecordings({
+    isAuthenticated: true,
+    page: myRecordingsPage,
+    pageSize: ITEMS_PER_PAGE,
+    filters
   });
 
-  // Query for shared recordings
-  const { data: sharedRecordings, isLoading: isLoadingShared, error: sharedError } = useQuery({
+  // Query for shared recordings with pagination
+  const { 
+    data: sharedRecordingsData, 
+    isLoading: isLoadingShared, 
+    error: sharedError 
+  } = useQuery({
     queryKey: ["shared-recordings", filters, sharedRecordingsPage],
     queryFn: async () => {
       const { data: profile } = await supabase.auth.getUser();
-      if (!profile.user) return [];
+      if (!profile.user) return { data: [], count: 0 };
+
+      const from = (sharedRecordingsPage - 1) * ITEMS_PER_PAGE;
+      const to = from + ITEMS_PER_PAGE - 1;
 
       let query = supabase
         .from("recordings")
@@ -115,10 +85,10 @@ export default function Library() {
             organization_id,
             external_token
           )
-        `)
+        `, { count: 'exact' })
         .neq('user_id', profile.user.id)
         .order("created_at", { ascending: false })
-        .range((sharedRecordingsPage - 1) * ITEMS_PER_PAGE, sharedRecordingsPage * ITEMS_PER_PAGE - 1);
+        .range(from, to);
 
       // Apply filters
       if (filters.titleSearch) {
@@ -133,10 +103,10 @@ export default function Library() {
         query = query.lte("created_at", filters.endDate.toISOString());
       }
 
-      const { data, error } = await query;
+      const { data, error, count } = await query;
 
       if (error) throw error;
-      return data;
+      return { data: data || [], count: count || 0 };
     },
   });
 
@@ -156,7 +126,7 @@ export default function Library() {
   return (
     <PageLayout>
       <div className="container mx-auto px-4 py-8 space-y-8">
-        <LibraryHeader recordingsCount={(myRecordings?.length || 0) + (sharedRecordings?.length || 0)} />
+        <LibraryHeader recordingsCount={(myRecordingsData?.count || 0) + (sharedRecordingsData?.count || 0)} />
         <LibraryFilters
           filters={filters}
           onFiltersChange={setFilters}
@@ -167,16 +137,16 @@ export default function Library() {
           <section>
             <h2 className="text-xl font-semibold mb-4">My Recordings</h2>
             <RecordingGrid
-              recordings={myRecordings || []}
+              recordings={myRecordingsData?.data || []}
               isLoading={isLoadingMyRecordings}
               selectedRecording={selectedRecording}
               onRecordingSelect={handleRecordingSelect}
               showErrors={showErrors}
             />
-            {myRecordings && myRecordings.length > 0 && (
+            {myRecordingsData && myRecordingsData.count > 0 && (
               <PaginationControls
                 currentPage={myRecordingsPage}
-                totalPages={Math.ceil((myRecordings?.length || 0) / ITEMS_PER_PAGE)}
+                totalPages={Math.ceil(myRecordingsData.count / ITEMS_PER_PAGE)}
                 onPageChange={setMyRecordingsPage}
               />
             )}
@@ -186,16 +156,16 @@ export default function Library() {
           <section>
             <h2 className="text-xl font-semibold mb-4">Shared Recordings</h2>
             <RecordingGrid
-              recordings={sharedRecordings || []}
+              recordings={sharedRecordingsData?.data || []}
               isLoading={isLoadingShared}
               selectedRecording={selectedRecording}
               onRecordingSelect={handleRecordingSelect}
               showErrors={showErrors}
             />
-            {sharedRecordings && sharedRecordings.length > 0 && (
+            {sharedRecordingsData && sharedRecordingsData.count > 0 && (
               <PaginationControls
                 currentPage={sharedRecordingsPage}
-                totalPages={Math.ceil((sharedRecordings?.length || 0) / ITEMS_PER_PAGE)}
+                totalPages={Math.ceil(sharedRecordingsData.count / ITEMS_PER_PAGE)}
                 onPageChange={setSharedRecordingsPage}
               />
             )}
