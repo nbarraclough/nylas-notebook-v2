@@ -55,11 +55,17 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
 
   // Function to check if meeting is internal based on email domains
   const isInternalMeeting = () => {
-    if (!recording?.event?.organizer?.email || !recording.event.participants) {
+    if (!recording?.event?.organizer || !recording.event.participants) {
       return false;
     }
 
-    const organizerDomain = (recording.event.organizer as { email: string }).email.split('@')[1];
+    const organizerEmail = typeof recording.event.organizer === 'object' && recording.event.organizer !== null
+      ? (recording.event.organizer as { email: string }).email
+      : '';
+    
+    if (!organizerEmail) return false;
+    
+    const organizerDomain = organizerEmail.split('@')[1];
     const participants = Array.isArray(recording.event.participants) ? recording.event.participants : [];
 
     return participants.every((participant: Json) => {
