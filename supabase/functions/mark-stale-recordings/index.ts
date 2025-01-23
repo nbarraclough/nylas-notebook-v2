@@ -28,8 +28,8 @@ Deno.serve(async (req) => {
     const { data, error } = await supabaseClient
       .from('recordings')
       .update({ status: 'failed' })
-      .eq('status', 'processing')
       .is('mux_asset_id', null)
+      .neq('status', 'failed')
       .lt('created_at', twelveHoursAgo.toISOString())
       .select()
 
