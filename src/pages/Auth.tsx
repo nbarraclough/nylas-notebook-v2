@@ -5,21 +5,22 @@ import { PageLayout } from "@/components/layout/PageLayout";
 import { useToast } from "@/hooks/use-toast";
 import { OrganizationForm } from "@/components/auth/OrganizationForm";
 import { LoginForm } from "@/components/auth/LoginForm";
+import { ProfileForm } from "@/components/auth/ProfileForm";
 
 export default function Auth() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showOrgForm, setShowOrgForm] = useState(false);
+  const [showProfileForm, setShowProfileForm] = useState(false);
   const [session, setSession] = useState<any>(null);
 
   useEffect(() => {
-    // Check if user is already logged in
     const checkAuth = async () => {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       if (currentSession) {
         setSession(currentSession);
         
-        // Check if profile exists
+        // Check if profile exists and is complete
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*, organizations(*)')
@@ -39,6 +40,12 @@ export default function Auth() {
         // If profile exists and has organization, redirect to calendar
         if (profile?.organization_id) {
           navigate("/calendar");
+          return;
+        }
+
+        // If profile exists but incomplete, show profile form
+        if (profile && (!profile.first_name || !profile.last_name)) {
+          setShowProfileForm(true);
           return;
         }
 
@@ -68,7 +75,7 @@ export default function Auth() {
             });
             return;
           }
-          setShowOrgForm(true);
+          setShowProfileForm(true);
         }
       }
     };
@@ -81,12 +88,16 @@ export default function Auth() {
           setSession(currentSession);
           const { data: profile } = await supabase
             .from('profiles')
-            .select('organization_id')
+            .select('organization_id, first_name, last_name')
             .eq('id', currentSession.user.id)
             .maybeSingle();
 
           if (profile?.organization_id) {
             navigate("/calendar");
+          } else if (!profile?.first_name || !profile?.last_name) {
+            setShowProfileForm(true);
+          } else {
+            setShowOrgForm(true);
           }
         }
       }
@@ -97,9 +108,16 @@ export default function Auth() {
     };
   }, [navigate, toast]);
 
+  const handleProfileComplete = () => {
+    setShowProfileForm(false);
+    setShowOrgForm(true);
+  };
+
   return (
     <PageLayout>
-      {showOrgForm ? (
+      {showProfileForm ? (
+        <ProfileForm session={session} onComplete={handleProfileComplete} />
+      ) : showOrgForm ? (
         <OrganizationForm session={session} />
       ) : (
         <LoginForm />
