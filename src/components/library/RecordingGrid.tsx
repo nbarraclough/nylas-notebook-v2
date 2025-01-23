@@ -31,7 +31,7 @@ export function RecordingGrid({
 
   // Filter out error recordings unless showErrors is true
   const filteredRecordings = recordings.filter(recording => 
-    showErrors || recording.status !== "error"
+    showErrors || (!['error', 'failed_entry', 'failed'].includes(recording.status))
   );
 
   if (isLoading) {
@@ -63,7 +63,7 @@ export function RecordingGrid({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filteredRecordings.map((recording) => {
           const internal = isInternalMeeting(recording);
-          const isError = recording.status === "error";
+          const isError = ['error', 'failed_entry', 'failed'].includes(recording.status);
           const isProcessing = ["waiting", "retrieving", "processing"].includes(recording.status);
           
           return (
