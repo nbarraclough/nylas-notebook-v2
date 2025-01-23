@@ -21,7 +21,7 @@ export default function Auth() {
         // Check if profile exists and is complete
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('first_name, last_name')
+          .select('job_title')
           .eq('id', currentSession.user.id)
           .maybeSingle();
 
@@ -35,8 +35,8 @@ export default function Auth() {
           return;
         }
 
-        // If profile exists and is complete, redirect to calendar
-        if (profile?.first_name && profile?.last_name) {
+        // If profile exists and has job title, redirect to calendar
+        if (profile?.job_title) {
           navigate("/calendar");
           return;
         }
@@ -54,11 +54,11 @@ export default function Auth() {
           setSession(currentSession);
           const { data: profile } = await supabase
             .from('profiles')
-            .select('first_name, last_name')
+            .select('job_title')
             .eq('id', currentSession.user.id)
             .maybeSingle();
 
-          if (profile?.first_name && profile?.last_name) {
+          if (profile?.job_title) {
             navigate("/calendar");
           } else {
             setShowProfileForm(true);
