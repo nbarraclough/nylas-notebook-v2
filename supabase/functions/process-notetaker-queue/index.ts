@@ -55,11 +55,11 @@ Deno.serve(async (req) => {
       queueItems.map(async (item) => {
         try {
           const event = item.events;
-          const grantId = event.profiles.nylas_grant_id;
+          const grantId = event.profiles.nylas_grant_id;  // Updated to use nylas_grant_id
           const notetakerName = event.profiles.notetaker_name || 'Nylas Notetaker';
 
           if (!grantId) {
-            throw new Error('No grant ID found for user');
+            throw new Error('No nylas_grant_id found for user');  // Updated error message
           }
 
           if (!event.conference_url) {
@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
           }
 
           console.log(`Processing queue item ${item.id} for event ${event.id}`);
-          console.log(`Using grant ID: ${grantId}`);
+          console.log(`Using nylas_grant_id: ${grantId}`);  // Updated log message
           console.log(`Conference URL: ${event.conference_url}`);
 
           // Send notetaker request to Nylas with correct API structure
