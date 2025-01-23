@@ -29,6 +29,7 @@ Deno.serve(async (req) => {
       .from('recordings')
       .update({ status: 'failed' })
       .eq('status', 'processing')
+      .is('mux_asset_id', null)
       .lt('created_at', twelveHoursAgo.toISOString())
       .select()
 
