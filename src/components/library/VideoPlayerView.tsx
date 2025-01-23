@@ -53,6 +53,33 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
     onClose();
   };
 
+  // Function to check if meeting is internal based on email domains
+  const isInternalMeeting = () => {
+    if (!recording?.event?.organizer?.email || !recording.event.participants) {
+      return false;
+    }
+
+    const organizerDomain = recording.event.organizer.email.split('@')[1];
+    const participants = Array.isArray(recording.event.participants) ? recording.event.participants : [];
+
+    return participants.every((participant: Json) => {
+      if (typeof participant === 'object' && participant !== null && 'email' in participant) {
+        const participantEmail = participant.email as string;
+        return participantEmail.split('@')[1] === organizerDomain;
+      }
+      if (typeof participant === 'string') {
+        return participant.split('@')[1] === organizerDomain;
+      }
+      return false;
+    });
+  };
+
+  // Function to handle share updates
+  const handleShareUpdate = () => {
+    // Invalidate the recording query to refresh the data
+    queryClient.invalidateQueries({ queryKey: ['recording', recordingId] });
+  };
+
   if (isRecordingLoading) {
     return (
       <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
