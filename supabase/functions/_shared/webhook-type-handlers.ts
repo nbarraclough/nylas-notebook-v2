@@ -198,16 +198,19 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
           return { success: false, message: recordingError.message };
         }
 
-        // If status is media_available, trigger media retrieval
+        // If status is media_available, trigger media retrieval using direct fetch
         if (status === 'media_available' && recording) {
           console.log(`🎥 [${requestId}] Media available, triggering retrieval for recording:`, recording.id);
           
           try {
-            const response = await fetch(`${supabaseUrl}/functions/v1/get-recording-media`, {
+            const functionUrl = `${supabaseUrl}/functions/v1/get-recording-media`;
+            console.log(`🔄 [${requestId}] Calling edge function:`, functionUrl);
+
+            const response = await fetch(functionUrl, {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${supabaseServiceKey}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
               },
               body: JSON.stringify({ 
                 recordingId: recording.id,
@@ -224,7 +227,8 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
               });
               // Don't return error here - we've already updated the status successfully
             } else {
-              console.log(`✅ [${requestId}] Successfully triggered media retrieval for recording:`, recording.id);
+              const responseData = await response.json();
+              console.log(`✅ [${requestId}] Successfully triggered media retrieval:`, responseData);
             }
           } catch (mediaError) {
             console.error(`❌ [${requestId}] Exception during media retrieval:`, mediaError);
