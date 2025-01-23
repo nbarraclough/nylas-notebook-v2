@@ -41,7 +41,7 @@ export default function Auth() {
           return;
         }
 
-        // If profile exists but incomplete, show profile form
+        // Show profile form for incomplete or missing profile
         setShowProfileForm(true);
       }
     };
