@@ -26,18 +26,13 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   const { data: profile } = useProfileData();
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
 
-  // Enhanced cleanup effect to ensure video is properly stopped
+  // Enhanced cleanup effect
   useEffect(() => {
     return () => {
       if (videoPlayerRef.current) {
-        // Ensure video is paused
+        // Ensure video is paused and cleaned up
         videoPlayerRef.current.pause();
-        // Get video element and stop any ongoing streams
-        const videoElement = videoPlayerRef.current.getVideoElement();
-        if (videoElement) {
-          videoElement.src = '';
-          videoElement.load();
-        }
+        videoPlayerRef.current.cleanup();
       }
     };
   }, []);
@@ -46,51 +41,16 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   useEffect(() => {
     if (videoPlayerRef.current) {
       videoPlayerRef.current.pause();
-      const videoElement = videoPlayerRef.current.getVideoElement();
-      if (videoElement) {
-        videoElement.src = '';
-        videoElement.load();
-      }
+      videoPlayerRef.current.cleanup();
     }
   }, [recordingId]);
 
   const handleClose = () => {
     if (videoPlayerRef.current) {
       videoPlayerRef.current.pause();
-      const videoElement = videoPlayerRef.current.getVideoElement();
-      if (videoElement) {
-        videoElement.src = '';
-        videoElement.load();
-      }
+      videoPlayerRef.current.cleanup();
     }
     onClose();
-  };
-
-  const isInternalMeeting = () => {
-    const organizer = recording?.event?.organizer as Organizer | null;
-    const organizerEmail = organizer?.email || profile?.email;
-    
-    if (!organizerEmail || !Array.isArray(recording?.event?.participants)) return false;
-    
-    const organizerDomain = organizerEmail.split('@')[1];
-    return recording.event.participants.every((participant: Json) => {
-      let participantEmail: string | undefined;
-      
-      if (typeof participant === 'object' && participant !== null) {
-        participantEmail = (participant as Organizer).email;
-      } else if (typeof participant === 'string') {
-        participantEmail = participant;
-      }
-      
-      if (!participantEmail) return false;
-      
-      const participantDomain = participantEmail.split('@')[1];
-      return participantDomain === organizerDomain;
-    });
-  };
-
-  const handleShareUpdate = () => {
-    queryClient.invalidateQueries({ queryKey: ['recording', recordingId] });
   };
 
   if (isRecordingLoading) {

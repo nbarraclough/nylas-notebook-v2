@@ -6,6 +6,7 @@ export interface BaseVideoPlayerRef {
   play: () => void;
   seek: (time: number) => void;
   getVideoElement: () => HTMLVideoElement | null;
+  cleanup: () => void;
 }
 
 interface BaseVideoPlayerProps {
@@ -24,19 +25,37 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
 
-  // Cleanup function to properly destroy HLS instance
+  // Enhanced cleanup function
   const cleanupHls = () => {
+    console.log('Cleaning up HLS instance and video element');
     if (hlsRef.current) {
-      hlsRef.current.stopLoad();
-      hlsRef.current.detachMedia();
-      hlsRef.current.destroy();
-      hlsRef.current = null;
+      try {
+        hlsRef.current.stopLoad();
+        hlsRef.current.detachMedia();
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      } catch (error) {
+        console.error('Error cleaning up HLS instance:', error);
+      }
     }
+    
     if (videoRef.current) {
-      videoRef.current.src = '';
-      videoRef.current.load();
+      try {
+        videoRef.current.pause();
+        videoRef.current.removeAttribute('src');
+        videoRef.current.load();
+      } catch (error) {
+        console.error('Error cleaning up video element:', error);
+      }
     }
   };
+
+  // Cleanup on unmount and URL changes
+  useEffect(() => {
+    return () => {
+      cleanupHls();
+    };
+  }, []);
 
   useEffect(() => {
     if (!videoRef.current) return;
@@ -46,10 +65,11 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
 
     if (!url) {
       console.log('No video URL provided');
+      cleanupHls();
       return;
     }
 
-    // Clean up existing HLS instance before creating a new one
+    // Clean up existing instance before creating a new one
     cleanupHls();
 
     if (url.includes('.m3u8')) {
@@ -85,6 +105,7 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
                 break;
               default:
                 console.error('Unrecoverable HLS error:', data);
+                cleanupHls();
                 break;
             }
           }
@@ -102,34 +123,36 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
     };
   }, [videoUrl, recordingUrl]);
 
+  // Expose controls via ref
   useEffect(() => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || !ref) return;
 
-    if (ref) {
-      const controls = {
-        pause: () => {
-          if (videoRef.current) {
-            videoRef.current.pause();
-          }
-        },
-        play: () => {
-          if (videoRef.current) {
-            videoRef.current.play();
-          }
-        },
-        seek: (time: number) => {
-          if (videoRef.current) {
-            videoRef.current.currentTime = time;
-          }
-        },
-        getVideoElement: () => videoRef.current
-      };
+    const controls: BaseVideoPlayerRef = {
+      pause: () => {
+        if (videoRef.current) {
+          videoRef.current.pause();
+        }
+      },
+      play: () => {
+        if (videoRef.current) {
+          videoRef.current.play().catch(error => {
+            console.error('Error playing video:', error);
+          });
+        }
+      },
+      seek: (time: number) => {
+        if (videoRef.current) {
+          videoRef.current.currentTime = time;
+        }
+      },
+      getVideoElement: () => videoRef.current,
+      cleanup: cleanupHls
+    };
 
-      if (typeof ref === 'function') {
-        ref(controls);
-      } else {
-        ref.current = controls;
-      }
+    if (typeof ref === 'function') {
+      ref(controls);
+    } else {
+      ref.current = controls;
     }
   }, [ref]);
 
