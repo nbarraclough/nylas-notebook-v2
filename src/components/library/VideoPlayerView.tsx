@@ -64,7 +64,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
 
     return participants.every((participant: Json) => {
       if (typeof participant === 'object' && participant !== null && 'email' in participant) {
-        const participantEmail = participant.email as string;
+        const participantEmail = (participant as { email: string }).email;
         return participantEmail.split('@')[1] === organizerDomain;
       }
       if (typeof participant === 'string') {
