@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
+import { corsHeaders } from './cors.ts';
 import { NylasWebhookPayload } from './types.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -203,6 +204,7 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
           console.log(`🎥 [${requestId}] Media available, triggering retrieval for recording:`, recording.id);
           
           try {
+            // Construct the full URL using the project URL
             const functionUrl = `${supabaseUrl}/functions/v1/get-recording-media`;
             console.log(`🔄 [${requestId}] Calling edge function:`, functionUrl);
 
@@ -225,7 +227,7 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
                 statusText: response.statusText,
                 error: errorText
               });
-              // Don't return error here - we've already updated the status successfully
+              // Don't throw - we've already updated the status successfully
             } else {
               const responseData = await response.json();
               console.log(`✅ [${requestId}] Successfully triggered media retrieval:`, responseData);
