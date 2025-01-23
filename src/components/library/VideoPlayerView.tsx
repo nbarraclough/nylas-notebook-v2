@@ -59,7 +59,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
       return false;
     }
 
-    const organizerDomain = recording.event.organizer.email.split('@')[1];
+    const organizerDomain = (recording.event.organizer as { email: string }).email.split('@')[1];
     const participants = Array.isArray(recording.event.participants) ? recording.event.participants : [];
 
     return participants.every((participant: Json) => {
