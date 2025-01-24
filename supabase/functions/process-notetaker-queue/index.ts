@@ -9,6 +9,7 @@ const nylasApiKey = Deno.env.get('NYLAS_CLIENT_SECRET')!;
 const supabase = createClient<Database>(supabaseUrl, supabaseServiceRoleKey);
 
 const MAX_ATTEMPTS = 3;
+const RATE_LIMIT_DELAY_MS = 1100; // 1.1 seconds between requests to be safe
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -51,142 +52,154 @@ Deno.serve(async (req) => {
       });
     }
 
-    const processedItems = await Promise.all(
-      queueItems.map(async (item) => {
-        try {
-          const event = item.events;
-          const grantId = event.profiles.nylas_grant_id;  // Updated to use nylas_grant_id
-          const notetakerName = event.profiles.notetaker_name || 'Nylas Notetaker';
+    // Process items sequentially with delay between each
+    const processedItems = [];
+    for (const item of queueItems) {
+      try {
+        console.log(`Processing queue item ${item.id} for event ${item.events.id}`);
+        
+        const event = item.events;
+        const grantId = event.profiles.nylas_grant_id;
+        const notetakerName = event.profiles.notetaker_name || 'Nylas Notetaker';
 
-          if (!grantId) {
-            throw new Error('No nylas_grant_id found for user');  // Updated error message
+        if (!grantId) {
+          throw new Error('No nylas_grant_id found for user');
+        }
+
+        if (!event.conference_url) {
+          throw new Error('No conference URL found for event');
+        }
+
+        console.log(`Using nylas_grant_id: ${grantId}`);
+        console.log(`Conference URL: ${event.conference_url}`);
+
+        // Send notetaker request to Nylas
+        const nylasResponse = await fetch(
+          `https://api.us.nylas.com/v3/grants/${grantId}/notetakers`,
+          {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json, application/gzip',
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${nylasApiKey}`,
+            },
+            body: JSON.stringify({
+              meeting_link: event.conference_url,
+              notetaker_name: notetakerName,
+            }),
           }
+        );
 
-          if (!event.conference_url) {
-            throw new Error('No conference URL found for event');
-          }
-
-          console.log(`Processing queue item ${item.id} for event ${event.id}`);
-          console.log(`Using nylas_grant_id: ${grantId}`);  // Updated log message
-          console.log(`Conference URL: ${event.conference_url}`);
-
-          // Send notetaker request to Nylas with correct API structure
-          const nylasResponse = await fetch(
-            `https://api.us.nylas.com/v3/grants/${grantId}/notetakers`,
-            {
-              method: 'POST',
-              headers: {
-                'Accept': 'application/json, application/gzip',
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${nylasApiKey}`,
-              },
-              body: JSON.stringify({
-                meeting_link: event.conference_url,
-                notetaker_name: notetakerName,
-              }),
-            }
-          );
-
-          if (!nylasResponse.ok) {
-            const errorText = await nylasResponse.text();
-            console.error(`Nylas API error (${nylasResponse.status}):`, errorText);
-            
-            // Increment attempts and handle retry logic
-            const newAttempts = (item.attempts || 0) + 1;
-            const updateData = {
-              attempts: newAttempts,
-              last_attempt: new Date().toISOString(),
-              error: `Nylas API error: ${nylasResponse.statusText}`,
-              status: newAttempts >= MAX_ATTEMPTS ? 'failed' : 'pending'
-            };
-            
-            const { error: updateError } = await supabase
-              .from('notetaker_queue')
-              .update(updateData)
-              .eq('id', item.id);
-
-            if (updateError) throw updateError;
-
-            return {
-              queueId: item.id,
-              status: 'error',
-              error: `Nylas API error: ${nylasResponse.statusText}`,
-              attempts: newAttempts
-            };
-          }
-
-          const responseText = await nylasResponse.text();
-          console.log('Raw Nylas response:', responseText);
+        if (!nylasResponse.ok) {
+          const errorText = await nylasResponse.text();
+          console.error(`Nylas API error (${nylasResponse.status}):`, errorText);
           
-          const notetakerData = JSON.parse(responseText);
-          console.log('Parsed Nylas response:', notetakerData);
-
-          // Extract notetaker ID from the correct path in response
-          const notetakerId = notetakerData.data?.id;
-          if (!notetakerId) {
-            throw new Error('No notetaker ID in response');
-          }
-
-          console.log('Extracted notetaker ID:', notetakerId);
-
-          // Create recording entry with notetaker_id
-          const { error: recordingError } = await supabase
-            .from('recordings')
-            .insert({
-              user_id: event.user_id,
-              event_id: event.id,
-              notetaker_id: notetakerId,
-              status: 'waiting',
-            });
-
-          if (recordingError) {
-            throw recordingError;
-          }
-
-          // Update queue item status with notetaker_id
-          const { error: updateError } = await supabase
-            .from('notetaker_queue')
-            .update({
-              status: 'completed',
-              notetaker_id: notetakerId,
-            })
-            .eq('id', item.id);
-
-          if (updateError) {
-            throw updateError;
-          }
-
-          return {
-            queueId: item.id,
-            status: 'success',
-            notetakerId: notetakerId,
-          };
-        } catch (error) {
-          console.error(`Error processing queue item ${item.id}:`, error);
-
-          // Increment attempts and handle retry logic for any error
+          // Increment attempts and handle retry logic
           const newAttempts = (item.attempts || 0) + 1;
           const updateData = {
             attempts: newAttempts,
             last_attempt: new Date().toISOString(),
-            error: error.message,
+            error: `Nylas API error: ${nylasResponse.statusText}`,
             status: newAttempts >= MAX_ATTEMPTS ? 'failed' : 'pending'
           };
-
-          await supabase
+          
+          const { error: updateError } = await supabase
             .from('notetaker_queue')
             .update(updateData)
             .eq('id', item.id);
 
-          return {
+          if (updateError) throw updateError;
+
+          processedItems.push({
             queueId: item.id,
             status: 'error',
-            error: error.message,
+            error: `Nylas API error: ${nylasResponse.statusText}`,
             attempts: newAttempts
-          };
+          });
+          
+          // If rate limited, wait longer before next request
+          if (nylasResponse.status === 429) {
+            console.log('Rate limited, waiting longer before next request...');
+            await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY_MS * 2));
+            continue;
+          }
         }
-      })
-    );
+
+        const responseText = await nylasResponse.text();
+        console.log('Raw Nylas response:', responseText);
+        
+        const notetakerData = JSON.parse(responseText);
+        console.log('Parsed Nylas response:', notetakerData);
+
+        const notetakerId = notetakerData.data?.id;
+        if (!notetakerId) {
+          throw new Error('No notetaker ID in response');
+        }
+
+        console.log('Extracted notetaker ID:', notetakerId);
+
+        // Create recording entry with notetaker_id
+        const { error: recordingError } = await supabase
+          .from('recordings')
+          .insert({
+            user_id: event.user_id,
+            event_id: event.id,
+            notetaker_id: notetakerId,
+            status: 'waiting',
+          });
+
+        if (recordingError) {
+          throw recordingError;
+        }
+
+        // Update queue item status with notetaker_id
+        const { error: updateError } = await supabase
+          .from('notetaker_queue')
+          .update({
+            status: 'completed',
+            notetaker_id: notetakerId,
+          })
+          .eq('id', item.id);
+
+        if (updateError) {
+          throw updateError;
+        }
+
+        processedItems.push({
+          queueId: item.id,
+          status: 'success',
+          notetakerId: notetakerId,
+        });
+
+        // Wait before processing next item to avoid rate limiting
+        console.log(`Waiting ${RATE_LIMIT_DELAY_MS}ms before next request...`);
+        await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY_MS));
+
+      } catch (error) {
+        console.error(`Error processing queue item ${item.id}:`, error);
+
+        // Increment attempts and handle retry logic for any error
+        const newAttempts = (item.attempts || 0) + 1;
+        const updateData = {
+          attempts: newAttempts,
+          last_attempt: new Date().toISOString(),
+          error: error.message,
+          status: newAttempts >= MAX_ATTEMPTS ? 'failed' : 'pending'
+        };
+
+        await supabase
+          .from('notetaker_queue')
+          .update(updateData)
+          .eq('id', item.id);
+
+        processedItems.push({
+          queueId: item.id,
+          status: 'error',
+          error: error.message,
+          attempts: newAttempts
+        });
+      }
+    }
 
     return new Response(JSON.stringify({ processed: processedItems }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
