@@ -67,9 +67,9 @@ Deno.serve(async (req) => {
     console.log('Grant ID:', profileData.nylas_grant_id)
     console.log('Notetaker ID:', notetakerId)
 
-    // Send kick request to Nylas
+    // Send kick request to Nylas using the correct /cancel endpoint
     const response = await fetch(
-      `https://api.us.nylas.com/v3/grants/${profileData.nylas_grant_id}/notetakers/${notetakerId}`,
+      `https://api.us.nylas.com/v3/grants/${profileData.nylas_grant_id}/notetakers/${notetakerId}/cancel`,
       {
         method: 'DELETE',
         headers: {
