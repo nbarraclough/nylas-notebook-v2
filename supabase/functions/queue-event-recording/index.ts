@@ -16,6 +16,26 @@ Deno.serve(async (req) => {
       throw new Error('event_id, user_id, and scheduled_for are required')
     }
 
+    // Check if event is too far in the past
+    const eventTime = new Date(scheduled_for)
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000)
+    
+    if (eventTime < thirtyMinutesAgo) {
+      console.error('Event is more than 30 minutes in the past:', {
+        eventTime: eventTime.toISOString(),
+        thirtyMinutesAgo: thirtyMinutesAgo.toISOString()
+      })
+      return new Response(
+        JSON.stringify({ 
+          error: 'Cannot queue events that started more than 30 minutes ago'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      )
+    }
+
     // Initialize Supabase client
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
