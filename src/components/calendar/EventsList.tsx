@@ -7,6 +7,7 @@ import { format, isPast, startOfWeek, endOfWeek, addWeeks, subWeeks, isWithinInt
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import type { QueryObserverResult, RefetchOptions } from "@tanstack/react-query";
 import type { Database } from "@/integrations/supabase/types";
+import { useLocation } from "react-router-dom";
 
 type Event = Database['public']['Tables']['events']['Row'];
 
@@ -24,6 +25,8 @@ interface GroupedEvents {
 
 export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, filter }: EventsListProps) => {
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const location = useLocation();
+  const isCalendarPage = location.pathname === "/calendar";
   
   const navigateWeek = (direction: 'next' | 'prev' | 'current') => {
     if (direction === 'current') {
@@ -38,21 +41,24 @@ export const EventsList = ({ events, isLoadingEvents, userId, refetchEvents, fil
   const groupEventsByDate = (events: Event[]): GroupedEvents => {
     const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
     
-    const filteredEvents = events.filter(event => {
-      const eventDate = new Date(event.start_time);
-      const endTime = new Date(event.end_time);
-      
-      // For past events, show all of them
-      if (filter === "past") {
-        return isPast(endTime);
-      }
-      
-      // For upcoming events, filter by week and ensure they're not past
-      return !isPast(endTime) && isWithinInterval(eventDate, {
-        start: currentWeekStart,
-        end: weekEnd
+    // Filter out manual events if we're on the calendar page
+    const filteredEvents = events
+      .filter(event => !isCalendarPage || event.manual_meeting_id === null)
+      .filter(event => {
+        const eventDate = new Date(event.start_time);
+        const endTime = new Date(event.end_time);
+        
+        // For past events, show all of them
+        if (filter === "past") {
+          return isPast(endTime);
+        }
+        
+        // For upcoming events, filter by week and ensure they're not past
+        return !isPast(endTime) && isWithinInterval(eventDate, {
+          start: currentWeekStart,
+          end: weekEnd
+        });
       });
-    });
 
     return filteredEvents.reduce((groups: GroupedEvents, event) => {
       const localDate = new Date(event.start_time).toLocaleDateString('en-US', {
