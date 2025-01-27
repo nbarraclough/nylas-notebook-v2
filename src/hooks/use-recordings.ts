@@ -14,6 +14,7 @@ interface UseRecordingsProps {
     titleSearch: string | null;
     hasPublicLink: boolean;
   };
+  showErrors?: boolean;
 }
 
 interface PaginatedResponse<T> {
@@ -26,10 +27,11 @@ export function useRecordings({
   recordingId, 
   page = 1, 
   pageSize = 8,
-  filters 
+  filters,
+  showErrors = false
 }: UseRecordingsProps) {
   return useQuery({
-    queryKey: ['library-recordings', filters, isAuthenticated, recordingId, page, pageSize],
+    queryKey: ['library-recordings', filters, isAuthenticated, recordingId, page, pageSize, showErrors],
     queryFn: async () => {
       console.log('Fetching recordings with auth status:', isAuthenticated);
       
@@ -57,8 +59,12 @@ export function useRecordings({
             organization_id
           )
         `, { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range(from, to);
+        .order('created_at', { ascending: false });
+
+      // Filter out error recordings unless showErrors is true
+      if (!showErrors) {
+        query = query.not('status', 'in', '("error","failed_entry","failed")');
+      }
 
       // If not authenticated, only fetch the shared recording
       if (!isAuthenticated) {
@@ -98,6 +104,9 @@ export function useRecordings({
           }
         }
       }
+
+      // Apply pagination after all other filters
+      query = query.range(from, to);
 
       const { data, error, count } = await query;
 
