@@ -36,19 +36,13 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
     };
   }, []);
 
-  // Also cleanup when recordingId changes
-  useEffect(() => {
-    if (videoPlayerRef.current) {
-      videoPlayerRef.current.pause();
-      videoPlayerRef.current.cleanup();
-    }
-  }, [recordingId]);
-
   const handleClose = () => {
     if (videoPlayerRef.current) {
       videoPlayerRef.current.pause();
       videoPlayerRef.current.cleanup();
     }
+    // Clear the query cache for this recording to ensure fresh data on next open
+    queryClient.removeQueries({ queryKey: ['recording', recordingId] });
     onClose();
   };
 
