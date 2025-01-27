@@ -35,6 +35,8 @@ export function NotetakersSettings({ userId }: { userId: string }) {
         title: "Success",
         description: "Manual kick initiated successfully",
       });
+
+      return Promise.resolve();
     } catch (error) {
       console.error('Error kicking notetaker:', error);
       toast({
@@ -42,6 +44,7 @@ export function NotetakersSettings({ userId }: { userId: string }) {
         description: "Failed to kick notetaker. Please try again.",
         variant: "destructive",
       });
+      return Promise.reject(error);
     } finally {
       setIsKicking(prev => ({ ...prev, [recordingId]: false }));
     }
@@ -65,7 +68,7 @@ export function NotetakersSettings({ userId }: { userId: string }) {
             title: "Media Not Ready",
             description: "The recording is still being processed. Please try again in a few moments.",
           });
-          return;
+          return Promise.reject(new Error('Media not ready'));
         }
         throw error;
       }
@@ -74,6 +77,8 @@ export function NotetakersSettings({ userId }: { userId: string }) {
         title: "Success",
         description: "Media retrieved successfully",
       });
+
+      return Promise.resolve();
     } catch (error: any) {
       console.error('Error retrieving media:', error);
       toast({
@@ -81,6 +86,7 @@ export function NotetakersSettings({ userId }: { userId: string }) {
         description: error.message || "Failed to retrieve media. Please try again.",
         variant: "destructive",
       });
+      return Promise.reject(error);
     } finally {
       setIsRetrieving(prev => ({ ...prev, [recordingId]: false }));
     }
