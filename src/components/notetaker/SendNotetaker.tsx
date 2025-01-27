@@ -61,7 +61,6 @@ export function SendNotetaker() {
           variant={getButtonVariant()}
           size="sm" 
           className="gap-2"
-          disabled={mutation.isSuccess}
         >
           {getButtonContent()}
         </Button>
