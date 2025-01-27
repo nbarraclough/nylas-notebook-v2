@@ -1,8 +1,13 @@
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
-import { Globe, Shield, ExternalLink } from "lucide-react";
+import { Globe, Shield, ExternalLink, Check, X, Pencil } from "lucide-react";
 import { EventParticipants } from "./EventParticipants";
 import { RecordingToggle } from "./RecordingToggle";
+import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import type { EventParticipant, EventOrganizer } from "@/types/calendar";
 
 interface EventHeaderProps {
@@ -21,6 +26,7 @@ interface EventHeaderProps {
   onToggle: (newState: boolean) => void;
   isPast: boolean;
   htmlLink?: string | null;
+  manualMeetingId?: string | null;
 }
 
 export const EventHeader = ({ 
@@ -38,8 +44,38 @@ export const EventHeader = ({
   nylasGrantId,
   onToggle,
   isPast,
-  htmlLink
+  htmlLink,
+  manualMeetingId
 }: EventHeaderProps) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(title);
+  const { toast } = useToast();
+
+  const handleUpdateTitle = async () => {
+    try {
+      const { error } = await supabase
+        .from('manual_meetings')
+        .update({ title: editedTitle })
+        .eq('id', manualMeetingId)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Meeting title updated successfully",
+      });
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Error updating title:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update meeting title",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
       <div className="flex items-start gap-3">
@@ -51,18 +87,59 @@ export const EventHeader = ({
           />
         </div>
         <div className="min-w-0 flex-1">
-          {htmlLink ? (
-            <a 
-              href={htmlLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group inline-flex items-center gap-1 hover:text-blue-600 break-words"
-            >
-              <h3 className="font-semibold leading-snug">{title}</h3>
-              <ExternalLink className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-            </a>
+          {isEditing && manualMeetingId ? (
+            <div className="flex items-center gap-2">
+              <Input
+                value={editedTitle}
+                onChange={(e) => setEditedTitle(e.target.value)}
+                className="h-8"
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleUpdateTitle}
+                className="h-8 w-8 p-0"
+              >
+                <Check className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setIsEditing(false);
+                  setEditedTitle(title);
+                }}
+                className="h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           ) : (
-            <h3 className="font-semibold leading-snug break-words">{title}</h3>
+            <div className="flex items-center gap-2">
+              {htmlLink ? (
+                <a 
+                  href={htmlLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group inline-flex items-center gap-1 hover:text-blue-600 break-words"
+                >
+                  <h3 className="font-semibold leading-snug">{title}</h3>
+                  <ExternalLink className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                </a>
+              ) : (
+                <h3 className="font-semibold leading-snug break-words">{title}</h3>
+              )}
+              {manualMeetingId && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setIsEditing(true)}
+                  className="h-8 w-8 p-0"
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           )}
           <p className="text-sm text-muted-foreground mt-1">
             {format(new Date(startTime), "EEEE, MMMM d, yyyy 'at' h:mm a")} - {format(new Date(endTime), "h:mm a")}
