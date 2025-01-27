@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
 
   try {
     const { notetakerId } = await req.json()
-    console.log('Processing kick request for notetaker:', notetakerId)
+    console.log('🚀 Starting kick-notetaker process for notetakerId:', notetakerId)
 
     if (!notetakerId) {
       throw new Error('notetakerId is required')
@@ -25,6 +25,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    console.log('🔍 Finding recording with notetaker:', notetakerId)
     // Find the recording with this notetaker
     const { data: recordingData, error: recordingError } = await supabaseClient
       .from('recordings')
@@ -33,17 +34,18 @@ Deno.serve(async (req) => {
       .maybeSingle()
 
     if (recordingError) {
-      console.error('Error fetching recording:', recordingError)
+      console.error('❌ Error fetching recording:', recordingError)
       throw new Error('Failed to fetch recording')
     }
 
     if (!recordingData) {
-      console.log('No recording found with notetaker ID:', notetakerId)
+      console.log('⚠️ No recording found with notetaker ID:', notetakerId)
       throw new Error('No recording found with this notetaker ID')
     }
 
-    console.log('Found recording:', recordingData)
+    console.log('✅ Found recording:', recordingData)
 
+    console.log('🔍 Getting user profile for Nylas grant ID...')
     // Get the user's Nylas grant ID
     const { data: profileData, error: profileError } = await supabaseClient
       .from('profiles')
@@ -52,13 +54,18 @@ Deno.serve(async (req) => {
       .single()
 
     if (profileError) {
-      console.error('Error fetching profile:', profileError)
+      console.error('❌ Error fetching profile:', profileError)
       throw new Error('Failed to fetch profile')
     }
 
     if (!profileData.nylas_grant_id) {
+      console.error('❌ No Nylas grant ID found for user:', recordingData.user_id)
       throw new Error('No Nylas grant ID found for user')
     }
+
+    console.log('📡 Sending kick request to Nylas API...')
+    console.log('Grant ID:', profileData.nylas_grant_id)
+    console.log('Notetaker ID:', notetakerId)
 
     // Send kick request to Nylas
     const response = await fetch(
@@ -74,10 +81,11 @@ Deno.serve(async (req) => {
 
     // Log the raw response for debugging
     const responseText = await response.text()
-    console.log('Raw Nylas response:', responseText)
+    console.log('📥 Nylas API Response Status:', response.status)
+    console.log('📥 Nylas API Response Body:', responseText)
 
     if (!response.ok) {
-      console.error('Failed to kick notetaker. Status:', response.status, 'Response:', responseText)
+      console.error('❌ Failed to kick notetaker. Status:', response.status, 'Response:', responseText)
       throw new Error(`Failed to kick notetaker: ${responseText}`)
     }
 
@@ -85,15 +93,14 @@ Deno.serve(async (req) => {
     let responseData;
     try {
       responseData = JSON.parse(responseText);
-      console.log('Parsed JSON response:', responseData);
+      console.log('✅ Parsed JSON response:', responseData);
     } catch (e) {
       // If not JSON, use text response
-      console.log('Using text response:', responseText);
+      console.log('ℹ️ Using text response:', responseText);
       responseData = { message: responseText };
     }
 
-    console.log('Successfully kicked notetaker')
-
+    console.log('🔄 Updating recording status to waiting...')
     // Update recording status to waiting
     const { error: updateError } = await supabaseClient
       .from('recordings')
@@ -104,9 +111,11 @@ Deno.serve(async (req) => {
       .eq('id', recordingData.id)
 
     if (updateError) {
-      console.error('Error updating recording:', updateError)
+      console.error('❌ Error updating recording:', updateError)
       throw new Error('Failed to update recording status')
     }
+
+    console.log('✅ Successfully completed kick-notetaker process')
 
     return new Response(
       JSON.stringify({ 
@@ -120,7 +129,7 @@ Deno.serve(async (req) => {
       }
     )
   } catch (error) {
-    console.error('Error in kick-notetaker:', error)
+    console.error('❌ Error in kick-notetaker:', error)
     return new Response(
       JSON.stringify({ 
         error: error.message || 'Failed to kick notetaker'
