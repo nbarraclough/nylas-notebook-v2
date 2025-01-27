@@ -116,6 +116,8 @@ export function useNotetakerMutation(onSuccess: () => void) {
 
       console.log('Notetaker sent successfully');
 
+      let recordingExists = false;
+
       try {
         const { error: recordingError } = await supabase
           .from('recordings')
@@ -128,8 +130,9 @@ export function useNotetakerMutation(onSuccess: () => void) {
           });
 
         // If we get a duplicate key error, it means the recording already exists
-        // This is fine, we can consider this a success
-        if (recordingError && !recordingError.message.includes('duplicate key value')) {
+        if (recordingError?.message.includes('duplicate key value')) {
+          recordingExists = true;
+        } else if (recordingError) {
           throw recordingError;
         }
       } catch (error: any) {
@@ -137,14 +140,17 @@ export function useNotetakerMutation(onSuccess: () => void) {
         if (!error.message.includes('duplicate key value')) {
           throw error;
         }
+        recordingExists = true;
       }
 
-      return { success: true };
+      return { success: true, recordingExists };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
         title: "Success",
-        description: "Notetaker has been sent to the meeting",
+        description: data.recordingExists 
+          ? "Notetaker was already sent to this meeting"
+          : "Notetaker has been sent to the meeting",
       });
       queryClient.invalidateQueries({ queryKey: ['recordings'] });
       queryClient.invalidateQueries({ queryKey: ['events'] });
