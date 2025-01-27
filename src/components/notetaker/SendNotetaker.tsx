@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Send, Check } from "lucide-react";
+import { Send, Check, X } from "lucide-react";
 import { NotetakerPopoverContent } from "./NotetakerPopoverContent";
 import { useNotetakerMutation } from "./useNotetakerMutation";
 
@@ -23,30 +23,47 @@ export function SendNotetaker() {
     mutation.mutate(meetingInfo);
   };
 
-  if (mutation.isSuccess) {
+  const getButtonContent = () => {
+    if (mutation.isSuccess) {
+      return (
+        <>
+          <Check className="h-4 w-4" />
+          Sent ✅
+        </>
+      );
+    }
+    if (mutation.isError) {
+      return (
+        <>
+          <X className="h-4 w-4" />
+          Failed ❌
+        </>
+      );
+    }
     return (
-      <Button 
-        variant="outline" 
-        size="sm" 
-        className="gap-2 text-green-600 border-green-600"
-        disabled
-      >
-        <Check className="h-4 w-4" />
-        Sent
-      </Button>
+      <>
+        <Send className="h-4 w-4" />
+        Send Notetaker
+      </>
     );
-  }
+  };
+
+  const getButtonVariant = () => {
+    if (mutation.isSuccess) return "outline";
+    if (mutation.isError) return "destructive";
+    return "default";
+  };
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button 
-          variant="default" 
+          variant={getButtonVariant()}
           size="sm" 
-          className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+          className="gap-2"
+          disabled={mutation.isSuccess}
         >
-          <Send className="h-4 w-4" />
-          Send Notetaker
+          {getButtonContent()}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80">
