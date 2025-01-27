@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Loader, CheckCircle, XCircle } from "lucide-react";
 import type { NotetakerActionsProps } from "./types";
+import { cn } from "@/lib/utils";
 
 export function NotetakerActions({ 
   notetakerId, 
@@ -18,11 +19,9 @@ export function NotetakerActions({
     try {
       await onKick();
       setKickStatus('success');
-      // Reset status after 2 seconds
       setTimeout(() => setKickStatus('idle'), 2000);
     } catch (error) {
       setKickStatus('error');
-      // Reset status after 2 seconds
       setTimeout(() => setKickStatus('idle'), 2000);
     }
   };
@@ -31,11 +30,9 @@ export function NotetakerActions({
     try {
       await onRetrieve();
       setRetrieveStatus('success');
-      // Reset status after 2 seconds
       setTimeout(() => setRetrieveStatus('idle'), 2000);
     } catch (error) {
       setRetrieveStatus('error');
-      // Reset status after 2 seconds
       setTimeout(() => setRetrieveStatus('idle'), 2000);
     }
   };
@@ -105,7 +102,10 @@ export function NotetakerActions({
   return (
     <div className="flex items-center gap-2">
       <Button
-        variant={kickStatus === 'success' ? 'success' : kickStatus === 'error' ? 'destructive' : 'outline'}
+        variant={kickStatus === 'error' ? 'destructive' : 'outline'}
+        className={cn(
+          kickStatus === 'success' && "bg-green-600 text-white hover:bg-green-700"
+        )}
         size="sm"
         onClick={handleKick}
         disabled={isKicking}
@@ -113,7 +113,10 @@ export function NotetakerActions({
         {getKickButtonContent()}
       </Button>
       <Button
-        variant={retrieveStatus === 'success' ? 'success' : retrieveStatus === 'error' ? 'destructive' : 'outline'}
+        variant={retrieveStatus === 'error' ? 'destructive' : 'outline'}
+        className={cn(
+          retrieveStatus === 'success' && "bg-green-600 text-white hover:bg-green-700"
+        )}
         size="sm"
         onClick={handleRetrieve}
         disabled={isRetrieving}
