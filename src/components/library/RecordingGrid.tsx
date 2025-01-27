@@ -29,6 +29,13 @@ export function RecordingGrid({
     });
   };
 
+  const getThumbnailUrl = (recording: any) => {
+    if (recording.mux_playback_id) {
+      return `https://image.mux.com/${recording.mux_playback_id}/thumbnail.jpg?time=35`;
+    }
+    return null;
+  };
+
   // Filter out error recordings unless showErrors is true
   const filteredRecordings = recordings.filter(recording => 
     showErrors || (!['error', 'failed_entry', 'failed'].includes(recording.status))
@@ -65,6 +72,7 @@ export function RecordingGrid({
           const internal = isInternalMeeting(recording);
           const isError = ['error', 'failed_entry', 'failed'].includes(recording.status);
           const isProcessing = ["waiting", "retrieving", "processing"].includes(recording.status);
+          const thumbnailUrl = getThumbnailUrl(recording);
           
           return (
             <Card
@@ -79,7 +87,13 @@ export function RecordingGrid({
               onClick={() => !isError && onRecordingSelect(recording.id)}
             >
               <div className="aspect-video bg-muted relative">
-                {(recording.video_url || recording.recording_url) && (
+                {thumbnailUrl ? (
+                  <img
+                    src={thumbnailUrl}
+                    alt={recording.event?.title || 'Recording thumbnail'}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (recording.video_url || recording.recording_url) && (
                   <video
                     src={recording.video_url || recording.recording_url}
                     className="w-full h-full object-cover"
