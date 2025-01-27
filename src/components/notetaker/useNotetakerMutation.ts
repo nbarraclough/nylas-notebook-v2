@@ -106,7 +106,7 @@ export function useNotetakerMutation(onSuccess: () => void) {
 
       if (error) {
         console.error('Failed to send notetaker');
-        throw new Error('Failed to send notetaker');
+        throw error;
       }
 
       if (!data?.notetaker_id) {
@@ -116,17 +116,28 @@ export function useNotetakerMutation(onSuccess: () => void) {
 
       console.log('Notetaker sent successfully');
 
-      const { error: recordingError } = await supabase
-        .from('recordings')
-        .insert({
-          user_id: user.id,
-          event_id: event.id,
-          notetaker_id: data.notetaker_id,
-          recording_url: '',
-          status: 'pending'
-        });
+      try {
+        const { error: recordingError } = await supabase
+          .from('recordings')
+          .insert({
+            user_id: user.id,
+            event_id: event.id,
+            notetaker_id: data.notetaker_id,
+            recording_url: '',
+            status: 'pending'
+          });
 
-      if (recordingError) throw recordingError;
+        // If we get a duplicate key error, it means the recording already exists
+        // This is fine, we can consider this a success
+        if (recordingError && !recordingError.message.includes('duplicate key value')) {
+          throw recordingError;
+        }
+      } catch (error: any) {
+        // Only throw if it's not a duplicate key error
+        if (!error.message.includes('duplicate key value')) {
+          throw error;
+        }
+      }
 
       return { success: true };
     },
