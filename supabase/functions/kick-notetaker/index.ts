@@ -63,15 +63,15 @@ Deno.serve(async (req) => {
       throw new Error('No Nylas grant ID found for user')
     }
 
-    console.log('📡 Sending kick request to Nylas API...')
+    console.log('📡 Sending leave request to Nylas API...')
     console.log('Grant ID:', profileData.nylas_grant_id)
     console.log('Notetaker ID:', notetakerId)
 
-    // Send kick request to Nylas using the correct /cancel endpoint
+    // Send leave request to Nylas using the correct /leave endpoint
     const response = await fetch(
-      `https://api.us.nylas.com/v3/grants/${profileData.nylas_grant_id}/notetakers/${notetakerId}/cancel`,
+      `https://api.us.nylas.com/v3/grants/${profileData.nylas_grant_id}/notetakers/${notetakerId}/leave`,
       {
-        method: 'DELETE',
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
           'Accept': 'application/json, application/gzip'
