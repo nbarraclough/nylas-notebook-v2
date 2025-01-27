@@ -81,7 +81,6 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
 
   // Function to handle share updates
   const handleShareUpdate = () => {
-    // Invalidate the recording query to refresh the data
     queryClient.invalidateQueries({ queryKey: ['recording', recordingId] });
   };
 
@@ -151,6 +150,8 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
               endTime={recording.event?.end_time}
               onShareUpdate={handleShareUpdate}
               ownerEmail={recording.owner_email}
+              userId={recording.user_id}
+              manualMeetingId={recording.event?.manual_meeting?.id}
             />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
