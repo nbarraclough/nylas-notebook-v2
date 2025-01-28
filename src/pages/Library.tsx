@@ -20,6 +20,7 @@ export default function Library() {
   const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
   const [myRecordingsPage, setMyRecordingsPage] = useState(1);
   const [sharedRecordingsPage, setSharedRecordingsPage] = useState(1);
+  const [errorRecordingsPage, setErrorRecordingsPage] = useState(1);
   const [showErrors, setShowErrors] = useState(false);
   const [filters, setFilters] = useState({
     types: [] as string[],
@@ -110,6 +111,19 @@ export default function Library() {
     },
   });
 
+  // Query for error recordings with pagination
+  const {
+    data: errorRecordingsData,
+    isLoading: isLoadingErrors,
+    error: errorRecordingsError
+  } = useRecordings({
+    isAuthenticated: true,
+    page: errorRecordingsPage,
+    pageSize: ITEMS_PER_PAGE,
+    filters,
+    showErrors: true
+  });
+
   const handleRecordingSelect = (id: string | null) => {
     setSelectedRecording(id);
     if (id) {
@@ -119,8 +133,8 @@ export default function Library() {
     }
   };
 
-  if (myRecordingsError || sharedError) {
-    return <LibraryError message={(myRecordingsError || sharedError)?.message} />;
+  if (myRecordingsError || sharedError || errorRecordingsError) {
+    return <LibraryError message={(myRecordingsError || sharedError || errorRecordingsError)?.message} />;
   }
 
   return (
@@ -141,7 +155,6 @@ export default function Library() {
               isLoading={isLoadingMyRecordings}
               selectedRecording={selectedRecording}
               onRecordingSelect={handleRecordingSelect}
-              showErrors={showErrors}
             />
             {myRecordingsData && myRecordingsData.count > 0 && (
               <PaginationControls
@@ -160,7 +173,6 @@ export default function Library() {
               isLoading={isLoadingShared}
               selectedRecording={selectedRecording}
               onRecordingSelect={handleRecordingSelect}
-              showErrors={showErrors}
             />
             {sharedRecordingsData && sharedRecordingsData.count > 0 && (
               <PaginationControls
@@ -170,16 +182,37 @@ export default function Library() {
               />
             )}
           </section>
-        </div>
 
-        {/* Show Errors Toggle */}
-        <div className="flex items-center justify-end space-x-2 pt-4 border-t">
-          <Switch
-            id="show-errors"
-            checked={showErrors}
-            onCheckedChange={setShowErrors}
-          />
-          <Label htmlFor="show-errors">Show error recordings</Label>
+          {/* Show Errors Toggle */}
+          <div className="flex items-center justify-end space-x-2 pt-4 border-t">
+            <Switch
+              id="show-errors"
+              checked={showErrors}
+              onCheckedChange={setShowErrors}
+            />
+            <Label htmlFor="show-errors">Show error recordings</Label>
+          </div>
+
+          {/* Error Recordings Section */}
+          {showErrors && (
+            <section>
+              <h2 className="text-xl font-semibold mb-4 text-red-600">Error Recordings</h2>
+              <RecordingGrid
+                recordings={errorRecordingsData?.data || []}
+                isLoading={isLoadingErrors}
+                selectedRecording={selectedRecording}
+                onRecordingSelect={handleRecordingSelect}
+                showErrors={true}
+              />
+              {errorRecordingsData && errorRecordingsData.count > 0 && (
+                <PaginationControls
+                  currentPage={errorRecordingsPage}
+                  totalPages={Math.ceil(errorRecordingsData.count / ITEMS_PER_PAGE)}
+                  onPageChange={setErrorRecordingsPage}
+                />
+              )}
+            </section>
+          )}
         </div>
       </div>
     </PageLayout>
