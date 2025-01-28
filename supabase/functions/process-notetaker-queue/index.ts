@@ -10,6 +10,7 @@ const supabase = createClient<Database>(supabaseUrl, supabaseServiceRoleKey);
 
 const MAX_ATTEMPTS = 3;
 const RATE_LIMIT_DELAY_MS = 1100; // 1.1 seconds between requests to be safe
+const MAX_EVENT_AGE_MINS = 30;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -26,6 +27,7 @@ Deno.serve(async (req) => {
           id,
           conference_url,
           manual_meeting_id,
+          start_time,
           user_id,
           profiles!inner(
             nylas_grant_id,
@@ -57,6 +59,36 @@ Deno.serve(async (req) => {
     for (const item of queueItems) {
       try {
         console.log(`Processing queue item ${item.id} for event ${item.events.id}`);
+        
+        // Check if event started more than 30 minutes ago
+        const eventStartTime = new Date(item.events.start_time);
+        const cutoffTime = new Date();
+        cutoffTime.setMinutes(cutoffTime.getMinutes() - MAX_EVENT_AGE_MINS);
+        
+        if (eventStartTime < cutoffTime) {
+          console.log(`Event ${item.events.id} started over ${MAX_EVENT_AGE_MINS} minutes ago, marking as failed`);
+          
+          const { error: updateError } = await supabase
+            .from('notetaker_queue')
+            .update({
+              status: 'failed',
+              error: `Event started over ${MAX_EVENT_AGE_MINS} minutes ago`,
+              last_attempt: new Date().toISOString(),
+              attempts: (item.attempts || 0) + 1
+            })
+            .eq('id', item.id);
+
+          if (updateError) throw updateError;
+
+          processedItems.push({
+            queueId: item.id,
+            status: 'failed',
+            error: `Event started over ${MAX_EVENT_AGE_MINS} minutes ago`,
+            attempts: (item.attempts || 0) + 1
+          });
+          
+          continue; // Skip to next item
+        }
         
         const event = item.events;
         const grantId = event.profiles.nylas_grant_id;
