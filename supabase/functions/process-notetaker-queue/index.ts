@@ -11,6 +11,7 @@ const supabase = createClient<Database>(supabaseUrl, supabaseServiceRoleKey);
 const MAX_ATTEMPTS = 3;
 const RATE_LIMIT_DELAY_MS = 1100; // 1.1 seconds between requests to be safe
 const MAX_EVENT_AGE_MINS = 30;
+const DEDUP_WINDOW_MINS = 30;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -87,7 +88,51 @@ Deno.serve(async (req) => {
             attempts: (item.attempts || 0) + 1
           });
           
-          continue; // Skip to next item
+          continue;
+        }
+
+        // Check for recent notetakers sent to the same meeting URL by this user
+        const dedupWindow = new Date();
+        dedupWindow.setMinutes(dedupWindow.getMinutes() - DEDUP_WINDOW_MINS);
+
+        const { data: recentNotetakers } = await supabase
+          .from('notetaker_queue')
+          .select(`
+            id,
+            events!inner(
+              conference_url,
+              user_id
+            )
+          `)
+          .eq('events.conference_url', item.events.conference_url)
+          .eq('events.user_id', item.events.user_id)
+          .eq('status', 'completed')
+          .gt('last_attempt', dedupWindow.toISOString())
+          .not('notetaker_id', 'is', null);
+
+        if (recentNotetakers && recentNotetakers.length > 0) {
+          console.log(`Found recent notetaker for meeting URL ${item.events.conference_url} by user ${item.events.user_id}`);
+          
+          const { error: updateError } = await supabase
+            .from('notetaker_queue')
+            .update({
+              status: 'failed',
+              error: `Notetaker already sent to this meeting URL in the last ${DEDUP_WINDOW_MINS} minutes`,
+              last_attempt: new Date().toISOString(),
+              attempts: (item.attempts || 0) + 1
+            })
+            .eq('id', item.id);
+
+          if (updateError) throw updateError;
+
+          processedItems.push({
+            queueId: item.id,
+            status: 'failed',
+            error: `Duplicate meeting URL within ${DEDUP_WINDOW_MINS} minutes`,
+            attempts: (item.attempts || 0) + 1
+          });
+          
+          continue;
         }
         
         const event = item.events;
@@ -126,7 +171,6 @@ Deno.serve(async (req) => {
           const errorText = await nylasResponse.text();
           console.error(`Nylas API error (${nylasResponse.status}):`, errorText);
           
-          // Increment attempts and handle retry logic
           const newAttempts = (item.attempts || 0) + 1;
           const updateData = {
             attempts: newAttempts,
@@ -149,7 +193,6 @@ Deno.serve(async (req) => {
             attempts: newAttempts
           });
           
-          // If rate limited, wait longer before next request
           if (nylasResponse.status === 429) {
             console.log('Rate limited, waiting longer before next request...');
             await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY_MS * 2));
@@ -190,6 +233,7 @@ Deno.serve(async (req) => {
           .update({
             status: 'completed',
             notetaker_id: notetakerId,
+            last_attempt: new Date().toISOString()
           })
           .eq('id', item.id);
 
@@ -203,14 +247,12 @@ Deno.serve(async (req) => {
           notetakerId: notetakerId,
         });
 
-        // Wait before processing next item to avoid rate limiting
         console.log(`Waiting ${RATE_LIMIT_DELAY_MS}ms before next request...`);
         await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY_MS));
 
       } catch (error) {
         console.error(`Error processing queue item ${item.id}:`, error);
 
-        // Increment attempts and handle retry logic for any error
         const newAttempts = (item.attempts || 0) + 1;
         const updateData = {
           attempts: newAttempts,
