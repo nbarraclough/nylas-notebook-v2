@@ -165,7 +165,33 @@ serve(async (req) => {
         console.log('Video asset ready:', { assetId, playbackId });
 
         if (playbackId) {
-          const { error } = await supabase
+          // Get recording and user details
+          const { data: recording, error: recordingError } = await supabase
+            .from("recordings")
+            .select(`
+              id,
+              user_id,
+              event_id,
+              profiles:user_id (
+                nylas_grant_id,
+                email,
+                first_name,
+                last_name
+              ),
+              events (
+                title
+              )
+            `)
+            .eq("mux_asset_id", assetId)
+            .single();
+
+          if (recordingError) {
+            console.error('Error fetching recording details:', recordingError);
+            throw recordingError;
+          }
+
+          // Update recording status
+          const { error: updateError } = await supabase
             .from("recordings")
             .update({
               status: "ready",
@@ -174,9 +200,24 @@ serve(async (req) => {
             })
             .eq("mux_asset_id", assetId);
 
-          if (error) {
-            console.error('Error updating recording:', error);
-            throw error;
+          if (updateError) {
+            console.error('Error updating recording:', updateError);
+            throw updateError;
+          }
+
+          // Send email notification
+          console.log('📧 Triggering recording ready email notification');
+          const { error: emailError } = await supabase.functions.invoke('send-recording-ready-email', {
+            body: {
+              recordingId: recording.id,
+              userId: recording.user_id,
+              grantId: recording.profiles.nylas_grant_id
+            }
+          });
+
+          if (emailError) {
+            console.error('Error sending email notification:', emailError);
+            // Don't throw here, as we've already updated the recording status
           }
           
           logWebhookSuccess('video.asset.ready');
