@@ -31,7 +31,7 @@ export function RecordingGrid({
 
   const getThumbnailUrl = (recording: any) => {
     if (recording.mux_playback_id) {
-      return `https://image.mux.com/${recording.mux_playback_id}/thumbnail.jpg?time=35`;
+      return `https://image.mux.com/${recording.mux_playback_id}/thumbnail.jpg?time=35&width=640`;
     }
     return null;
   };
@@ -88,12 +88,10 @@ export function RecordingGrid({
                     alt={recording.event?.title || 'Recording thumbnail'}
                     className="w-full h-full object-cover"
                   />
-                ) : (recording.video_url || recording.recording_url) && (
-                  <video
-                    src={recording.video_url || recording.recording_url}
-                    className="w-full h-full object-cover"
-                    preload="metadata"
-                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                    No preview
+                  </div>
                 )}
                 {recording.duration && (
                   <div className="absolute bottom-2 right-2 bg-black/75 text-white text-sm px-2 py-1 rounded">

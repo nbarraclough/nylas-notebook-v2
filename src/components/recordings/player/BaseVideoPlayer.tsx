@@ -16,8 +16,6 @@ interface BaseVideoPlayerProps {
 }
 
 export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerProps>(({
-  videoUrl,
-  recordingUrl,
   muxPlaybackId
 }, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -51,75 +49,62 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
   };
 
   useEffect(() => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || !muxPlaybackId) return;
 
     const video = videoRef.current;
-    let url = null;
-
-    // Only use Mux playback ID if provided
-    if (muxPlaybackId) {
-      url = `https://stream.mux.com/${muxPlaybackId}.m3u8`;
-    }
-
-    if (!url) {
-      console.log('No video URL provided');
-      cleanupHls();
-      return;
-    }
+    const url = `https://stream.mux.com/${muxPlaybackId}.m3u8`;
 
     // Clean up existing instance before creating a new one
     cleanupHls();
 
-    if (url.includes('.m3u8')) {
-      if (Hls.isSupported()) {
-        console.log('HLS is supported, initializing player with URL:', url);
-        const hls = new Hls({
-          enableWorker: true,
-          lowLatencyMode: true,
-          backBufferLength: 90
+    if (Hls.isSupported()) {
+      console.log('HLS is supported, initializing player with URL:', url);
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+        backBufferLength: 90
+      });
+      
+      hls.loadSource(url);
+      hls.attachMedia(video);
+      
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        console.log('HLS manifest parsed, attempting playback');
+        video.play().catch((error) => {
+          console.log('Playback prevented by browser:', error);
         });
-        
-        hls.loadSource(url);
-        hls.attachMedia(video);
-        
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          console.log('HLS manifest parsed, attempting playback');
-          video.play().catch((error) => {
-            console.log('Playback prevented by browser:', error);
-          });
-        });
+      });
 
-        hls.on(Hls.Events.ERROR, (event, data) => {
-          if (data.fatal) {
-            console.error('Fatal HLS error:', data);
-            switch (data.type) {
-              case Hls.ErrorTypes.NETWORK_ERROR:
-                console.log('Network error, attempting to recover...');
-                hls.startLoad();
-                break;
-              case Hls.ErrorTypes.MEDIA_ERROR:
-                console.log('Media error, attempting to recover...');
-                hls.recoverMediaError();
-                break;
-              default:
-                console.error('Unrecoverable HLS error:', data);
-                cleanupHls();
-                break;
-            }
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        if (data.fatal) {
+          console.error('Fatal HLS error:', data);
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              console.log('Network error, attempting to recover...');
+              hls.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              console.log('Media error, attempting to recover...');
+              hls.recoverMediaError();
+              break;
+            default:
+              console.error('Unrecoverable HLS error:', data);
+              cleanupHls();
+              break;
           }
-        });
+        }
+      });
 
-        hlsRef.current = hls;
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        console.log('Using native HLS support');
-        video.src = url;
-      }
+      hlsRef.current = hls;
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      console.log('Using native HLS support');
+      video.src = url;
     }
 
     return () => {
       cleanupHls();
     };
-  }, [muxPlaybackId]); // Only depend on muxPlaybackId
+  }, [muxPlaybackId]);
 
   useEffect(() => {
     if (!videoRef.current || !ref) return;
