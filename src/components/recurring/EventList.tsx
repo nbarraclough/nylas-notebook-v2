@@ -1,4 +1,3 @@
-import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { EventCard } from "./EventCard";
 import { RecurringRecordingToggle } from "./RecurringRecordingToggle";
@@ -12,8 +11,7 @@ interface EventListProps {
 }
 
 export function EventList({ events, masterId, isLoading }: EventListProps) {
-  const navigate = useNavigate();
-  const { data: profile } = useProfile();
+  const { data: profile } = useProfile({ enabled: true });
 
   if (isLoading) {
     return (
@@ -41,18 +39,33 @@ export function EventList({ events, masterId, isLoading }: EventListProps) {
     console.log("Toggle pin", masterId, currentPinned);
   };
 
+  // Transform events to match EventCard props format
+  const transformedEvents = events.map(event => ({
+    masterId: event.master_event_id || event.id,
+    latestEvent: {
+      title: event.title,
+      participants: event.participants,
+      organizer: event.organizer,
+      start_time: event.start_time
+    },
+    nextEvent: {
+      start_time: event.start_time
+    },
+    recordingsCount: event.recordings?.length || 0,
+    isPinned: event.recurring_event_notes?.[0]?.pinned || false
+  }));
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
         <RecurringRecordingToggle masterId={masterId} events={events} />
       </div>
       
-      {events.map((event) => (
+      {transformedEvents.map((event) => (
         <EventCard
-          key={event.id}
+          key={event.masterId}
           event={event}
           onTogglePin={handleTogglePin}
-          isPinned={false}
         />
       ))}
     </div>
