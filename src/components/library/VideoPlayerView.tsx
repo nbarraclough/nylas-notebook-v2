@@ -152,8 +152,6 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
                 <VideoPlayer
                   ref={videoPlayerRef}
                   recordingId={recordingId}
-                  videoUrl={null}
-                  recordingUrl={null}
                   title={recording.event?.title || ''}
                   participants={participants}
                   grantId={profile?.nylas_grant_id}

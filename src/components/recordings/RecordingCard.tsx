@@ -33,7 +33,6 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
   const [isKicking, setIsKicking] = useState(false);
   const [isRetrievingMedia, setIsRetrievingMedia] = useState(false);
 
-  // Fetch user's profile to get Nylas grant ID
   const { data: profile } = useQuery({
     queryKey: ['profile', recording.user_id],
     queryFn: async () => {
@@ -149,12 +148,11 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
 
         <VideoPlayer
           recordingId={recording.id}
-          videoUrl={recording.video_url}
-          recordingUrl={recording.recording_url}
           title={recording.event.title}
           participants={participants}
           grantId={profile?.nylas_grant_id}
           notetakerId={recording.notetaker_id}
+          muxPlaybackId={recording.mux_playback_id}
         />
 
         {recording.event.description && (
@@ -186,7 +184,6 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
         <RecordingActions
           recordingId={recording.id}
           notetakerId={recording.notetaker_id}
-          videoUrl={recording.video_url}
           status={recording.status}
           title={recording.event.title}
           isRetrievingMedia={isRetrievingMedia}
