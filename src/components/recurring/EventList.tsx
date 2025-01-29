@@ -2,6 +2,7 @@ import { useProfile } from "@/hooks/use-profile";
 import { EventCard } from "./EventCard";
 import { Event } from "@/types/calendar";
 import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
 
 interface EventListProps {
   events: Event[];
@@ -10,9 +11,15 @@ interface EventListProps {
 }
 
 export function EventList({ events, masterId, isLoading }: EventListProps) {
-  // Get the current user's ID from Supabase auth
-  const { data: session } = supabase.auth.getSession();
-  const userId = session?.user?.id;
+  const [userId, setUserId] = useState<string | null>(null);
+  
+  useEffect(() => {
+    // Get the current user's ID from Supabase auth
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUserId(session?.user?.id || null);
+    });
+  }, []);
+
   const { data: profile } = useProfile(userId || "");
 
   if (isLoading) {
@@ -64,7 +71,7 @@ export function EventList({ events, masterId, isLoading }: EventListProps) {
       {transformedEvents.map((event, index) => (
         <EventCard
           key={`${event.masterId}-${index}`}
-          {...event}
+          event={event}
           onTogglePin={handleTogglePin}
         />
       ))}

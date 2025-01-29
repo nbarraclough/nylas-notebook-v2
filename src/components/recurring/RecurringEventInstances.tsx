@@ -65,6 +65,7 @@ export function RecurringEventInstances({ events }: RecurringEventInstancesProps
                 <EventList
                   events={paginatedEvents}
                   masterId={events[0]?.master_event_id || ''}
+                  isLoading={false}
                 />
                 {totalPages > 1 && (
                   <PaginationControls
@@ -88,6 +89,7 @@ export function RecurringEventInstances({ events }: RecurringEventInstancesProps
                 <EventList
                   events={paginatedEvents}
                   masterId={events[0]?.master_event_id || ''}
+                  isLoading={false}
                 />
                 {totalPages > 1 && (
                   <PaginationControls
