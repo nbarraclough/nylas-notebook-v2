@@ -21,21 +21,24 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
   recordingUrl,
   muxPlaybackId,
 }, ref) => {
-  // Get Mux playback URL if available
-  const getMuxPlaybackUrl = (playbackId: string) => {
-    return `https://stream.mux.com/${playbackId}.m3u8`;
-  };
+  // Only render if we have a Mux playback ID
+  if (!muxPlaybackId) {
+    return (
+      <div className="w-full h-full bg-muted flex items-center justify-center text-muted-foreground">
+        Video not available
+      </div>
+    );
+  }
 
-  const videoSource = muxPlaybackId 
-    ? getMuxPlaybackUrl(muxPlaybackId)
-    : videoUrl || recordingUrl;
+  // Get Mux playback URL
+  const videoSource = `https://stream.mux.com/${muxPlaybackId}.m3u8`;
 
   return (
     <div className="relative aspect-video">
       <BaseVideoPlayer
         ref={ref}
         videoUrl={videoSource}
-        recordingUrl={recordingUrl}
+        recordingUrl={null}
       />
     </div>
   );
