@@ -1,5 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BaseVideoPlayer, type BaseVideoPlayerRef } from "./player/BaseVideoPlayer";
 import { useRef } from "react";
 
@@ -13,8 +13,20 @@ export const VideoPlayerDialog = ({ videoUrl, title, children }: VideoPlayerDial
   const [isOpen, setIsOpen] = useState(false);
   const videoRef = useRef<BaseVideoPlayerRef>(null);
 
+  // Enhanced cleanup when dialog closes
+  useEffect(() => {
+    if (!isOpen && videoRef.current) {
+      videoRef.current.cleanup();
+    }
+  }, [isOpen]);
+
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open && videoRef.current) {
+        videoRef.current.cleanup();
+      }
+      setIsOpen(open);
+    }}>
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
@@ -26,11 +38,13 @@ export const VideoPlayerDialog = ({ videoUrl, title, children }: VideoPlayerDial
           </DialogDescription>
         </DialogHeader>
         <div className="aspect-video w-full relative">
-          <BaseVideoPlayer 
-            ref={videoRef}
-            videoUrl={videoUrl}
-            recordingUrl={null}
-          />
+          {isOpen && (
+            <BaseVideoPlayer 
+              ref={videoRef}
+              videoUrl={videoUrl}
+              recordingUrl={null}
+            />
+          )}
         </div>
       </DialogContent>
     </Dialog>

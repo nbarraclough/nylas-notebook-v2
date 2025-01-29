@@ -8,7 +8,7 @@ import { useRecordingData } from "./video/useRecordingData";
 import { useProfileData } from "./video/useProfileData";
 import type { EventParticipant } from "@/types/calendar";
 import type { Json } from "@/integrations/supabase/types";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 
 interface VideoPlayerViewProps {
   recordingId: string;
@@ -25,6 +25,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   const { data: recording, isLoading: isRecordingLoading } = useRecordingData(recordingId);
   const { data: profile } = useProfileData();
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
+  const [isVisible, setIsVisible] = useState(true);
 
   // Enhanced cleanup effect
   useEffect(() => {
@@ -37,6 +38,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   }, []);
 
   const handleClose = () => {
+    setIsVisible(false);
     if (videoPlayerRef.current) {
       videoPlayerRef.current.pause();
       videoPlayerRef.current.cleanup();
@@ -150,17 +152,19 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="aspect-video bg-muted rounded-lg overflow-hidden">
-                <VideoPlayer
-                  ref={videoPlayerRef}
-                  recordingId={recordingId}
-                  videoUrl={null}
-                  recordingUrl={null}
-                  title={recording.event?.title || ''}
-                  participants={participants}
-                  grantId={profile?.nylas_grant_id}
-                  notetakerId={recording.notetaker_id}
-                  muxPlaybackId={recording.mux_playback_id}
-                />
+                {isVisible && (
+                  <VideoPlayer
+                    ref={videoPlayerRef}
+                    recordingId={recordingId}
+                    videoUrl={null}
+                    recordingUrl={null}
+                    title={recording.event?.title || ''}
+                    participants={participants}
+                    grantId={profile?.nylas_grant_id}
+                    notetakerId={recording.notetaker_id}
+                    muxPlaybackId={recording.mux_playback_id}
+                  />
+                )}
               </div>
               
               {recording.transcript_content && (
