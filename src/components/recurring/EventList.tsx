@@ -11,7 +11,7 @@ interface EventListProps {
 }
 
 export function EventList({ events, masterId, isLoading }: EventListProps) {
-  const { data: profile } = useProfile({ enabled: true });
+  const { data: profile } = useProfile(""); // Empty string as placeholder, we'll get the actual user ID from auth context later
 
   if (isLoading) {
     return (
