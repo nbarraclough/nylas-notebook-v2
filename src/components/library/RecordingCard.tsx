@@ -1,6 +1,4 @@
-import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { VideoPlayerDialog } from "@/components/recordings/VideoPlayerDialog";
 import { RecordingStatus } from "@/components/recordings/RecordingStatus";
 import { RecordingActions } from "@/components/recordings/RecordingActions";
 import { useProfile } from "@/hooks/use-profile";
@@ -19,10 +17,10 @@ interface RecordingCardProps {
     };
     notetaker_id?: string | null;
   };
+  onRecordingSelect: (id: string) => void;
 }
 
-export function RecordingCard({ recording }: RecordingCardProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function RecordingCard({ recording, onRecordingSelect }: RecordingCardProps) {
   const { data: profile } = useProfile(recording.notetaker_id || '');
   const { refreshMedia, isRefreshing } = useVideoRefresh(recording.id, recording.notetaker_id);
   
@@ -37,67 +35,59 @@ export function RecordingCard({ recording }: RecordingCardProps) {
     : null;
 
   return (
-    <>
-      <Card className="overflow-hidden">
-        <CardContent className="p-0">
-          <div 
-            role="button" 
-            tabIndex={0}
-            onClick={() => setIsOpen(true)}
-            onKeyDown={(e) => e.key === 'Enter' && setIsOpen(true)}
-            className="cursor-pointer"
-          >
-            {/* Thumbnail Container */}
-            <div className="aspect-video bg-muted relative">
-              {thumbnailUrl ? (
-                <img
-                  src={thumbnailUrl}
-                  alt={recording.event.title}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-muted">
-                  <span className="text-muted-foreground">No preview available</span>
-                </div>
-              )}
-              <RecordingStatus status={recording.status} />
-            </div>
-
-            {/* Recording Info */}
-            <div className="p-4">
-              <h3 className="font-semibold mb-2 line-clamp-1">
-                {recording.event.title}
-              </h3>
-              <div className="text-sm text-muted-foreground space-y-1">
-                <p className="line-clamp-1">
-                  {participants.length} participant{participants.length !== 1 ? 's' : ''}
-                </p>
-                <p>
-                  {formatDistanceToNow(new Date(recording.created_at), { addSuffix: true })}
-                </p>
+    <Card className="overflow-hidden">
+      <CardContent className="p-0">
+        <div 
+          role="button" 
+          tabIndex={0}
+          onClick={() => onRecordingSelect(recording.id)}
+          onKeyDown={(e) => e.key === 'Enter' && onRecordingSelect(recording.id)}
+          className="cursor-pointer"
+        >
+          {/* Thumbnail Container */}
+          <div className="aspect-video bg-muted relative">
+            {thumbnailUrl ? (
+              <img
+                src={thumbnailUrl}
+                alt={recording.event.title}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-muted">
+                <span className="text-muted-foreground">No preview available</span>
               </div>
+            )}
+            <RecordingStatus status={recording.status} />
+          </div>
+
+          {/* Recording Info */}
+          <div className="p-4">
+            <h3 className="font-semibold mb-2 line-clamp-1">
+              {recording.event.title}
+            </h3>
+            <div className="text-sm text-muted-foreground space-y-1">
+              <p className="line-clamp-1">
+                {participants.length} participant{participants.length !== 1 ? 's' : ''}
+              </p>
+              <p>
+                {formatDistanceToNow(new Date(recording.created_at), { addSuffix: true })}
+              </p>
             </div>
           </div>
+        </div>
 
-          {/* Actions */}
-          <div className="p-4 pt-0">
-            <RecordingActions 
-              recordingId={recording.id}
-              notetakerId={recording.notetaker_id}
-              status={recording.status}
-              title={recording.event.title}
-              isRetrievingMedia={isRefreshing}
-              onRetrieveMedia={refreshMedia}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <VideoPlayerDialog
-        open={isOpen}
-        onOpenChange={setIsOpen}
-        recordingId={recording.id}
-      />
-    </>
+        {/* Actions */}
+        <div className="p-4 pt-0">
+          <RecordingActions 
+            recordingId={recording.id}
+            notetakerId={recording.notetaker_id}
+            status={recording.status}
+            title={recording.event.title}
+            isRetrievingMedia={isRefreshing}
+            onRetrieveMedia={refreshMedia}
+          />
+        </div>
+      </CardContent>
+    </Card>
   );
 }

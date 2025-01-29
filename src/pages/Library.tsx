@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { LibraryHeader } from "@/components/library/LibraryHeader";
 import { LibraryFilters } from "@/components/library/LibraryFilters";
@@ -16,7 +16,6 @@ const ITEMS_PER_PAGE = 8;
 
 export default function Library() {
   const navigate = useNavigate();
-  const { recordingId } = useParams();
   const [myRecordingsPage, setMyRecordingsPage] = useState(1);
   const [sharedRecordingsPage, setSharedRecordingsPage] = useState(1);
   const [errorRecordingsPage, setErrorRecordingsPage] = useState(1);
@@ -31,12 +30,8 @@ export default function Library() {
     hasPublicLink: false
   });
 
-  const handleRecordingSelect = (id: string | null) => {
-    if (id) {
-      navigate(`/library/${id}`);
-    } else {
-      navigate("/library");
-    }
+  const handleRecordingSelect = (id: string) => {
+    navigate(`/library/${id}`);
   };
 
   // Query for my recordings with pagination
@@ -144,7 +139,6 @@ export default function Library() {
             <RecordingGrid
               recordings={myRecordingsData?.data || []}
               isLoading={isLoadingMyRecordings}
-              recordingId={recordingId}
               onRecordingSelect={handleRecordingSelect}
             />
             {myRecordingsData && myRecordingsData.count > 0 && (
@@ -162,7 +156,6 @@ export default function Library() {
             <RecordingGrid
               recordings={sharedRecordingsData?.data || []}
               isLoading={isLoadingShared}
-              recordingId={recordingId}
               onRecordingSelect={handleRecordingSelect}
             />
             {sharedRecordingsData && sharedRecordingsData.count > 0 && (
@@ -191,7 +184,6 @@ export default function Library() {
               <RecordingGrid
                 recordings={errorRecordingsData?.data || []}
                 isLoading={isLoadingErrors}
-                recordingId={recordingId}
                 onRecordingSelect={handleRecordingSelect}
                 showErrors={true}
               />
