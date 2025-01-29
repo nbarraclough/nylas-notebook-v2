@@ -12,15 +12,13 @@ export interface BaseVideoPlayerRef {
 interface BaseVideoPlayerProps {
   videoUrl: string | null;
   recordingUrl: string | null;
-  onRefreshMedia?: () => Promise<void>;
-  isRefreshing?: boolean;
+  muxPlaybackId?: string | null;
 }
 
 export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerProps>(({
   videoUrl,
   recordingUrl,
-  onRefreshMedia,
-  isRefreshing
+  muxPlaybackId
 }, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -29,7 +27,6 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
   const cleanupHls = () => {
     console.log('Cleaning up HLS instance and video element');
     
-    // First cleanup HLS if it exists
     if (hlsRef.current) {
       try {
         hlsRef.current.stopLoad();
@@ -41,7 +38,6 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
       }
     }
     
-    // Then cleanup video element
     if (videoRef.current) {
       try {
         videoRef.current.pause();
@@ -49,7 +45,6 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
         videoRef.current.load();
         const mediaElement = videoRef.current;
         mediaElement.srcObject = null;
-        // Remove all source elements
         while (mediaElement.firstChild) {
           mediaElement.removeChild(mediaElement.firstChild);
         }
@@ -59,18 +54,16 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
     }
   };
 
-  // Cleanup on unmount and URL changes
-  useEffect(() => {
-    return () => {
-      cleanupHls();
-    };
-  }, []);
-
   useEffect(() => {
     if (!videoRef.current) return;
 
     const video = videoRef.current;
-    const url = videoUrl || recordingUrl;
+    let url = videoUrl || recordingUrl;
+
+    // If we have a Mux playback ID, use that instead
+    if (muxPlaybackId) {
+      url = `https://stream.mux.com/${muxPlaybackId}.m3u8`;
+    }
 
     if (!url) {
       console.log('No video URL provided');
@@ -130,9 +123,8 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
     return () => {
       cleanupHls();
     };
-  }, [videoUrl, recordingUrl]);
+  }, [videoUrl, recordingUrl, muxPlaybackId]);
 
-  // Expose controls via ref
   useEffect(() => {
     if (!videoRef.current || !ref) return;
 
@@ -140,7 +132,6 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
       pause: () => {
         if (videoRef.current) {
           videoRef.current.pause();
-          // Ensure HLS is also stopped when pausing
           if (hlsRef.current) {
             hlsRef.current.stopLoad();
           }
@@ -148,7 +139,6 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
       },
       play: () => {
         if (videoRef.current) {
-          // Restart HLS if needed
           if (hlsRef.current) {
             hlsRef.current.startLoad();
           }
@@ -172,14 +162,6 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
       ref.current = controls;
     }
   }, [ref]);
-
-  if (!videoUrl && !recordingUrl) {
-    return (
-      <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-500">
-        No video available
-      </div>
-    );
-  }
 
   return (
     <video

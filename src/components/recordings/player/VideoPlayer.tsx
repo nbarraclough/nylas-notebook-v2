@@ -30,15 +30,13 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
     );
   }
 
-  // Get Mux playback URL
-  const videoSource = `https://stream.mux.com/${muxPlaybackId}.m3u8`;
-
   return (
     <div className="relative aspect-video">
       <BaseVideoPlayer
         ref={ref}
-        videoUrl={videoSource}
+        videoUrl={null}
         recordingUrl={null}
+        muxPlaybackId={muxPlaybackId}
       />
     </div>
   );

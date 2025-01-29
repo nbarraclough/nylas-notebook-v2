@@ -47,10 +47,6 @@ export function RecentRecordings() {
     }
   };
 
-  const getMuxPlaybackUrl = (playbackId: string): string => {
-    return `https://stream.mux.com/${playbackId}.m3u8`;
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between pb-2 border-b">
@@ -109,7 +105,7 @@ export function RecentRecordings() {
                 <div className="flex justify-end">
                   {recording.mux_playback_id ? (
                     <VideoPlayerDialog
-                      videoUrl={getMuxPlaybackUrl(recording.mux_playback_id)}
+                      videoUrl={null}
                       title={recording.event?.title || ''}
                       muxPlaybackId={recording.mux_playback_id}
                     >
