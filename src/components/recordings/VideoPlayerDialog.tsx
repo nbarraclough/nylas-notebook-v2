@@ -1,7 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { useState } from "react";
-import { BaseVideoPlayer, type BaseVideoPlayerRef } from "./player/BaseVideoPlayer";
-import { useRef } from "react";
 
 interface VideoPlayerDialogProps {
   videoUrl: string;
@@ -12,7 +10,6 @@ interface VideoPlayerDialogProps {
 
 export const VideoPlayerDialog = ({ videoUrl, title, muxPlaybackId, children }: VideoPlayerDialogProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const videoRef = useRef<BaseVideoPlayerRef>(null);
 
   const getThumbnailUrl = () => {
     if (muxPlaybackId) {
@@ -22,12 +19,7 @@ export const VideoPlayerDialog = ({ videoUrl, title, muxPlaybackId, children }: 
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-      if (!open && videoRef.current) {
-        videoRef.current.cleanup();
-      }
-      setIsOpen(open);
-    }}>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
@@ -39,13 +31,7 @@ export const VideoPlayerDialog = ({ videoUrl, title, muxPlaybackId, children }: 
           </DialogDescription>
         </DialogHeader>
         <div className="aspect-video w-full relative">
-          {isOpen ? (
-            <BaseVideoPlayer 
-              ref={videoRef}
-              videoUrl={videoUrl}
-              recordingUrl={null}
-            />
-          ) : muxPlaybackId ? (
+          {muxPlaybackId ? (
             <img 
               src={getThumbnailUrl()} 
               alt={`Thumbnail for ${title}`}
