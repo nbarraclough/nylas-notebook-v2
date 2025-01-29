@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Download, Loader } from "lucide-react";
 import { ShareVideoDialog } from "./ShareVideoDialog";
-import { VideoPlayerDialog } from "./VideoPlayerDialog";
 
 interface RecordingActionsProps {
   recordingId: string;

@@ -2,21 +2,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Shield, Globe } from "lucide-react";
-import { VideoPlayerDialog } from "@/components/recordings/VideoPlayerDialog";
 
 interface RecordingGridProps {
   recordings: any[];
   isLoading: boolean;
   showErrors?: boolean;
-  recordingId?: string | null;
-  onRecordingSelect: (id: string | null) => void;
+  onRecordingSelect: (id: string) => void;
 }
 
 export function RecordingGrid({ 
   recordings, 
   isLoading,
   showErrors = false,
-  recordingId,
   onRecordingSelect,
 }: RecordingGridProps) {
   const isInternalMeeting = (recording: any) => {
@@ -61,90 +58,82 @@ export function RecordingGrid({
   }
 
   return (
-    <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {recordings.map((recording) => {
-          const internal = isInternalMeeting(recording);
-          const isError = ['error', 'failed_entry', 'failed'].includes(recording.status);
-          const isProcessing = ["waiting", "retrieving", "processing"].includes(recording.status);
-          const thumbnailUrl = getThumbnailUrl(recording);
-          
-          return (
-            <Card
-              key={recording.id}
-              className={`${
-                isError 
-                  ? 'bg-red-50 cursor-not-allowed' 
-                  : isProcessing 
-                    ? 'bg-blue-50 cursor-pointer card-hover-effect'
-                    : 'cursor-pointer card-hover-effect'
-              }`}
-              onClick={() => !isError && onRecordingSelect(recording.id)}
-            >
-              <div className="aspect-video bg-muted relative">
-                {thumbnailUrl ? (
-                  <img
-                    src={thumbnailUrl}
-                    alt={recording.event?.title || 'Recording thumbnail'}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                    No preview
-                  </div>
-                )}
-                {recording.duration && (
-                  <div className="absolute bottom-2 right-2 bg-black/75 text-white text-sm px-2 py-1 rounded">
-                    {Math.floor(recording.duration / 60)} min
-                  </div>
-                )}
-                {recording.status && recording.status !== "ready" && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-gray-500 bg-white/90 px-3 py-1 rounded-full text-sm">
-                      {recording.status.charAt(0).toUpperCase() + recording.status.slice(1)}
-                    </span>
-                  </div>
-                )}
-              </div>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h3 className="font-medium line-clamp-1">
-                      {recording.event?.title || 'Untitled Recording'}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      {recording.event?.start_time && 
-                        format(new Date(recording.event.start_time), "PPp")}
-                    </p>
-                  </div>
-                  <Badge 
-                    variant={internal ? "secondary" : "outline"}
-                    className={`text-xs ${internal ? 'bg-purple-100 hover:bg-purple-100 text-purple-800' : 'border-blue-200 text-blue-700 hover:bg-blue-50'}`}
-                  >
-                    {internal ? (
-                      <>
-                        <Shield className="w-3 h-3 mr-1" />
-                        Internal
-                      </>
-                    ) : (
-                      <>
-                        <Globe className="w-3 h-3 mr-1" />
-                        External
-                      </>
-                    )}
-                  </Badge>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {recordings.map((recording) => {
+        const internal = isInternalMeeting(recording);
+        const isError = ['error', 'failed_entry', 'failed'].includes(recording.status);
+        const isProcessing = ["waiting", "retrieving", "processing"].includes(recording.status);
+        const thumbnailUrl = getThumbnailUrl(recording);
+        
+        return (
+          <Card
+            key={recording.id}
+            className={`${
+              isError 
+                ? 'bg-red-50 cursor-not-allowed' 
+                : isProcessing 
+                  ? 'bg-blue-50 cursor-pointer card-hover-effect'
+                  : 'cursor-pointer card-hover-effect'
+            }`}
+            onClick={() => !isError && onRecordingSelect(recording.id)}
+          >
+            <div className="aspect-video bg-muted relative">
+              {thumbnailUrl ? (
+                <img
+                  src={thumbnailUrl}
+                  alt={recording.event?.title || 'Recording thumbnail'}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                  No preview
                 </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      <VideoPlayerDialog
-        open={!!recordingId}
-        onOpenChange={(open) => !open && onRecordingSelect(null)}
-        recordingId={recordingId || ''}
-      />
-    </>
+              )}
+              {recording.duration && (
+                <div className="absolute bottom-2 right-2 bg-black/75 text-white text-sm px-2 py-1 rounded">
+                  {Math.floor(recording.duration / 60)} min
+                </div>
+              )}
+              {recording.status && recording.status !== "ready" && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-gray-500 bg-white/90 px-3 py-1 rounded-full text-sm">
+                    {recording.status.charAt(0).toUpperCase() + recording.status.slice(1)}
+                  </span>
+                </div>
+              )}
+            </div>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="font-medium line-clamp-1">
+                    {recording.event?.title || 'Untitled Recording'}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {recording.event?.start_time && 
+                      format(new Date(recording.event.start_time), "PPp")}
+                  </p>
+                </div>
+                <Badge 
+                  variant={internal ? "secondary" : "outline"}
+                  className={`text-xs ${internal ? 'bg-purple-100 hover:bg-purple-100 text-purple-800' : 'border-blue-200 text-blue-700 hover:bg-blue-50'}`}
+                >
+                  {internal ? (
+                    <>
+                      <Shield className="w-3 h-3 mr-1" />
+                      Internal
+                    </>
+                  ) : (
+                    <>
+                      <Globe className="w-3 h-3 mr-1" />
+                      External
+                    </>
+                  )}
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
   );
 }
