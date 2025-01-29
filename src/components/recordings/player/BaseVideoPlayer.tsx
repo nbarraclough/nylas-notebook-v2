@@ -20,10 +20,9 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
   const hlsRef = useRef<Hls | null>(null);
 
   const cleanupHls = () => {
-    console.log('Cleaning up HLS instance and video element');
-    
     if (hlsRef.current) {
       try {
+        console.log('Cleaning up HLS instance');
         hlsRef.current.stopLoad();
         hlsRef.current.detachMedia();
         hlsRef.current.destroy();
@@ -35,6 +34,7 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
     
     if (videoRef.current) {
       try {
+        console.log('Cleaning up video element');
         videoRef.current.pause();
         videoRef.current.removeAttribute('src');
         videoRef.current.load();
@@ -47,7 +47,10 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
   };
 
   useEffect(() => {
-    if (!videoRef.current || !muxPlaybackId) return;
+    if (!videoRef.current || !muxPlaybackId) {
+      cleanupHls();
+      return;
+    }
 
     const video = videoRef.current;
     const url = `https://stream.mux.com/${muxPlaybackId}.m3u8`;
@@ -63,6 +66,7 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
         backBufferLength: 90
       });
       
+      hlsRef.current = hls;
       hls.loadSource(url);
       hls.attachMedia(video);
       
@@ -92,8 +96,6 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
           }
         }
       });
-
-      hlsRef.current = hls;
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       console.log('Using native HLS support');
       video.src = url;
