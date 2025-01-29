@@ -36,6 +36,8 @@ export function SharedVideoView() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="aspect-video relative">
                 <SharedVideoPlayer
+                  videoUrl={null}
+                  recordingUrl={null}
                   recordingId={recording?.id || ''}
                   notetakerId={recording?.notetaker_id}
                   muxPlaybackId={recording?.mux_playback_id}

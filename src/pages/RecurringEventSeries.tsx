@@ -116,10 +116,7 @@ export default function RecurringEventSeries() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="space-y-4">
-            <RecurringEventInstances 
-              events={events?.events || []} 
-              isLoading={isLoading}
-            />
+            <RecurringEventInstances events={events?.events || []} />
           </div>
           <div>
             <RecurringEventNotes 

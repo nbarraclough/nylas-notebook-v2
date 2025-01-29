@@ -1,111 +1,128 @@
 import { useState } from "react";
+import { Card } from "@/components/ui/card";
+import { VideoPlayerView } from "@/components/library/VideoPlayerView";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventList } from "./EventList";
 import { PaginationControls } from "./PaginationControls";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 
 interface RecurringEventInstancesProps {
   events: any[];
-  isLoading: boolean;
 }
 
-export function RecurringEventInstances({ events, isLoading }: RecurringEventInstancesProps) {
+const ITEMS_PER_PAGE = 5;
+
+export function RecurringEventInstances({ events }: RecurringEventInstancesProps) {
+  const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
+  const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
   const [currentPage, setCurrentPage] = useState(1);
-  const [activeTab, setActiveTab] = useState("upcoming");
-  const itemsPerPage = 5;
 
-  // Filter and sort events
+  const toggleExpand = (eventId: string) => {
+    const newExpanded = new Set(expandedEvents);
+    if (newExpanded.has(eventId)) {
+      newExpanded.delete(eventId);
+    } else {
+      newExpanded.add(eventId);
+    }
+    setExpandedEvents(newExpanded);
+  };
+
+  // Filter and sort events based on current date and tab
   const now = new Date();
-  const upcomingEvents = events
-    .filter(event => new Date(event.start_time) > now)
-    .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
-
-  const pastEvents = events
-    .filter(event => new Date(event.start_time) <= now)
-    .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
+  const filteredEvents = events
+    .filter(event => {
+      const eventDate = new Date(event.start_time);
+      return activeTab === "upcoming" ? eventDate >= now : eventDate < now;
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.start_time);
+      const dateB = new Date(b.start_time);
+      return activeTab === "upcoming" 
+        ? dateA.getTime() - dateB.getTime()  // Ascending for upcoming
+        : dateB.getTime() - dateA.getTime(); // Descending for past
+    });
 
   // Calculate pagination
-  const activeEvents = activeTab === "upcoming" ? upcomingEvents : pastEvents;
-  const totalPages = Math.ceil(activeEvents.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedEvents = activeEvents.slice(startIndex, startIndex + itemsPerPage);
+  const totalPages = Math.ceil(filteredEvents.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedEvents = filteredEvents.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
-  if (events.length === 0 && !isLoading) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <p className="text-center text-muted-foreground">No events found</p>
-        </CardContent>
-      </Card>
-    );
-  }
+  // Reset to first page when changing tabs
+  const handleTabChange = (value: string) => {
+    setActiveTab(value as "upcoming" | "past");
+    setCurrentPage(1);
+  };
 
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-      <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="upcoming">
-          Upcoming ({upcomingEvents.length})
-        </TabsTrigger>
-        <TabsTrigger value="past">
-          Past ({pastEvents.length})
-        </TabsTrigger>
-      </TabsList>
-
-      <TabsContent value="upcoming" className="mt-6">
-        {upcomingEvents.length === 0 ? (
-          <Card>
-            <CardContent className="p-6">
-              <p className="text-center text-muted-foreground">
-                No upcoming events
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            <EventList
-              events={paginatedEvents}
-              masterId={events[0]?.master_event_id || ''}
-              isLoading={isLoading}
-            />
-            {totalPages > 1 && (
-              <PaginationControls
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
-            )}
+    <div className="space-y-4">
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h4 className="font-medium text-lg">Events & Recordings</h4>
+            <TabsList>
+              <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+              <TabsTrigger value="past">Past</TabsTrigger>
+            </TabsList>
           </div>
-        )}
-      </TabsContent>
-
-      <TabsContent value="past" className="mt-6">
-        {pastEvents.length === 0 ? (
-          <Card>
-            <CardContent className="p-6">
-              <p className="text-center text-muted-foreground">
-                No past events
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            <EventList
-              events={paginatedEvents}
-              masterId={events[0]?.master_event_id || ''}
-              isLoading={isLoading}
-            />
-            {totalPages > 1 && (
-              <PaginationControls
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
+          <TabsContent value="upcoming">
+            {paginatedEvents.length === 0 ? (
+              <Card className="p-4">
+                <p className="text-center text-muted-foreground">
+                  No upcoming events found
+                </p>
+              </Card>
+            ) : (
+              <>
+                <EventList
+                  events={paginatedEvents}
+                  expandedEvents={expandedEvents}
+                  onToggleExpand={toggleExpand}
+                  onSelectRecording={setSelectedRecording}
+                />
+                {totalPages > 1 && (
+                  <PaginationControls
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                  />
+                )}
+              </>
             )}
-          </div>
-        )}
-      </TabsContent>
-    </Tabs>
+          </TabsContent>
+          <TabsContent value="past">
+            {paginatedEvents.length === 0 ? (
+              <Card className="p-4">
+                <p className="text-center text-muted-foreground">
+                  No past events found
+                </p>
+              </Card>
+            ) : (
+              <>
+                <EventList
+                  events={paginatedEvents}
+                  expandedEvents={expandedEvents}
+                  onToggleExpand={toggleExpand}
+                  onSelectRecording={setSelectedRecording}
+                />
+                {totalPages > 1 && (
+                  <PaginationControls
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                  />
+                )}
+              </>
+            )}
+          </TabsContent>
+        </div>
+      </Tabs>
+
+      {selectedRecording && (
+        <VideoPlayerView
+          recordingId={selectedRecording}
+          onClose={() => setSelectedRecording(null)}
+        />
+      )}
+    </div>
   );
 }
