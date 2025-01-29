@@ -12,7 +12,7 @@ export interface Event {
   id: string;
   title: string;
   start_time: string;
-  end_time?: string;
+  end_time: string;
   participants?: EventParticipant[];
   organizer?: EventOrganizer;
   description?: string;

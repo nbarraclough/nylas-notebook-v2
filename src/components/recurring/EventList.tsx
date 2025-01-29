@@ -1,70 +1,70 @@
-import { Card } from "@/components/ui/card";
-import { EventCard } from "./EventCard";
-import { RecurringRecordingToggle } from "./RecurringRecordingToggle";
 import { useProfile } from "@/hooks/use-profile";
-import type { Event } from "@/types/calendar";
+import { EventCard } from "./EventCard";
+import { Event } from "@/types/calendar";
+import { supabase } from "@/integrations/supabase/client";
 
 interface EventListProps {
   events: Event[];
   masterId: string;
-  isLoading?: boolean;
+  isLoading: boolean;
 }
 
 export function EventList({ events, masterId, isLoading }: EventListProps) {
-  const { data: profile } = useProfile(""); // Empty string as placeholder, we'll get the actual user ID from auth context later
+  // Get the current user's ID from Supabase auth
+  const { data: session } = supabase.auth.getSession();
+  const userId = session?.user?.id;
+  const { data: profile } = useProfile(userId || "");
 
   if (isLoading) {
     return (
       <div className="space-y-4">
         {[...Array(3)].map((_, i) => (
-          <Card key={i} className="p-6 animate-pulse">
-            <div className="h-4 bg-muted rounded w-3/4 mb-4" />
-            <div className="h-4 bg-muted rounded w-1/2" />
-          </Card>
+          <div key={i} className="animate-pulse">
+            <div className="h-48 bg-muted rounded-lg" />
+          </div>
         ))}
       </div>
     );
   }
 
-  if (!events.length) {
-    return (
-      <div className="text-center py-8">
-        <p className="text-muted-foreground">No events found</p>
-      </div>
-    );
-  }
+  const handleTogglePin = async (eventId: string, isPinned: boolean): Promise<void> => {
+    if (!profile?.id) return;
+    
+    try {
+      const { error } = await supabase
+        .from('recurring_event_notes')
+        .update({ pinned: !isPinned })
+        .eq('id', eventId)
+        .eq('user_id', profile.id);
 
-  const handleTogglePin = async (masterId: string, currentPinned: boolean): Promise<void> => {
-    // Implementation of pin toggling
-    console.log("Toggle pin", masterId, currentPinned);
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error toggling pin:', error);
+    }
   };
 
-  // Transform events to match EventCard props format
+  // Transform events to match EventCard requirements
   const transformedEvents = events.map(event => ({
-    masterId: event.master_event_id || event.id,
+    masterId: event.master_event_id || masterId,
     latestEvent: {
       title: event.title,
       participants: event.participants,
       organizer: event.organizer,
       start_time: event.start_time
     },
-    nextEvent: {
+    nextEvent: event.start_time ? {
       start_time: event.start_time
-    },
+    } : undefined,
     recordingsCount: event.recordings?.length || 0,
-    isPinned: event.recurring_event_notes?.[0]?.pinned || false
+    isPinned: event.recurring_event_notes?.some(note => note.pinned) || false
   }));
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <RecurringRecordingToggle masterId={masterId} events={events} />
-      </div>
-      
-      {transformedEvents.map((event) => (
+      {transformedEvents.map((event, index) => (
         <EventCard
-          key={event.masterId}
-          event={event}
+          key={`${event.masterId}-${index}`}
+          {...event}
           onTogglePin={handleTogglePin}
         />
       ))}
