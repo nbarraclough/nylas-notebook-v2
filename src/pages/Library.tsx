@@ -17,7 +17,6 @@ const ITEMS_PER_PAGE = 8;
 export default function Library() {
   const navigate = useNavigate();
   const { recordingId } = useParams();
-  const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
   const [myRecordingsPage, setMyRecordingsPage] = useState(1);
   const [sharedRecordingsPage, setSharedRecordingsPage] = useState(1);
   const [errorRecordingsPage, setErrorRecordingsPage] = useState(1);
@@ -32,12 +31,13 @@ export default function Library() {
     hasPublicLink: false
   });
 
-  // Handle deep linking
-  useEffect(() => {
-    if (recordingId) {
-      setSelectedRecording(recordingId);
+  const handleRecordingSelect = (id: string | null) => {
+    if (id) {
+      navigate(`/library/${id}`);
+    } else {
+      navigate("/library");
     }
-  }, [recordingId]);
+  };
 
   // Query for my recordings with pagination
   const { 
@@ -124,15 +124,6 @@ export default function Library() {
     showErrors: true
   });
 
-  const handleRecordingSelect = (id: string | null) => {
-    setSelectedRecording(id);
-    if (id) {
-      navigate(`/library/${id}`);
-    } else {
-      navigate("/library");
-    }
-  };
-
   if (myRecordingsError || sharedError || errorRecordingsError) {
     return <LibraryError message={(myRecordingsError || sharedError || errorRecordingsError)?.message} />;
   }
@@ -153,7 +144,7 @@ export default function Library() {
             <RecordingGrid
               recordings={myRecordingsData?.data || []}
               isLoading={isLoadingMyRecordings}
-              selectedRecording={selectedRecording}
+              recordingId={recordingId}
               onRecordingSelect={handleRecordingSelect}
             />
             {myRecordingsData && myRecordingsData.count > 0 && (
@@ -171,7 +162,7 @@ export default function Library() {
             <RecordingGrid
               recordings={sharedRecordingsData?.data || []}
               isLoading={isLoadingShared}
-              selectedRecording={selectedRecording}
+              recordingId={recordingId}
               onRecordingSelect={handleRecordingSelect}
             />
             {sharedRecordingsData && sharedRecordingsData.count > 0 && (
@@ -200,7 +191,7 @@ export default function Library() {
               <RecordingGrid
                 recordings={errorRecordingsData?.data || []}
                 isLoading={isLoadingErrors}
-                selectedRecording={selectedRecording}
+                recordingId={recordingId}
                 onRecordingSelect={handleRecordingSelect}
                 showErrors={true}
               />

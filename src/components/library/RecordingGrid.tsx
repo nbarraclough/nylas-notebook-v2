@@ -1,23 +1,23 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { format } from "date-fns";
-import { VideoPlayerView } from "./VideoPlayerView";
 import { Badge } from "@/components/ui/badge";
 import { Shield, Globe } from "lucide-react";
+import { VideoPlayerDialog } from "@/components/recordings/VideoPlayerDialog";
 
 interface RecordingGridProps {
   recordings: any[];
   isLoading: boolean;
-  selectedRecording: string | null;
-  onRecordingSelect: (id: string | null) => void;
   showErrors?: boolean;
+  recordingId?: string | null;
+  onRecordingSelect: (id: string | null) => void;
 }
 
 export function RecordingGrid({ 
   recordings, 
-  isLoading, 
-  selectedRecording,
+  isLoading,
+  showErrors = false,
+  recordingId,
   onRecordingSelect,
-  showErrors = false
 }: RecordingGridProps) {
   const isInternalMeeting = (recording: any) => {
     const organizerDomain = recording.event?.organizer?.email?.split('@')[1];
@@ -140,12 +140,11 @@ export function RecordingGrid({
         })}
       </div>
 
-      {selectedRecording && (
-        <VideoPlayerView
-          recordingId={selectedRecording}
-          onClose={() => onRecordingSelect(null)}
-        />
-      )}
+      <VideoPlayerDialog
+        open={!!recordingId}
+        onOpenChange={(open) => !open && onRecordingSelect(null)}
+        recordingId={recordingId || ''}
+      />
     </>
   );
 }
