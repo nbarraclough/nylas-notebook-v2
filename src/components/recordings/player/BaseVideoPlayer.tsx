@@ -25,9 +25,11 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
 
-  // Enhanced cleanup function
+  // Enhanced cleanup function with more thorough HLS and video cleanup
   const cleanupHls = () => {
     console.log('Cleaning up HLS instance and video element');
+    
+    // First cleanup HLS if it exists
     if (hlsRef.current) {
       try {
         hlsRef.current.stopLoad();
@@ -39,11 +41,18 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
       }
     }
     
+    // Then cleanup video element
     if (videoRef.current) {
       try {
         videoRef.current.pause();
         videoRef.current.removeAttribute('src');
         videoRef.current.load();
+        const mediaElement = videoRef.current;
+        mediaElement.srcObject = null;
+        // Remove all source elements
+        while (mediaElement.firstChild) {
+          mediaElement.removeChild(mediaElement.firstChild);
+        }
       } catch (error) {
         console.error('Error cleaning up video element:', error);
       }
@@ -131,10 +140,18 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
       pause: () => {
         if (videoRef.current) {
           videoRef.current.pause();
+          // Ensure HLS is also stopped when pausing
+          if (hlsRef.current) {
+            hlsRef.current.stopLoad();
+          }
         }
       },
       play: () => {
         if (videoRef.current) {
+          // Restart HLS if needed
+          if (hlsRef.current) {
+            hlsRef.current.startLoad();
+          }
           videoRef.current.play().catch(error => {
             console.error('Error playing video:', error);
           });
