@@ -151,21 +151,46 @@ serve(async (req) => {
 
         console.log(`Total events fetched for user ${userId}:`, allEvents.length)
 
-        for (const event of allEvents) {
+        // First process master events
+        const masterEvents = allEvents.filter(event => event.recurrence);
+        console.log(`Processing ${masterEvents.length} master events`);
+        
+        for (const master of masterEvents) {
           try {
-            await processEvent(event, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+            await processEvent(master, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
           } catch (error) {
-            console.error('Error processing event:', {
-              eventId: event.id,
-              title: event.title,
-              error: error.message,
-              stack: error.stack
-            })
-            errors.push({ userId, eventId: event.id, error: 'Failed to process event' })
+            console.error('Error processing master event:', {
+              eventId: master.id,
+              title: master.title,
+              error: error.message
+            });
+            errors.push({ userId, eventId: master.id, error: 'Failed to process master event' });
           }
         }
 
-        results.push({ userId, eventsProcessed: allEvents.length })
+        // Then process instance events
+        const instanceEvents = allEvents.filter(event => !event.recurrence);
+        console.log(`Processing ${instanceEvents.length} instance events`);
+        
+        for (const instance of instanceEvents) {
+          try {
+            await processEvent(instance, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+          } catch (error) {
+            console.error('Error processing instance event:', {
+              eventId: instance.id,
+              title: instance.title,
+              error: error.message
+            });
+            errors.push({ userId, eventId: instance.id, error: 'Failed to process instance event' });
+          }
+        }
+
+        results.push({ 
+          userId, 
+          eventsProcessed: allEvents.length,
+          masterEventsProcessed: masterEvents.length,
+          instanceEventsProcessed: instanceEvents.length
+        });
 
       } catch (error) {
         console.error('Error processing user:', userId, error)

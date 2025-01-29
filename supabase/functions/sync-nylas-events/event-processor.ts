@@ -49,7 +49,7 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
         startTime: event.when?.start_time,
         endTime: event.when?.end_time
       });
-      return; // Skip this event but continue processing others
+      return;
     }
 
     // Extract master_event_id from recurring event instance ID if present
@@ -97,9 +97,9 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
       end: eventData.end_time,
       masterEventId: eventData.master_event_id,
       icalUid: eventData.ical_uid,
+      isRecurring: !!eventData.recurrence || !!eventData.master_event_id,
       conferenceUrl: eventData.conference_url,
-      participants: eventData.participants.length,
-      isRecurring: !!eventData.master_event_id || !!eventData.recurrence
+      participants: eventData.participants.length
     });
 
     const { error: upsertError } = await supabase
@@ -111,12 +111,11 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
 
     if (upsertError) {
       console.error('Error upserting event:', event.id, upsertError);
-      // Don't throw the error, just log it and continue with the next event
     } else {
       console.log('Successfully processed event:', {
         id: event.id,
         title: event.title,
-        isRecurring: !!eventData.master_event_id || !!eventData.recurrence
+        isRecurring: !!eventData.recurrence || !!eventData.master_event_id
       });
     }
   } catch (error) {
@@ -126,6 +125,5 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
       error: error.message,
       stack: error.stack
     });
-    // Don't throw the error, just log it and continue with the next event
   }
 }
