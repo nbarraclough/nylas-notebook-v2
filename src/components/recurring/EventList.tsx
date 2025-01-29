@@ -101,7 +101,10 @@ export function EventList({ events, masterId, isLoading }: EventListProps) {
           latestEvent: {
             title: event.title,
             participants: event.participants || [],
-            organizer: event.organizer || {},
+            organizer: event.organizer || {
+              name: '',
+              email: ''
+            },
             start_time: event.start_time,
           },
           nextEvent: {
@@ -109,7 +112,6 @@ export function EventList({ events, masterId, isLoading }: EventListProps) {
           },
           recordingsCount: event.recordings?.length || 0,
           isPinned: event.recurring_event_notes?.[0]?.pinned || false,
-          event: event
         };
 
         return (
