@@ -1,14 +1,15 @@
 import { useState } from "react";
+import { format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EventParticipants } from "../calendar/EventParticipants";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { RecordingStatus } from "./RecordingStatus";
-import { RecordingActions } from "./RecordingActions";
+import { RecordingStatus } from "../recordings/RecordingStatus";
+import { RecordingActions } from "../recordings/RecordingActions";
 import { Loader } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { VideoPlayer } from "./player/VideoPlayer";
+import { VideoPlayer } from "../recordings/player/VideoPlayer";
 import { useNavigate } from "react-router-dom";
 import type { Database } from "@/integrations/supabase/types";
 import type { EventParticipant, EventOrganizer } from "@/types/calendar";

@@ -3,9 +3,10 @@ import { Card } from "@/components/ui/card";
 import { EventCard } from "./EventCard";
 import { RecurringRecordingToggle } from "./RecurringRecordingToggle";
 import { useProfile } from "@/hooks/use-profile";
+import type { Event } from "@/types/calendar";
 
 interface EventListProps {
-  events: any[];
+  events: Event[];
   masterId: string;
   isLoading?: boolean;
 }
@@ -35,6 +36,11 @@ export function EventList({ events, masterId, isLoading }: EventListProps) {
     );
   }
 
+  const handleTogglePin = async (masterId: string, currentPinned: boolean): Promise<void> => {
+    // Implementation of pin toggling
+    console.log("Toggle pin", masterId, currentPinned);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
@@ -45,7 +51,7 @@ export function EventList({ events, masterId, isLoading }: EventListProps) {
         <EventCard
           key={event.id}
           event={event}
-          onTogglePin={(masterId, isPinned) => {}}
+          onTogglePin={handleTogglePin}
           isPinned={false}
         />
       ))}
