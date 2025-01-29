@@ -93,35 +93,33 @@ export function EventList({ events, masterId, isLoading }: EventListProps) {
     }
   };
 
-  // Transform events for the EventCard component
-  const transformedEvents = events.map(event => ({
-    masterId: event.master_event_id || '',
-    latestEvent: {
-      title: event.title,
-      participants: event.participants || [],
-      organizer: event.organizer || {},
-      start_time: event.start_time,
-    },
-    nextEvent: event,
-    recordingsCount: event.recordings?.length || 0,
-    isPinned: event.recurring_event_notes?.[0]?.pinned || false,
-    event: event, // Pass the full event object
-  }));
-
   return (
     <div className="space-y-4">
-      {transformedEvents.map((event, index) => (
-        <EventCard
-          key={`${event.masterId}-${index}`}
-          event={event.event}
-          onTogglePin={handleTogglePin}
-          masterId={event.masterId}
-          latestEvent={event.latestEvent}
-          nextEvent={event.nextEvent}
-          recordingsCount={event.recordingsCount}
-          isPinned={event.isPinned}
-        />
-      ))}
+      {events.map((event, index) => {
+        const transformedEvent = {
+          masterId: event.master_event_id || '',
+          latestEvent: {
+            title: event.title,
+            participants: event.participants || [],
+            organizer: event.organizer || {},
+            start_time: event.start_time,
+          },
+          nextEvent: {
+            start_time: event.start_time
+          },
+          recordingsCount: event.recordings?.length || 0,
+          isPinned: event.recurring_event_notes?.[0]?.pinned || false,
+          event: event
+        };
+
+        return (
+          <EventCard
+            key={`${event.id}-${index}`}
+            event={transformedEvent}
+            onTogglePin={handleTogglePin}
+          />
+        );
+      })}
     </div>
   );
 }
