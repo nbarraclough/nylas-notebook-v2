@@ -60,7 +60,6 @@ export function RecentRecordings() {
         <RecordingCard
           key={recording.id}
           recording={recording}
-          onRecordingSelect={(id) => navigate(`/library/${id}`)}
         />
       ))}
     </div>

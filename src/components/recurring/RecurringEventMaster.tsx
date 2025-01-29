@@ -16,8 +16,6 @@ export function RecurringEventMaster({
   onSelectRecording,
   isUpcoming = false 
 }: RecurringEventMasterProps) {
-  const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
-
   const { isLoading } = useQuery({
     queryKey: ['recurring-events', masterId],
     queryFn: async () => {
@@ -41,23 +39,10 @@ export function RecurringEventMaster({
     },
   });
 
-  const handleToggleExpand = (eventId: string) => {
-    const newExpanded = new Set(expandedEvents);
-    if (newExpanded.has(eventId)) {
-      newExpanded.delete(eventId);
-    } else {
-      newExpanded.add(eventId);
-    }
-    setExpandedEvents(newExpanded);
-  };
-
   return (
     <EventList
       events={events}
-      expandedEvents={expandedEvents}
-      onToggleExpand={handleToggleExpand}
-      onSelectRecording={onSelectRecording}
-      isUpcoming={isUpcoming}
+      masterId={masterId}
       isLoading={isLoading}
     />
   );

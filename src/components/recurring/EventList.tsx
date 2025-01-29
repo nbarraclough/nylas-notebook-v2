@@ -3,10 +3,9 @@ import { Card } from "@/components/ui/card";
 import { EventCard } from "./EventCard";
 import { RecurringRecordingToggle } from "./RecurringRecordingToggle";
 import { useProfile } from "@/hooks/use-profile";
-import type { Event } from "@/types/calendar";
 
 interface EventListProps {
-  events: Event[];
+  events: any[];
   masterId: string;
   isLoading?: boolean;
 }
@@ -39,15 +38,15 @@ export function EventList({ events, masterId, isLoading }: EventListProps) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <RecurringRecordingToggle masterId={masterId} />
+        <RecurringRecordingToggle masterId={masterId} events={events} />
       </div>
       
       {events.map((event) => (
         <EventCard
           key={event.id}
           event={event}
-          grantId={profile?.nylas_grant_id}
-          onRecordingSelect={(id) => navigate(`/library/${id}`)}
+          onTogglePin={(masterId, isPinned) => {}}
+          isPinned={false}
         />
       ))}
     </div>

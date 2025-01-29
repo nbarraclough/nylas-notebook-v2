@@ -13,19 +13,8 @@ const ITEMS_PER_PAGE = 5;
 
 export function RecurringEventInstances({ events }: RecurringEventInstancesProps) {
   const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
-  const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
   const [currentPage, setCurrentPage] = useState(1);
-
-  const toggleExpand = (eventId: string) => {
-    const newExpanded = new Set(expandedEvents);
-    if (newExpanded.has(eventId)) {
-      newExpanded.delete(eventId);
-    } else {
-      newExpanded.add(eventId);
-    }
-    setExpandedEvents(newExpanded);
-  };
 
   // Filter and sort events based on current date and tab
   const now = new Date();
@@ -38,8 +27,8 @@ export function RecurringEventInstances({ events }: RecurringEventInstancesProps
       const dateA = new Date(a.start_time);
       const dateB = new Date(b.start_time);
       return activeTab === "upcoming" 
-        ? dateA.getTime() - dateB.getTime()  // Ascending for upcoming
-        : dateB.getTime() - dateA.getTime(); // Descending for past
+        ? dateA.getTime() - dateB.getTime()
+        : dateB.getTime() - dateA.getTime();
     });
 
   // Calculate pagination
@@ -75,9 +64,7 @@ export function RecurringEventInstances({ events }: RecurringEventInstancesProps
               <>
                 <EventList
                   events={paginatedEvents}
-                  expandedEvents={expandedEvents}
-                  onToggleExpand={toggleExpand}
-                  onSelectRecording={setSelectedRecording}
+                  masterId={events[0]?.master_event_id || ''}
                 />
                 {totalPages > 1 && (
                   <PaginationControls
@@ -100,9 +87,7 @@ export function RecurringEventInstances({ events }: RecurringEventInstancesProps
               <>
                 <EventList
                   events={paginatedEvents}
-                  expandedEvents={expandedEvents}
-                  onToggleExpand={toggleExpand}
-                  onSelectRecording={setSelectedRecording}
+                  masterId={events[0]?.master_event_id || ''}
                 />
                 {totalPages > 1 && (
                   <PaginationControls
