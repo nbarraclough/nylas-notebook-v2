@@ -7,6 +7,7 @@ import { EventDescription } from "@/components/calendar/EventDescription";
 import { EventParticipants } from "@/components/calendar/EventParticipants";
 import { VideoPlayerDialog } from "@/components/recordings/VideoPlayerDialog";
 import { RecurringEventSkeleton } from "./RecurringEventSkeleton";
+import { useState } from "react";
 
 interface EventListProps {
   events: any[];
@@ -25,6 +26,8 @@ export function EventList({
   isUpcoming = false,
   isLoading = false
 }: EventListProps) {
+  const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
+
   if (isLoading) {
     return <RecurringEventSkeleton />;
   }
@@ -157,19 +160,17 @@ export function EventList({
                             )}
                           </Button>
                           {recording.video_url && (
-                            <VideoPlayerDialog
-                              videoUrl={recording.video_url}
-                              title={event.title}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="hover:bg-slate-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedRecording(recording.id);
+                              }}
                             >
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="hover:bg-slate-50"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Play className="h-4 w-4" />
-                              </Button>
-                            </VideoPlayerDialog>
+                              <Play className="h-4 w-4" />
+                            </Button>
                           )}
                         </div>
                       ))}
@@ -181,6 +182,14 @@ export function EventList({
           </Card>
         );
       })}
+
+      {selectedRecording && (
+        <VideoPlayerDialog
+          recordingId={selectedRecording}
+          open={!!selectedRecording}
+          onOpenChange={(open) => !open && setSelectedRecording(null)}
+        />
+      )}
     </div>
   );
 }
