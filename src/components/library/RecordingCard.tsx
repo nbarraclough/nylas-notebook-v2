@@ -5,6 +5,7 @@ import { RecordingStatus } from "@/components/recordings/RecordingStatus";
 import { RecordingActions } from "@/components/recordings/RecordingActions";
 import { useProfile } from "@/hooks/use-profile";
 import { formatDistanceToNow } from "date-fns";
+import { useVideoRefresh } from "./video/useVideoRefresh";
 
 interface RecordingCardProps {
   recording: {
@@ -23,6 +24,7 @@ interface RecordingCardProps {
 export function RecordingCard({ recording }: RecordingCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { data: profile } = useProfile(recording.notetaker_id || '');
+  const { refreshMedia, isRefreshing } = useVideoRefresh(recording.id, recording.notetaker_id);
   
   // Get participants excluding the notetaker
   const participants = recording.event.participants?.filter(
@@ -84,6 +86,8 @@ export function RecordingCard({ recording }: RecordingCardProps) {
               notetakerId={recording.notetaker_id}
               status={recording.status}
               title={recording.event.title}
+              isRetrievingMedia={isRefreshing}
+              onRetrieveMedia={refreshMedia}
             />
           </div>
         </CardContent>
