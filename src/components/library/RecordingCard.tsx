@@ -94,12 +94,10 @@ export function RecordingCard({ recording }: RecordingCardProps) {
       </Card>
 
       <VideoPlayerDialog
-        videoUrl=""
-        title={recording.event.title}
-        muxPlaybackId={recording.mux_playback_id || undefined}
-      >
-        <div /> {/* Empty div as children prop */}
-      </VideoPlayerDialog>
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        recordingId={recording.id}
+      />
     </>
   );
 }
