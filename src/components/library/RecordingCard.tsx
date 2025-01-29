@@ -22,7 +22,7 @@ interface RecordingCardProps {
 
 export function RecordingCard({ recording }: RecordingCardProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const { data: profile } = useProfile();
+  const { data: profile } = useProfile(recording.notetaker_id || '');
   
   // Get participants excluding the notetaker
   const participants = recording.event.participants?.filter(
@@ -58,7 +58,7 @@ export function RecordingCard({ recording }: RecordingCardProps) {
                   <span className="text-muted-foreground">No preview available</span>
                 </div>
               )}
-              <RecordingStatus status={recording.status} className="absolute top-2 right-2" />
+              <RecordingStatus status={recording.status} />
             </div>
 
             {/* Recording Info */}
@@ -79,16 +79,23 @@ export function RecordingCard({ recording }: RecordingCardProps) {
 
           {/* Actions */}
           <div className="p-4 pt-0">
-            <RecordingActions recording={recording} />
+            <RecordingActions 
+              recordingId={recording.id}
+              notetakerId={recording.notetaker_id}
+              status={recording.status}
+              title={recording.event.title}
+            />
           </div>
         </CardContent>
       </Card>
 
       <VideoPlayerDialog
-        open={isOpen}
-        onOpenChange={setIsOpen}
-        recordingId={recording.id}
-      />
+        videoUrl=""
+        title={recording.event.title}
+        muxPlaybackId={recording.mux_playback_id || undefined}
+      >
+        <div /> {/* Empty div as children prop */}
+      </VideoPlayerDialog>
     </>
   );
 }
