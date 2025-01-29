@@ -33,18 +33,10 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
         videoPlayerRef.current.pause();
         videoPlayerRef.current.cleanup();
       }
+      // Clear the query cache for this recording to ensure fresh data on next open
+      queryClient.removeQueries({ queryKey: ['recording', recordingId] });
     };
-  }, []);
-
-  const handleClose = () => {
-    if (videoPlayerRef.current) {
-      videoPlayerRef.current.pause();
-      videoPlayerRef.current.cleanup();
-    }
-    // Clear the query cache for this recording to ensure fresh data on next open
-    queryClient.removeQueries({ queryKey: ['recording', recordingId] });
-    onClose();
-  };
+  }, [queryClient, recordingId]);
 
   const isInternalMeeting = () => {
     if (!recording?.event?.organizer || !recording.event.participants) {
@@ -79,27 +71,19 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
 
   if (isRecordingLoading) {
     return (
-      <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4">
-        <Card className="w-full max-w-6xl my-4">
-          <CardContent className="p-6">
-            <div className="animate-pulse space-y-4">
-              <div className="h-8 bg-muted rounded w-1/3" />
-              <div className="aspect-video bg-muted rounded" />
-            </div>
-          </CardContent>
-        </Card>
+      <div className="space-y-4">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-muted rounded w-1/3" />
+          <div className="aspect-video bg-muted rounded" />
+        </div>
       </div>
     );
   }
 
   if (!recording) {
     return (
-      <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4">
-        <Card className="w-full max-w-6xl my-4">
-          <CardContent className="p-6">
-            <p className="text-center text-muted-foreground">Recording not found</p>
-          </CardContent>
-        </Card>
+      <div className="p-6">
+        <p className="text-center text-muted-foreground">Recording not found</p>
       </div>
     );
   }
@@ -127,56 +111,50 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   const internal = isInternalMeeting();
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto">
-      <div className="min-h-screen py-4 px-4 flex items-start justify-center w-full">
-        <Card className="w-full max-w-6xl my-4">
-          <CardContent className="p-6 space-y-6">
-            <VideoHeader
-              title={recording.event?.title || ''}
-              isInternal={internal}
-              shareUrl={shareUrl}
-              participants={participants}
-              grantId={profile?.nylas_grant_id}
-              recordingId={recordingId}
-              onClose={handleClose}
-              startTime={recording.event?.start_time}
-              endTime={recording.event?.end_time}
-              onShareUpdate={handleShareUpdate}
-              ownerEmail={recording.owner_email}
-              userId={recording.user_id}
-              manualMeetingId={recording.event?.manual_meeting?.id}
-            />
+    <div className="space-y-6">
+      <VideoHeader
+        title={recording.event?.title || ''}
+        isInternal={internal}
+        shareUrl={shareUrl}
+        participants={participants}
+        grantId={profile?.nylas_grant_id}
+        recordingId={recordingId}
+        onClose={onClose}
+        startTime={recording.event?.start_time}
+        endTime={recording.event?.end_time}
+        onShareUpdate={handleShareUpdate}
+        ownerEmail={recording.owner_email}
+        userId={recording.user_id}
+        manualMeetingId={recording.event?.manual_meeting?.id}
+      />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="aspect-video bg-muted rounded-lg overflow-hidden">
-                <VideoPlayer
-                  ref={videoPlayerRef}
-                  recordingId={recordingId}
-                  title={recording.event?.title || ''}
-                  participants={participants}
-                  grantId={profile?.nylas_grant_id}
-                  notetakerId={recording.notetaker_id}
-                  muxPlaybackId={recording.mux_playback_id}
-                />
-              </div>
-              
-              {recording.transcript_content && (
-                <TranscriptSection 
-                  content={recording.transcript_content} 
-                  videoRef={videoPlayerRef}
-                />
-              )}
-            </div>
-
-            {recording.event?.description && (
-              <div className="border-t pt-6">
-                <h3 className="text-lg font-medium mb-3">Description</h3>
-                <EventDescription description={recording.event.description} />
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="aspect-video bg-muted rounded-lg overflow-hidden">
+          <VideoPlayer
+            ref={videoPlayerRef}
+            recordingId={recordingId}
+            title={recording.event?.title || ''}
+            participants={participants}
+            grantId={profile?.nylas_grant_id}
+            notetakerId={recording.notetaker_id}
+            muxPlaybackId={recording.mux_playback_id}
+          />
+        </div>
+        
+        {recording.transcript_content && (
+          <TranscriptSection 
+            content={recording.transcript_content} 
+            videoRef={videoPlayerRef}
+          />
+        )}
       </div>
+
+      {recording.event?.description && (
+        <div className="border-t pt-6">
+          <h3 className="text-lg font-medium mb-3">Description</h3>
+          <EventDescription description={recording.event.description} />
+        </div>
+      )}
     </div>
   );
 }
