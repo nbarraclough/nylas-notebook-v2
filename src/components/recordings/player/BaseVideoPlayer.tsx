@@ -23,7 +23,6 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
 
-  // Enhanced cleanup function with more thorough HLS and video cleanup
   const cleanupHls = () => {
     console.log('Cleaning up HLS instance and video element');
     
@@ -45,9 +44,6 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
         videoRef.current.load();
         const mediaElement = videoRef.current;
         mediaElement.srcObject = null;
-        while (mediaElement.firstChild) {
-          mediaElement.removeChild(mediaElement.firstChild);
-        }
       } catch (error) {
         console.error('Error cleaning up video element:', error);
       }
@@ -58,9 +54,9 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
     if (!videoRef.current) return;
 
     const video = videoRef.current;
-    let url = videoUrl || recordingUrl;
+    let url = null;
 
-    // If we have a Mux playback ID, use that instead
+    // Only use Mux playback ID if provided
     if (muxPlaybackId) {
       url = `https://stream.mux.com/${muxPlaybackId}.m3u8`;
     }
@@ -123,7 +119,7 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
     return () => {
       cleanupHls();
     };
-  }, [videoUrl, recordingUrl, muxPlaybackId]);
+  }, [muxPlaybackId]); // Only depend on muxPlaybackId
 
   useEffect(() => {
     if (!videoRef.current || !ref) return;
