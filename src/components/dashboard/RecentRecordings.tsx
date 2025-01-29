@@ -7,9 +7,11 @@ import { Play, ArrowRight, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { VideoPlayerDialog } from "@/components/recordings/VideoPlayerDialog";
 import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
 
 export function RecentRecordings() {
   const navigate = useNavigate();
+  const [selectedRecordingId, setSelectedRecordingId] = useState<string | null>(null);
   
   const { data: recordings, isLoading } = useQuery({
     queryKey: ['recent-recordings'],
@@ -104,15 +106,14 @@ export function RecentRecordings() {
                 </div>
                 <div className="flex justify-end">
                   {recording.mux_playback_id ? (
-                    <VideoPlayerDialog
-                      videoUrl={null}
-                      title={recording.event?.title || ''}
-                      muxPlaybackId={recording.mux_playback_id}
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="hover:bg-blue-50"
+                      onClick={() => setSelectedRecordingId(recording.id)}
                     >
-                      <Button size="sm" variant="ghost" className="hover:bg-blue-50">
-                        <Play className="h-4 w-4" />
-                      </Button>
-                    </VideoPlayerDialog>
+                      <Play className="h-4 w-4" />
+                    </Button>
                   ) : (
                     <Button size="sm" variant="ghost" disabled>
                       <Play className="h-4 w-4" />
@@ -124,6 +125,12 @@ export function RecentRecordings() {
           </div>
         )}
       </div>
+
+      <VideoPlayerDialog
+        open={!!selectedRecordingId}
+        onOpenChange={(open) => !open && setSelectedRecordingId(null)}
+        recordingId={selectedRecordingId || ''}
+      />
     </div>
   );
 }
