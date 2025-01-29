@@ -4,8 +4,6 @@ import type { EventParticipant } from "@/types/calendar";
 
 interface VideoPlayerProps {
   recordingId: string;
-  videoUrl: string | null;
-  recordingUrl: string | null;
   title: string;
   participants: EventParticipant[];
   grantId?: string | null;
@@ -16,9 +14,6 @@ interface VideoPlayerProps {
 export type VideoPlayerRef = BaseVideoPlayerRef;
 
 export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
-  recordingId,
-  videoUrl,
-  recordingUrl,
   muxPlaybackId,
 }, ref) => {
   // Only render if we have a Mux playback ID
@@ -34,8 +29,6 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
     <div className="relative aspect-video">
       <BaseVideoPlayer
         ref={ref}
-        videoUrl={null}
-        recordingUrl={null}
         muxPlaybackId={muxPlaybackId}
       />
     </div>

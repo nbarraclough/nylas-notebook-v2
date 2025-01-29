@@ -10,8 +10,6 @@ export interface BaseVideoPlayerRef {
 }
 
 interface BaseVideoPlayerProps {
-  videoUrl: string | null;
-  recordingUrl: string | null;
   muxPlaybackId?: string | null;
 }
 
