@@ -111,6 +111,7 @@ export function RecentRecordings() {
                     <VideoPlayerDialog
                       videoUrl={getMuxPlaybackUrl(recording.mux_playback_id)}
                       title={recording.event?.title || ''}
+                      muxPlaybackId={recording.mux_playback_id}
                     >
                       <Button size="sm" variant="ghost" className="hover:bg-blue-50">
                         <Play className="h-4 w-4" />
