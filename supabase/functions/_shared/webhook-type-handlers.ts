@@ -1,6 +1,10 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
 import { corsHeaders } from './cors.ts';
 import { NylasWebhookPayload } from './types.ts';
+import { 
+  processRecurringEvent,
+  cleanupOrphanedInstances 
+} from './recurring-event-utils.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -24,7 +28,6 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
   console.log(`🎯 [${requestId}] Processing webhook type: ${webhookData.type}`);
 
   try {
-    // Extract grant ID from the correct location in the webhook payload
     const eventGrant = webhookData.data?.object?.grant_id;
     const effectiveGrantId = grantId || eventGrant;
 
@@ -90,58 +93,22 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
           return { success: false, message: `No profile found for grant: ${effectiveGrantId}` };
         }
 
-        // Convert timestamps
-        const startTime = convertUnixTimestamp(eventData.when.start_time);
-        const endTime = convertUnixTimestamp(eventData.when.end_time);
-        const originalStartTime = convertUnixTimestamp(eventData.original_start_time);
-        const createdAt = convertUnixTimestamp(eventData.created_at);
+        // Process the event using our recurring event utilities
+        const result = await processRecurringEvent(
+          eventData,
+          profile.id,
+          supabaseUrl,
+          supabaseServiceKey,
+          requestId
+        );
 
-        console.log(`🕒 [${requestId}] Converted timestamps:`, {
-          startTime,
-          endTime,
-          originalStartTime,
-          createdAt
-        });
-        
-        const { data: event, error: eventError } = await supabase
-          .from('events')
-          .upsert({
-            user_id: profile.id,
-            nylas_event_id: eventData.id,
-            title: eventData.title,
-            description: eventData.description,
-            location: eventData.location,
-            start_time: startTime,
-            end_time: endTime,
-            participants: eventData.participants,
-            status: eventData.status,
-            busy: eventData.busy,
-            read_only: eventData.read_only,
-            created_at: createdAt,
-            last_updated_at: new Date().toISOString(),
-            original_start_time: originalStartTime,
-            conference_url: eventData.conferencing?.details?.url || null,
-            organizer: eventData.organizer || {},
-            resources: eventData.resources || [],
-            reminders: eventData.reminders || {},
-            recurrence: eventData.recurrence || null,
-            visibility: eventData.visibility || null,
-            master_event_id: eventData.master_event_id || null,
-            ical_uid: eventData.ical_uid || null,
-            html_link: eventData.html_link || null
-          }, {
-            onConflict: 'nylas_event_id,user_id'
-          })
-          .select()
-          .single();
-
-        if (eventError) {
-          console.error(`❌ [${requestId}] Error upserting event:`, eventError);
-          return { success: false, message: eventError.message };
+        if (!result.success) {
+          console.error(`❌ [${requestId}] Error processing event:`, result.message);
+          return { success: false, message: result.message };
         }
 
-        console.log(`✅ [${requestId}] Successfully upserted event:`, event);
-        return { success: true, message: 'Event upserted' };
+        console.log(`✅ [${requestId}] Successfully processed event:`, result.message);
+        return { success: true, message: result.message };
       }
 
       case 'event.deleted': {
@@ -176,6 +143,14 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
         }
 
         console.log(`✅ [${requestId}] Successfully deleted event`);
+
+        // After deletion, clean up any orphaned instances
+        try {
+          await cleanupOrphanedInstances(supabaseUrl, supabaseServiceKey);
+        } catch (error) {
+          console.error(`❌ [${requestId}] Error cleaning up orphaned instances:`, error);
+        }
+
         return { success: true, message: 'Event deleted' };
       }
 
@@ -227,14 +202,12 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
                 statusText: response.statusText,
                 error: errorText
               });
-              // Don't throw - we've already updated the status successfully
             } else {
               const responseData = await response.json();
               console.log(`✅ [${requestId}] Successfully triggered media retrieval:`, responseData);
             }
           } catch (mediaError) {
             console.error(`❌ [${requestId}] Exception during media retrieval:`, mediaError);
-            // Don't throw - we want to preserve the status update
           }
         }
 

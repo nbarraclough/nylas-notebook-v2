@@ -1,6 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { processEvent } from './event-processor.ts'
 import { startOfToday, addMonths, getUnixTime, formatDate } from './timestamp-utils.ts'
+import { 
+  isRecurringInstance, 
+  isModifiedInstance,
+  processRecurringEvent,
+  cleanupOrphanedInstances
+} from '../_shared/recurring-event-utils.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -32,7 +38,6 @@ serve(async (req) => {
     const results = []
     const errors = []
 
-    // Get date range - now explicitly set to 3 months
     const startDate = startOfToday()
     const endDate = addMonths(startDate, 3)
     const startUnix = getUnixTime(startDate)
@@ -49,7 +54,6 @@ serve(async (req) => {
       try {
         console.log('Processing user:', userId)
         
-        // Fetch profile with nylas_grant_id using single-row query
         const profileResponse = await fetch(
           `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=nylas_grant_id`,
           {
@@ -92,18 +96,10 @@ serve(async (req) => {
         const grantId = profile.nylas_grant_id
         console.log('Found Nylas grant ID:', grantId)
 
-        console.log('Fetching Nylas events for grant ID:', grantId)
-        
-        const NYLAS_CLIENT_SECRET = Deno.env.get('NYLAS_CLIENT_SECRET')
-        if (!NYLAS_CLIENT_SECRET) {
-          console.error('NYLAS_CLIENT_SECRET environment variable is not set')
-          throw new Error('Nylas client secret not configured')
-        }
-
-        let pageToken = null
         let allEvents = []
         let totalEventsFetched = 0
         let hasMorePages = true
+        let pageToken = null
         
         while (hasMorePages) {
           const queryParams = new URLSearchParams({
@@ -121,7 +117,7 @@ serve(async (req) => {
             `https://api.us.nylas.com/v3/grants/${grantId}/events?${queryParams}`, 
             {
               headers: {
-                'Authorization': `Bearer ${NYLAS_CLIENT_SECRET}`,
+                'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
               },
@@ -142,7 +138,7 @@ serve(async (req) => {
           totalEventsFetched += events.length
           hasMorePages = !!pageToken && events.length > 0
           
-          console.log(`Fetched ${events.length} events, total: ${totalEventsFetched}, next page token:`, pageToken)
+          console.log(`Fetched ${events.length} events, total: ${totalEventsFetched}`)
           
           if (hasMorePages) {
             await new Promise(resolve => setTimeout(resolve, 100))
@@ -151,51 +147,91 @@ serve(async (req) => {
 
         console.log(`Total events fetched for user ${userId}:`, allEvents.length)
 
-        // First process master events
         const masterEvents = allEvents.filter(event => event.recurrence);
+        const instanceEvents = allEvents.filter(event => !event.recurrence);
+        const modifiedInstances = instanceEvents.filter(event => isModifiedInstance(event));
+        const regularInstances = instanceEvents.filter(event => 
+          isRecurringInstance(event) && !isModifiedInstance(event)
+        );
+
         console.log(`Processing ${masterEvents.length} master events`);
-        
         for (const master of masterEvents) {
           try {
-            await processEvent(master, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+            await processRecurringEvent(master, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
           } catch (error) {
             console.error('Error processing master event:', {
               eventId: master.id,
-              title: master.title,
               error: error.message
             });
             errors.push({ userId, eventId: master.id, error: 'Failed to process master event' });
           }
         }
 
-        // Then process instance events
-        const instanceEvents = allEvents.filter(event => !event.recurrence);
-        console.log(`Processing ${instanceEvents.length} instance events`);
-        
-        for (const instance of instanceEvents) {
+        console.log(`Processing ${modifiedInstances.length} modified instances`);
+        for (const instance of modifiedInstances) {
           try {
-            await processEvent(instance, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+            await processRecurringEvent(instance, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
           } catch (error) {
-            console.error('Error processing instance event:', {
+            console.error('Error processing modified instance:', {
               eventId: instance.id,
-              title: instance.title,
               error: error.message
             });
-            errors.push({ userId, eventId: instance.id, error: 'Failed to process instance event' });
+            errors.push({ userId, eventId: instance.id, error: 'Failed to process modified instance' });
+          }
+        }
+
+        console.log(`Processing ${regularInstances.length} regular instances`);
+        for (const instance of regularInstances) {
+          try {
+            await processRecurringEvent(instance, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+          } catch (error) {
+            console.error('Error processing regular instance:', {
+              eventId: instance.id,
+              error: error.message
+            });
+            errors.push({ userId, eventId: instance.id, error: 'Failed to process regular instance' });
+          }
+        }
+
+        const standardEvents = allEvents.filter(event => 
+          !event.recurrence && !isRecurringInstance(event)
+        );
+        
+        console.log(`Processing ${standardEvents.length} standard events`);
+        for (const event of standardEvents) {
+          try {
+            await processEvent(event, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+          } catch (error) {
+            console.error('Error processing standard event:', {
+              eventId: event.id,
+              error: error.message
+            });
+            errors.push({ userId, eventId: event.id, error: 'Failed to process standard event' });
           }
         }
 
         results.push({ 
           userId, 
-          eventsProcessed: allEvents.length,
-          masterEventsProcessed: masterEvents.length,
-          instanceEventsProcessed: instanceEvents.length
+          eventsProcessed: {
+            total: allEvents.length,
+            masters: masterEvents.length,
+            modifiedInstances: modifiedInstances.length,
+            regularInstances: regularInstances.length,
+            standardEvents: standardEvents.length
+          }
         });
 
       } catch (error) {
         console.error('Error processing user:', userId, error)
         errors.push({ userId, error: error.message || 'Unknown error occurred' })
       }
+    }
+
+    try {
+      const cleanup = await cleanupOrphanedInstances(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      console.log('Cleanup result:', cleanup);
+    } catch (error) {
+      console.error('Cleanup error:', error);
     }
 
     return new Response(
