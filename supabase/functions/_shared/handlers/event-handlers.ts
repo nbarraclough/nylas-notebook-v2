@@ -16,41 +16,34 @@ const supabaseAdmin = createClient(
 const processEventData = (eventData: any) => {
   console.log('🔄 Processing event data:', JSON.stringify(eventData, null, 2));
   
-  // Validate and convert timestamps
   let startTime = null;
   let endTime = null;
 
+  // Handle timespan object from webhook
   if (eventData.when?.object === 'timespan') {
-    // Handle Unix timestamps (seconds since epoch)
-    if (eventData.when.start_time) {
-      // Ensure we're working with a number
-      const startTimestamp = typeof eventData.when.start_time === 'string' 
-        ? parseInt(eventData.when.start_time, 10) 
-        : eventData.when.start_time;
-      
-      if (!isNaN(startTimestamp)) {
-        startTime = new Date(startTimestamp * 1000).toISOString();
-      }
+    const { start_time, end_time } = eventData.when;
+    
+    // Convert start time
+    if (start_time) {
+      startTime = new Date(start_time * 1000).toISOString();
+      console.log('Processed start_time:', { raw: start_time, converted: startTime });
     }
 
-    if (eventData.when.end_time) {
-      // Ensure we're working with a number
-      const endTimestamp = typeof eventData.when.end_time === 'string' 
-        ? parseInt(eventData.when.end_time, 10) 
-        : eventData.when.end_time;
-      
-      if (!isNaN(endTimestamp)) {
-        endTime = new Date(endTimestamp * 1000).toISOString();
-      }
+    // Convert end time
+    if (end_time) {
+      endTime = new Date(end_time * 1000).toISOString();
+      console.log('Processed end_time:', { raw: end_time, converted: endTime });
     }
   }
 
-  // If we don't have valid timestamps, log and throw error
+  // Validate timestamps
   if (!startTime || !endTime) {
     console.error('Invalid timestamps in event data:', {
       whenObject: eventData.when?.object,
       startTime: eventData.when?.start_time,
-      endTime: eventData.when?.end_time
+      endTime: eventData.when?.end_time,
+      convertedStart: startTime,
+      convertedEnd: endTime
     });
     throw new Error('Invalid or missing timestamps in event data');
   }
