@@ -31,7 +31,7 @@ export function LoginForm() {
 
     // Subscribe to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth state changed:", event, !!session); // Add logging
+      console.log("Auth state changed:", event, !!session);
       if (event === 'SIGNED_IN' && session) {
         navigate("/calendar");
       }
@@ -43,7 +43,7 @@ export function LoginForm() {
   }, [navigate]);
 
   if (isLoading) {
-    return null; // Or a loading spinner if you prefer
+    return null;
   }
 
   return (
@@ -73,7 +73,7 @@ export function LoginForm() {
               },
             }}
             theme="light"
-            providers={['google']}
+            providers={['google', 'azure']}
             redirectTo={`${siteUrl}/calendar`}
             onlyThirdPartyProviders={true}
             queryParams={{
