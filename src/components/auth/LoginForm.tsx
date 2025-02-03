@@ -63,6 +63,8 @@ export function LoginForm() {
             queryParams={{
               access_type: 'offline',
               prompt: 'consent',
+              response_type: 'code',
+              scope: 'email openid profile offline_access',
             }}
           />
         </CardContent>
