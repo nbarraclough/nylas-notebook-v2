@@ -147,13 +147,18 @@ serve(async (req) => {
 
         console.log(`Total events fetched for user ${userId}:`, allEvents.length)
 
+        // Split events into categories
         const masterEvents = allEvents.filter(event => event.recurrence);
         const instanceEvents = allEvents.filter(event => !event.recurrence);
         const modifiedInstances = instanceEvents.filter(event => isModifiedInstance(event));
         const regularInstances = instanceEvents.filter(event => 
           isRecurringInstance(event) && !isModifiedInstance(event)
         );
+        const standaloneEvents = instanceEvents.filter(event => 
+          !isRecurringInstance(event) && !isModifiedInstance(event)
+        );
 
+        // Process master events first
         console.log(`Processing ${masterEvents.length} master events`);
         for (const master of masterEvents) {
           try {
@@ -167,6 +172,7 @@ serve(async (req) => {
           }
         }
 
+        // Process modified instances
         console.log(`Processing ${modifiedInstances.length} modified instances`);
         for (const instance of modifiedInstances) {
           try {
@@ -180,6 +186,7 @@ serve(async (req) => {
           }
         }
 
+        // Process regular instances
         console.log(`Processing ${regularInstances.length} regular instances`);
         for (const instance of regularInstances) {
           try {
@@ -193,20 +200,17 @@ serve(async (req) => {
           }
         }
 
-        const standardEvents = allEvents.filter(event => 
-          !event.recurrence && !isRecurringInstance(event)
-        );
-        
-        console.log(`Processing ${standardEvents.length} standard events`);
-        for (const event of standardEvents) {
+        // Process standalone events
+        console.log(`Processing ${standaloneEvents.length} standalone events`);
+        for (const event of standaloneEvents) {
           try {
             await processEvent(event, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
           } catch (error) {
-            console.error('Error processing standard event:', {
+            console.error('Error processing standalone event:', {
               eventId: event.id,
               error: error.message
             });
-            errors.push({ userId, eventId: event.id, error: 'Failed to process standard event' });
+            errors.push({ userId, eventId: event.id, error: 'Failed to process standalone event' });
           }
         }
 
@@ -217,7 +221,7 @@ serve(async (req) => {
             masters: masterEvents.length,
             modifiedInstances: modifiedInstances.length,
             regularInstances: regularInstances.length,
-            standardEvents: standardEvents.length
+            standaloneEvents: standaloneEvents.length
           }
         });
 
