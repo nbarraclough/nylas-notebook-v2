@@ -15,6 +15,10 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Generate a unique request ID for tracking
+  const requestId = crypto.randomUUID();
+  console.log(`🚀 [${requestId}] Starting sync-nylas-events function`);
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { 
@@ -25,7 +29,7 @@ serve(async (req) => {
 
   try {
     const { user_id, user_ids, force_recording_rules = false } = await req.json()
-    console.log('Request payload:', { user_id, user_ids, force_recording_rules })
+    console.log(`📝 [${requestId}] Request payload:`, { user_id, user_ids, force_recording_rules })
 
     const userIdsToProcess = user_ids || (user_id ? [user_id] : null)
 
@@ -48,7 +52,7 @@ serve(async (req) => {
     const startUnix = getUnixTime(startDate)
     const endUnix = getUnixTime(endDate)
     
-    console.log('Date range:', { 
+    console.log(`📅 [${requestId}] Date range:`, { 
       start: formatDate(startDate), 
       end: formatDate(endDate),
       startUnix,
@@ -57,7 +61,7 @@ serve(async (req) => {
 
     for (const userId of userIdsToProcess) {
       try {
-        console.log('Processing user:', userId)
+        console.log(`👤 [${requestId}] Processing user:`, userId)
         
         const profileResponse = await fetch(
           `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=nylas_grant_id`,
@@ -74,7 +78,7 @@ serve(async (req) => {
 
         if (!profileResponse.ok) {
           const errorText = await profileResponse.text()
-          console.error('Profile fetch failed:', {
+          console.error(`❌ [${requestId}] Profile fetch failed:`, {
             status: profileResponse.status,
             statusText: profileResponse.statusText,
             error: errorText
@@ -83,23 +87,23 @@ serve(async (req) => {
         }
 
         const profiles = await profileResponse.json()
-        console.log('Profile response:', profiles)
+        console.log(`📝 [${requestId}] Profile response:`, profiles)
 
         if (!Array.isArray(profiles) || profiles.length === 0) {
-          console.error('No profile found for user:', userId)
+          console.error(`❌ [${requestId}] No profile found for user:`, userId)
           errors.push({ userId, error: 'Profile not found' })
           continue
         }
 
         const profile = profiles[0]
         if (!profile?.nylas_grant_id) {
-          console.error('Profile found but no Nylas grant ID:', profile)
+          console.error(`❌ [${requestId}] Profile found but no Nylas grant ID:`, profile)
           errors.push({ userId, error: 'No Nylas grant ID found' })
           continue
         }
 
         const grantId = profile.nylas_grant_id
-        console.log('Found Nylas grant ID:', grantId)
+        console.log(`🔑 [${requestId}] Found Nylas grant ID:`, grantId)
 
         let allEvents = []
         let totalEventsFetched = 0
@@ -116,7 +120,7 @@ serve(async (req) => {
             ...(pageToken && { page_token: pageToken })
           })
 
-          console.log('Fetching events with params:', queryParams.toString())
+          console.log(`Fetching events with params:`, queryParams.toString())
 
           const eventsResponse = await fetch(
             `https://api.us.nylas.com/v3/grants/${grantId}/events?${queryParams}`, 
@@ -231,16 +235,16 @@ serve(async (req) => {
         });
 
       } catch (error) {
-        console.error('Error processing user:', userId, error)
+        console.error(`❌ [${requestId}] Error processing user:`, userId, error)
         errors.push({ userId, error: error.message || 'Unknown error occurred' })
       }
     }
 
     try {
       const cleanup = await cleanupOrphanedInstances(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-      console.log('Cleanup result:', cleanup);
+      console.log(`🧹 [${requestId}] Cleanup result:`, cleanup);
     } catch (error) {
-      console.error('Cleanup error:', error);
+      console.error(`❌ [${requestId}] Cleanup error:`, error);
     }
 
     return new Response(
@@ -256,7 +260,7 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error in sync-nylas-events:', error)
+    console.error(`❌ [${requestId}] Error in sync-nylas-events:`, error)
     return new Response(
       JSON.stringify({ 
         error: error.message || 'An unexpected error occurred',
