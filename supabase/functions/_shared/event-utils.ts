@@ -1,7 +1,5 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
-
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { unixSecondsToISOString } from './timestamp-utils.ts';
 
 function validateEventData(eventData: any, requestId: string): string[] {
   const errors: string[] = [];
@@ -43,6 +41,8 @@ function validateEventData(eventData: any, requestId: string): string[] {
 export async function processEventData(eventData: any, userId: string, requestId: string) {
   console.log(`🔄 [${requestId}] Processing event:`, JSON.stringify(eventData, null, 2));
 
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
@@ -52,16 +52,20 @@ export async function processEventData(eventData: any, userId: string, requestId
       return { success: false, message: validationErrors.join(', ') };
     }
 
-    let startTime: string;
-    let endTime: string;
+    let startTime: string | null;
+    let endTime: string | null;
 
     // Handle different when object types
     if (eventData.when?.object === 'timespan') {
       console.log(`⏰ [${requestId}] Processing timespan event:`, eventData.when);
       
-      // Nylas sends timestamps in seconds, we need milliseconds
-      startTime = new Date(eventData.when.start_time * 1000).toISOString();
-      endTime = new Date(eventData.when.end_time * 1000).toISOString();
+      startTime = unixSecondsToISOString(eventData.when.start_time);
+      endTime = unixSecondsToISOString(eventData.when.end_time);
+      
+      if (!startTime || !endTime) {
+        console.error(`❌ [${requestId}] Invalid timestamps - Start: ${eventData.when.start_time}, End: ${eventData.when.end_time}`);
+        return { success: false, message: 'Invalid event timestamps' };
+      }
       
       console.log(`📅 [${requestId}] Converted timestamps:`, { startTime, endTime });
     } else if (eventData.when?.object === 'date') {
@@ -97,7 +101,7 @@ export async function processEventData(eventData: any, userId: string, requestId
       status: eventData.status,
       visibility: eventData.visibility || 'default',
       original_start_time: eventData.original_start_time ? 
-        new Date(eventData.original_start_time * 1000).toISOString() : null,
+        unixSecondsToISOString(eventData.original_start_time) : null,
       last_updated_at: new Date().toISOString()
     };
 

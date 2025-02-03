@@ -1,28 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { Database } from './types/database.ts';
-
-function convertTimestampToISOString(timestamp: number | null | undefined, requestId: string): string | null {
-  if (!timestamp) {
-    console.error(`❌ [${requestId}] Received null or undefined timestamp`);
-    return null;
-  }
-  
-  try {
-    // Nylas sends timestamps in seconds, convert to milliseconds
-    const milliseconds = timestamp * 1000;
-    const date = new Date(milliseconds);
-    const isoString = date.toISOString();
-    console.log(`✅ [${requestId}] Successfully converted timestamp ${timestamp} to ISO string: ${isoString}`);
-    return isoString;
-  } catch (error) {
-    console.error(`❌ [${requestId}] Error converting timestamp:`, timestamp, error);
-    return null;
-  }
-}
-
-export function isRecurringInstance(event: any): boolean {
-  return !!event.master_event_id;
-}
+import { unixSecondsToISOString, isValidISOString } from './timestamp-utils.ts';
 
 function validateEvent(event: any, requestId: string): string[] {
   const errors: string[] = [];
@@ -38,7 +16,6 @@ function validateEvent(event: any, requestId: string): string[] {
   if (!event.when) {
     errors.push('Event when object is required');
   } else {
-    // Validate based on when object type
     if (event.when.object === 'timespan') {
       if (!event.when.start_time) {
         errors.push('Event start time is required for timespan');
@@ -89,15 +66,15 @@ export async function processRecurringEvent(
       return { success: false, message: validationErrors.join(', ') };
     }
 
-    let startTime: string | null = null;
-    let endTime: string | null = null;
+    let startTime: string | null;
+    let endTime: string | null;
 
     // Handle different when object types
     if (event.when?.object === 'timespan') {
       console.log(`⏰ [${requestId}] Processing timespan event. Start: ${event.when.start_time}, End: ${event.when.end_time}`);
       
-      startTime = convertTimestampToISOString(event.when.start_time, requestId);
-      endTime = convertTimestampToISOString(event.when.end_time, requestId);
+      startTime = unixSecondsToISOString(event.when.start_time);
+      endTime = unixSecondsToISOString(event.when.end_time);
       
       if (!startTime || !endTime) {
         console.error(`❌ [${requestId}] Invalid timestamps - Start: ${event.when.start_time}, End: ${event.when.end_time}`);
@@ -135,7 +112,8 @@ export async function processRecurringEvent(
       recurrence: event.recurrence,
       status: event.status,
       visibility: event.visibility || 'default',
-      original_start_time: event.original_start_time ? convertTimestampToISOString(event.original_start_time, requestId) : null,
+      original_start_time: event.original_start_time ? 
+        unixSecondsToISOString(event.original_start_time) : null,
       last_updated_at: new Date().toISOString()
     };
 
