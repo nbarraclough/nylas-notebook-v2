@@ -1,80 +1,55 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
+import { createClient } from '@supabase/supabase-js';
+import { Database } from '../../../src/integrations/supabase/types';
 
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[]
-
-interface TimeSpan {
-  object: 'timespan';
-  start_time: string; // ISO string converted from Unix timestamp
-  end_time: string;   // ISO string converted from Unix timestamp
-  start_timezone?: string;
-  end_timezone?: string;
-}
-
-interface DateSpan {
-  object: 'datespan';
-  start_date: string; // YYYY-MM-DD
-  end_date: string;   // YYYY-MM-DD
-}
-
-interface SingleDate {
-  object: 'date';
-  date: string; // YYYY-MM-DD
-}
-
-export interface NylasEvent {
+interface NylasEvent {
   id: string;
   title: string;
-  description?: string | null;
-  text_description?: string | null;
-  when: TimeSpan | DateSpan | SingleDate;
+  description?: string;
+  location?: string;
+  when: {
+    object: string;
+    start_time: number;
+    end_time: number;
+  };
   participants?: Array<{
-    email: string;
     name?: string;
+    email: string;
     status?: string;
   }>;
-  master_event_id?: string | null;
-  original_start_time?: string | null; // ISO string converted from Unix timestamp
+  conferencing?: {
+    details: {
+      url?: string;
+    };
+  };
+  ical_uid?: string;
   busy?: boolean;
-  calendar_id?: string;
-  created_at?: string | null;
-  grant_id?: string;
-  html_link?: string | null;
-  ical_uid?: string | null;
-  location?: string | null;
-  metadata?: Record<string, any>;
-  object?: string;
+  html_link?: string;
+  master_event_id?: string;
   organizer?: {
     name?: string;
     email: string;
-  } | null;
-  resources?: Array<any>;
-  read_only?: boolean;
-  reminders?: {
-    use_default?: boolean;
-    overrides?: Array<{
-      reminder_minutes?: number;
-      reminder_method?: string;
-    }>;
   };
+  resources?: any[];
+  read_only?: boolean;
+  reminders?: Record<string, any>;
   recurrence?: string[];
-  status?: 'confirmed' | 'cancelled' | 'maybe';
-  updated_at?: string | null;
-  visibility?: 'private' | 'public' | null;
+  status?: string;
+  visibility?: string;
+  original_start_time?: number;
 }
 
 function convertTimestampToISOString(timestamp: number | null | undefined): string | null {
-  if (!timestamp) return null;
+  if (!timestamp) {
+    console.error('Received null or undefined timestamp');
+    return null;
+  }
   
   try {
     // Nylas sends timestamps in seconds, create Date object directly from seconds
     const date = new Date(timestamp * 1000);
-    return date.toISOString();
+    const isoString = date.toISOString();
+    console.log(`Converting timestamp ${timestamp} to ISO string: ${isoString}`);
+    return isoString;
   } catch (error) {
     console.error('Error converting timestamp:', timestamp, error);
     return null;
@@ -85,30 +60,23 @@ export function isRecurringInstance(event: NylasEvent): boolean {
   return !!event.master_event_id;
 }
 
-export function isModifiedInstance(event: NylasEvent): boolean {
-  return isRecurringInstance(event) && !!event.original_start_time;
-}
-
-export function validateRecurringEvent(event: NylasEvent, masterEvent?: NylasEvent): string[] {
+function validateEvent(event: NylasEvent): string[] {
   const errors: string[] = [];
 
   if (!event.id) {
-    errors.push('Event must have an ID');
+    errors.push('Event ID is required');
   }
 
-  if (event.recurrence && event.master_event_id) {
-    errors.push('Event cannot be both a master and an instance');
+  if (!event.title) {
+    errors.push('Event title is required');
   }
 
-  // Check for when.start_time in timespan events
-  if (event.master_event_id && event.when.object === 'timespan') {
-    if (!event.when.start_time || isNaN(Date.parse(event.when.start_time))) {
-      errors.push('Instance must have a valid start time in when.start_time');
-    }
+  if (!event.when?.start_time) {
+    errors.push('Event start time is required');
   }
 
-  if (masterEvent && !event.original_start_time) {
-    errors.push('Modified instance must have original_start_time');
+  if (!event.when?.end_time) {
+    errors.push('Event end time is required');
   }
 
   return errors;
@@ -118,127 +86,130 @@ export async function processRecurringEvent(
   event: NylasEvent,
   userId: string,
   supabaseUrl: string,
-  supabaseKey: string,
-  requestId?: string
-): Promise<{ success: boolean; message: string }> {
+  supabaseServiceKey: string,
+  requestId: string
+): Promise<{ success: boolean; message?: string }> {
+  console.log(`🔄 [${requestId}] Processing event:`, JSON.stringify(event, null, 2));
+
+  const supabase = createClient<Database>(
+    supabaseUrl,
+    supabaseServiceKey,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false
+      }
+    }
+  );
+
   try {
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    const errors = validateRecurringEvent(event);
-    
-    if (errors.length > 0) {
-      console.error(`❌ [${requestId}] Validation errors:`, errors);
-      return { success: false, message: errors.join(', ') };
+    // Validate required fields
+    const validationErrors = validateEvent(event);
+    if (validationErrors.length > 0) {
+      console.error(`❌ [${requestId}] Event validation failed:`, validationErrors);
+      return { success: false, message: validationErrors.join(', ') };
     }
 
-    // Handle timespan events
-    if (event.when.object === 'timespan') {
+    if (event.when?.object === 'timespan') {
+      console.log(`⏰ [${requestId}] Processing timespan event. Start: ${event.when.start_time}, End: ${event.when.end_time}`);
+      
+      const startTime = convertTimestampToISOString(event.when.start_time);
+      const endTime = convertTimestampToISOString(event.when.end_time);
+      
+      if (!startTime || !endTime) {
+        console.error(`❌ [${requestId}] Invalid timestamps - Start: ${event.when.start_time}, End: ${event.when.end_time}`);
+        return { success: false, message: 'Invalid event timestamps' };
+      }
+
       const eventData = {
         user_id: userId,
         nylas_event_id: event.id,
         title: event.title,
         description: event.description,
-        text_description: event.text_description,
-        start_time: convertTimestampToISOString(Number(event.when.start_time)),
-        end_time: convertTimestampToISOString(Number(event.when.end_time)),
-        participants: event.participants || [],
-        recurrence: event.recurrence,
-        organizer: event.organizer || {},
-        busy: event.busy,
-        html_link: event.html_link,
-        ical_uid: event.ical_uid,
         location: event.location,
+        start_time: startTime,
+        end_time: endTime,
+        participants: event.participants || [],
+        conference_url: event.conferencing?.details?.url,
+        ical_uid: event.ical_uid,
+        busy: event.busy !== false, // Default to true if undefined
+        html_link: event.html_link,
+        master_event_id: event.master_event_id,
+        organizer: event.organizer || {},
         resources: event.resources || [],
         read_only: event.read_only || false,
         reminders: event.reminders || {},
+        recurrence: event.recurrence,
         status: event.status,
-        visibility: event.visibility,
+        visibility: event.visibility || 'default',
+        original_start_time: event.original_start_time ? convertTimestampToISOString(event.original_start_time) : null,
         last_updated_at: new Date().toISOString()
       };
 
-      console.log(`📅 [${requestId}] Processing event data:`, JSON.stringify(eventData, null, 2));
+      console.log(`📅 [${requestId}] Upserting event data:`, JSON.stringify(eventData, null, 2));
 
       const { error: upsertError } = await supabase
         .from('events')
         .upsert(eventData, {
-          onConflict: 'nylas_event_id,user_id',
-          ignoreDuplicates: false
+          onConflict: 'nylas_event_id,user_id'
         });
 
       if (upsertError) {
         console.error(`❌ [${requestId}] Error upserting event:`, upsertError);
         return { success: false, message: upsertError.message };
       }
-    }
 
-    return { success: true, message: 'Event processed successfully' };
-  } catch (error) {
+      // If this is a recurring instance, ensure the master event exists
+      if (event.master_event_id) {
+        console.log(`🔄 [${requestId}] Processing recurring instance with master_event_id:`, event.master_event_id);
+        const { data: masterEvent, error: masterError } = await supabase
+          .from('events')
+          .select('id')
+          .eq('nylas_event_id', event.master_event_id)
+          .eq('user_id', userId)
+          .single();
+
+        if (masterError || !masterEvent) {
+          console.log(`⚠️ [${requestId}] Master event not found, will be fetched by sync job`);
+        }
+      }
+
+      return { success: true };
+    } else {
+      console.error(`❌ [${requestId}] Unsupported event type:`, event.when?.object);
+      return { success: false, message: 'Unsupported event type' };
+    }
+  } catch (error: any) {
     console.error(`❌ [${requestId}] Error processing event:`, error);
     return { success: false, message: error.message };
   }
 }
 
 export async function cleanupOrphanedInstances(
+  masterEventId: string,
+  userId: string,
   supabaseUrl: string,
-  supabaseKey: string
-): Promise<{ success: boolean; message: string }> {
-  try {
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Find instances with master_event_id that don't have a corresponding master event
-    const { data: orphanedInstances, error: findError } = await supabase
-      .from('events')
-      .select('id, master_event_id')
-      .not('master_event_id', 'is', null)
-      .not('master_event_id', 'eq', '');
-
-    if (findError) {
-      console.error('Error finding orphaned instances:', findError);
-      return { success: false, message: findError.message };
+  supabaseServiceKey: string
+): Promise<void> {
+  const supabase = createClient<Database>(
+    supabaseUrl,
+    supabaseServiceKey,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false
+      }
     }
+  );
 
-    if (!orphanedInstances || orphanedInstances.length === 0) {
-      return { success: true, message: 'No orphaned instances found' };
-    }
+  const { error } = await supabase
+    .from('events')
+    .delete()
+    .eq('master_event_id', masterEventId)
+    .eq('user_id', userId);
 
-    // Get all master event IDs
-    const { data: masterEvents, error: masterError } = await supabase
-      .from('events')
-      .select('id')
-      .not('recurrence', 'is', null);
-
-    if (masterError) {
-      console.error('Error finding master events:', masterError);
-      return { success: false, message: masterError.message };
-    }
-
-    const masterEventIds = new Set(masterEvents?.map(e => e.id) || []);
-
-    // Filter out instances whose master event doesn't exist
-    const orphanedIds = orphanedInstances
-      .filter(instance => !masterEventIds.has(instance.master_event_id))
-      .map(instance => instance.id);
-
-    if (orphanedIds.length === 0) {
-      return { success: true, message: 'No orphaned instances to delete' };
-    }
-
-    // Delete orphaned instances
-    const { error: deleteError } = await supabase
-      .from('events')
-      .delete()
-      .in('id', orphanedIds);
-
-    if (deleteError) {
-      console.error('Error deleting orphaned instances:', deleteError);
-      return { success: false, message: deleteError.message };
-    }
-
-    return {
-      success: true,
-      message: `Successfully deleted ${orphanedIds.length} orphaned instances`
-    };
-  } catch (error) {
-    console.error('Error in cleanupOrphanedInstances:', error);
-    return { success: false, message: error.message };
+  if (error) {
+    console.error('Error cleaning up orphaned instances:', error);
+    throw error;
   }
 }
