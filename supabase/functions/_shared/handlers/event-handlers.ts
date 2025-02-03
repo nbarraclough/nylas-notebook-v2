@@ -21,11 +21,27 @@ const processEventData = (eventData: any) => {
   let endTime = null;
 
   if (eventData.when?.object === 'timespan') {
-    if (typeof eventData.when.start_time === 'number') {
-      startTime = new Date(eventData.when.start_time * 1000).toISOString();
+    // Handle Unix timestamps (seconds since epoch)
+    if (eventData.when.start_time) {
+      // Ensure we're working with a number
+      const startTimestamp = typeof eventData.when.start_time === 'string' 
+        ? parseInt(eventData.when.start_time, 10) 
+        : eventData.when.start_time;
+      
+      if (!isNaN(startTimestamp)) {
+        startTime = new Date(startTimestamp * 1000).toISOString();
+      }
     }
-    if (typeof eventData.when.end_time === 'number') {
-      endTime = new Date(eventData.when.end_time * 1000).toISOString();
+
+    if (eventData.when.end_time) {
+      // Ensure we're working with a number
+      const endTimestamp = typeof eventData.when.end_time === 'string' 
+        ? parseInt(eventData.when.end_time, 10) 
+        : eventData.when.end_time;
+      
+      if (!isNaN(endTimestamp)) {
+        endTime = new Date(endTimestamp * 1000).toISOString();
+      }
     }
   }
 
@@ -151,6 +167,8 @@ export const handleEventUpdated = async (objectData: any, grantId: string) => {
       ...processedData,
       last_updated_at: new Date().toISOString()
     };
+
+    console.log('🔄 Upserting event with data:', JSON.stringify(eventData, null, 2));
 
     // Update the event in our database using the new constraint
     const { error: eventError } = await supabaseAdmin
