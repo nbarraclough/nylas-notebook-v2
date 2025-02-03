@@ -8,243 +8,227 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+interface TimeSpan {
+  object: 'timespan';
+  start_time: number; // Unix timestamp in milliseconds
+  end_time: number;   // Unix timestamp in milliseconds
+  start_timezone?: string;
+  end_timezone?: string;
+}
+
+interface DateSpan {
+  object: 'datespan';
+  start_date: string; // YYYY-MM-DD
+  end_date: string;   // YYYY-MM-DD
+}
+
+interface SingleDate {
+  object: 'date';
+  date: string; // YYYY-MM-DD
+}
+
 export interface NylasEvent {
   id: string;
   title: string;
-  description?: string;
-  when: {
-    start_time: number;
-    end_time: number;
-  };
-  participants?: Array<{email: string; name?: string}>;
-  master_event_id?: string;
-  original_start_time?: number;
-  recurrence?: string[];
-  organizer?: {
+  description?: string | null;
+  text_description?: string | null;
+  when: TimeSpan | DateSpan | SingleDate;
+  participants?: Array<{
     email: string;
     name?: string;
+    status?: string;
+  }>;
+  master_event_id?: string | null;
+  original_start_time?: number | null;
+  busy?: boolean;
+  calendar_id?: string;
+  created_at?: number | null;
+  grant_id?: string;
+  html_link?: string | null;
+  ical_uid?: string | null;
+  location?: string | null;
+  metadata?: Record<string, any>;
+  object?: string;
+  organizer?: {
+    name?: string;
+    email: string;
+  } | null;
+  resources?: Array<any>;
+  read_only?: boolean;
+  reminders?: {
+    use_default?: boolean;
+    overrides?: Array<{
+      reminder_minutes?: number;
+      reminder_method?: string;
+    }>;
   };
+  recurrence?: string[];
+  status?: 'confirmed' | 'cancelled' | 'maybe';
+  updated_at?: number | null;
+  visibility?: 'private' | 'public' | null;
 }
 
-interface ProcessedInstance {
-  instanceId: string;
-  startTime: string;
-  isModified: boolean;
+export function isRecurringInstance(event: NylasEvent): boolean {
+  return !!event.master_event_id;
 }
 
-// Track processed instances to prevent duplicates
-const processedInstances = new Map<string, ProcessedInstance>();
+export function isModifiedInstance(event: NylasEvent): boolean {
+  return isRecurringInstance(event) && !!event.original_start_time;
+}
 
-export const isRecurringInstance = (event: NylasEvent): boolean => {
-  return !event.recurrence && (
-    !!event.master_event_id || // Has explicit master ID
-    event.id.includes('_')     // Nylas format for instance IDs
-  );
-};
-
-export const isModifiedInstance = (event: NylasEvent, masterEvent?: NylasEvent): boolean => {
-  if (!isRecurringInstance(event)) return false;
-
-  // Always consider events with original_start_time as modified
-  if (event.original_start_time) return true;
-
-  // If we have the master event, compare key properties
-  if (masterEvent) {
-    return (
-      event.title !== masterEvent.title ||
-      JSON.stringify(event.participants) !== JSON.stringify(masterEvent.participants)
-    );
-  }
-
-  return false;
-};
-
-export const validateRecurringEvent = (event: NylasEvent, masterEvent?: NylasEvent): { valid: boolean; errors: string[] } => {
+export function validateRecurringEvent(event: NylasEvent, masterEvent?: NylasEvent): string[] {
   const errors: string[] = [];
+
+  if (!event.id) {
+    errors.push('Event must have an ID');
+  }
 
   if (event.recurrence && event.master_event_id) {
     errors.push('Event cannot be both a master and an instance');
   }
 
-  // Check for when.start_time instead of start_time
-  if (event.master_event_id && (!event.when?.start_time || isNaN(event.when.start_time))) {
-    errors.push('Instance must have a valid start time in when.start_time');
-  }
-
-  if (masterEvent && !event.original_start_time) {
-    // Regular instance should inherit most properties
-    if (event.organizer?.email !== masterEvent.organizer?.email) {
-      errors.push('Instance organizer does not match master');
+  // Check for when.start_time in timespan events
+  if (event.master_event_id && event.when.object === 'timespan') {
+    if (!event.when.start_time || isNaN(event.when.start_time)) {
+      errors.push('Instance must have a valid start time in when.start_time');
     }
   }
 
-  return {
-    valid: errors.length === 0,
-    errors
-  };
-};
+  if (masterEvent && !event.original_start_time) {
+    errors.push('Modified instance must have original_start_time');
+  }
 
-export const processRecurringEvent = async (
+  return errors;
+}
+
+function convertTimestampToISOString(timestamp: number): string {
+  // Nylas timestamps are in milliseconds
+  return new Date(timestamp).toISOString();
+}
+
+export async function processRecurringEvent(
   event: NylasEvent,
   userId: string,
   supabaseUrl: string,
   supabaseKey: string,
   requestId?: string
-): Promise<{ success: boolean; message: string }> => {
-  const supabase = createClient(supabaseUrl, supabaseKey);
-  const log = (message: string) => {
-    console.log(`🔄 [${requestId || 'recurring'}] ${message}`);
-  };
-
+): Promise<{ success: boolean; message: string }> {
   try {
-    // For master events
-    if (event.recurrence) {
-      log(`Processing master event: ${event.id}`);
-      const { error } = await supabase
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const errors = validateRecurringEvent(event);
+    
+    if (errors.length > 0) {
+      console.error(`❌ [${requestId}] Validation errors:`, errors);
+      return { success: false, message: errors.join(', ') };
+    }
+
+    // Handle timespan events
+    if (event.when.object === 'timespan') {
+      const eventData = {
+        user_id: userId,
+        nylas_event_id: event.id,
+        title: event.title,
+        description: event.description,
+        text_description: event.text_description,
+        start_time: convertTimestampToISOString(event.when.start_time),
+        end_time: convertTimestampToISOString(event.when.end_time),
+        participants: event.participants || [],
+        recurrence: event.recurrence,
+        organizer: event.organizer || {},
+        busy: event.busy,
+        html_link: event.html_link,
+        ical_uid: event.ical_uid,
+        location: event.location,
+        resources: event.resources || [],
+        read_only: event.read_only || false,
+        reminders: event.reminders || {},
+        status: event.status,
+        visibility: event.visibility,
+        last_updated_at: new Date().toISOString()
+      };
+
+      const { error: upsertError } = await supabase
         .from('events')
-        .upsert({
-          user_id: userId,
-          nylas_event_id: event.id,
-          title: event.title,
-          start_time: new Date(event.when.start_time * 1000).toISOString(),
-          end_time: new Date(event.when.end_time * 1000).toISOString(),
-          participants: event.participants || [],
-          recurrence: event.recurrence,
-          organizer: event.organizer || {},
-          last_updated_at: new Date().toISOString()
+        .upsert(eventData, {
+          onConflict: 'nylas_event_id,user_id',
+          ignoreDuplicates: false
         });
 
-      if (error) throw error;
-      return { success: true, message: 'Master event processed' };
+      if (upsertError) {
+        console.error(`❌ [${requestId}] Error upserting event:`, upsertError);
+        return { success: false, message: upsertError.message };
+      }
     }
 
-    // For instances
-    if (isRecurringInstance(event)) {
-      const masterId = event.master_event_id || event.id.split('_')[0];
-      const instanceKey = `${masterId}_${event.when.start_time}`;
-
-      // Check if we've already processed this instance
-      const existing = processedInstances.get(instanceKey);
-      if (existing && !isModifiedInstance(event)) {
-        log(`Skipping duplicate instance: ${event.id}`);
-        return { success: true, message: 'Duplicate instance skipped' };
-      }
-
-      // Get master event if available
-      const { data: masterEvent } = await supabase
-        .from('events')
-        .select('*')
-        .eq('nylas_event_id', masterId)
-        .single();
-
-      // Validate the instance
-      const validation = validateRecurringEvent(event, masterEvent);
-      if (!validation.valid) {
-        log(`Invalid instance ${event.id}: ${validation.errors.join(', ')}`);
-        return { success: false, message: validation.errors.join(', ') };
-      }
-
-      // Process the instance
-      const instanceData = isModifiedInstance(event, masterEvent) 
-        ? {
-            // Modified instance gets its own data
-            user_id: userId,
-            nylas_event_id: event.id,
-            title: event.title,
-            start_time: new Date(event.when.start_time * 1000).toISOString(),
-            end_time: new Date(event.when.end_time * 1000).toISOString(),
-            participants: event.participants || [],
-            master_event_id: masterId,
-            original_start_time: event.original_start_time 
-              ? new Date(event.original_start_time * 1000).toISOString()
-              : null,
-            organizer: event.organizer || {},
-            last_updated_at: new Date().toISOString()
-          }
-        : {
-            // Regular instance inherits from master
-            user_id: userId,
-            nylas_event_id: event.id,
-            title: masterEvent?.title || event.title,
-            start_time: new Date(event.when.start_time * 1000).toISOString(),
-            end_time: new Date(event.when.end_time * 1000).toISOString(),
-            participants: masterEvent?.participants || event.participants || [],
-            master_event_id: masterId,
-            organizer: masterEvent?.organizer || event.organizer || {},
-            last_updated_at: new Date().toISOString()
-          };
-
-      const { error } = await supabase
-        .from('events')
-        .upsert(instanceData);
-
-      if (error) throw error;
-
-      // Track this instance
-      processedInstances.set(instanceKey, {
-        instanceId: event.id,
-        startTime: instanceData.start_time,
-        isModified: isModifiedInstance(event, masterEvent)
-      });
-
-      return { success: true, message: 'Instance processed successfully' };
-    }
-
-    return { success: true, message: 'Not a recurring event' };
-
+    return { success: true, message: 'Event processed successfully' };
   } catch (error) {
-    log(`Error processing recurring event: ${error.message}`);
+    console.error(`❌ [${requestId}] Error processing event:`, error);
     return { success: false, message: error.message };
   }
-};
+}
 
-export const cleanupOrphanedInstances = async (
+export async function cleanupOrphanedInstances(
   supabaseUrl: string,
   supabaseKey: string
-): Promise<{ success: boolean; message: string }> => {
-  const supabase = createClient(supabaseUrl, supabaseKey);
-
+): Promise<{ success: boolean; message: string }> {
   try {
-    // Find instances without valid masters
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Find instances with master_event_id that don't have a corresponding master event
     const { data: orphanedInstances, error: findError } = await supabase
       .from('events')
-      .select('id, nylas_event_id, master_event_id')
+      .select('id, master_event_id')
       .not('master_event_id', 'is', null)
       .not('master_event_id', 'eq', '');
 
-    if (findError) throw findError;
-
-    const orphans = [];
-    for (const instance of orphanedInstances || []) {
-      const { data: master } = await supabase
-        .from('events')
-        .select('id')
-        .eq('nylas_event_id', instance.master_event_id)
-        .single();
-
-      if (!master) {
-        orphans.push(instance.id);
-      }
+    if (findError) {
+      console.error('Error finding orphaned instances:', findError);
+      return { success: false, message: findError.message };
     }
 
-    if (orphans.length > 0) {
-      const { error: deleteError } = await supabase
-        .from('events')
-        .delete()
-        .in('id', orphans);
+    if (!orphanedInstances || orphanedInstances.length === 0) {
+      return { success: true, message: 'No orphaned instances found' };
+    }
 
-      if (deleteError) throw deleteError;
+    // Get all master event IDs
+    const { data: masterEvents, error: masterError } = await supabase
+      .from('events')
+      .select('id')
+      .not('recurrence', 'is', null);
+
+    if (masterError) {
+      console.error('Error finding master events:', masterError);
+      return { success: false, message: masterError.message };
+    }
+
+    const masterEventIds = new Set(masterEvents?.map(e => e.id) || []);
+
+    // Filter out instances whose master event doesn't exist
+    const orphanedIds = orphanedInstances
+      .filter(instance => !masterEventIds.has(instance.master_event_id))
+      .map(instance => instance.id);
+
+    if (orphanedIds.length === 0) {
+      return { success: true, message: 'No orphaned instances to delete' };
+    }
+
+    // Delete orphaned instances
+    const { error: deleteError } = await supabase
+      .from('events')
+      .delete()
+      .in('id', orphanedIds);
+
+    if (deleteError) {
+      console.error('Error deleting orphaned instances:', deleteError);
+      return { success: false, message: deleteError.message };
     }
 
     return {
       success: true,
-      message: `Cleaned up ${orphans.length} orphaned instances`
+      message: `Successfully deleted ${orphanedIds.length} orphaned instances`
     };
-
   } catch (error) {
-    return {
-      success: false,
-      message: `Cleanup failed: ${error.message}`
-    };
+    console.error('Error in cleanupOrphanedInstances:', error);
+    return { success: false, message: error.message };
   }
-};
+}

@@ -1,39 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
+import { NylasEvent } from '../_shared/recurring-event-utils.ts';
 
-interface NylasEvent {
-  id: string;
-  title: string;
-  description?: string;
-  location?: string;
-  when: {
-    start_time: number;
-    end_time: number;
-  };
-  participants?: Array<{
-    name?: string;
-    email: string;
-    status?: string;
-  }>;
-  conferencing?: {
-    details: {
-      url?: string;
-    };
-  };
-  ical_uid?: string;
-  busy?: boolean;
-  html_link?: string;
-  master_event_id?: string;
-  organizer?: {
-    name?: string;
-    email: string;
-  };
-  resources?: any[];
-  read_only?: boolean;
-  reminders?: Record<string, any>;
-  recurrence?: string[];
-  status?: string;
-  visibility?: string;
-  original_start_time?: number;
+function convertTimestampToISOString(timestamp: number): string {
+  // Nylas timestamps are in milliseconds
+  return new Date(timestamp).toISOString();
 }
 
 export async function processEvent(event: NylasEvent, userId: string, supabaseUrl: string, supabaseKey: string) {
@@ -41,34 +11,24 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
     const supabase = createClient(supabaseUrl, supabaseKey);
     
     // Validate timestamps before processing
-    if (!event.when?.start_time || !event.when?.end_time || 
-        isNaN(event.when.start_time) || isNaN(event.when.end_time)) {
-      console.log('Skipping event with invalid timestamps:', {
+    if (event.when.object !== 'timespan') {
+      console.log('Skipping non-timespan event:', {
         id: event.id,
         title: event.title,
-        startTime: event.when?.start_time,
-        endTime: event.when?.end_time
+        whenObject: event.when.object
       });
       return;
     }
 
-    // Convert Unix timestamps (seconds) to ISO string
-    const startTime = new Date(event.when.start_time * 1000).toISOString();
-    const endTime = new Date(event.when.end_time * 1000).toISOString();
-    const originalStartTime = event.original_start_time 
-      ? new Date(event.original_start_time * 1000).toISOString()
-      : null;
-
-    // Extract master_event_id from recurring event instance ID if present
-    // Format example: "event_id_20250122T220000Z"
-    let masterEventId = event.master_event_id;
-    if (!masterEventId && event.id.includes('_')) {
-      const parts = event.id.split('_');
-      if (parts.length > 1) {
-        // Remove the timestamp part to get the master event ID
-        masterEventId = parts.slice(0, -1).join('_');
-        console.log('Extracted master event ID:', masterEventId, 'from event ID:', event.id);
-      }
+    const { start_time, end_time } = event.when;
+    if (!start_time || !end_time || isNaN(start_time) || isNaN(end_time)) {
+      console.log('Skipping event with invalid timestamps:', {
+        id: event.id,
+        title: event.title,
+        startTime: start_time,
+        endTime: end_time
+      });
+      return;
     }
 
     const eventData = {
@@ -76,15 +36,16 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
       nylas_event_id: event.id,
       title: event.title || 'Untitled Event',
       description: event.description,
+      text_description: event.text_description,
       location: event.location,
-      start_time: startTime,
-      end_time: endTime,
+      start_time: convertTimestampToISOString(start_time),
+      end_time: convertTimestampToISOString(end_time),
       participants: event.participants || [],
       conference_url: event.conferencing?.details?.url || null,
       ical_uid: event.ical_uid,
-      busy: event.busy !== false, // Default to true if not specified
+      busy: event.busy !== false,
       html_link: event.html_link,
-      master_event_id: masterEventId,
+      master_event_id: event.master_event_id,
       organizer: event.organizer || {},
       resources: event.resources || [],
       read_only: event.read_only || false,
@@ -92,7 +53,9 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
       recurrence: event.recurrence,
       status: event.status,
       visibility: event.visibility || 'default',
-      original_start_time: originalStartTime,
+      original_start_time: event.original_start_time 
+        ? convertTimestampToISOString(event.original_start_time)
+        : null,
       last_updated_at: new Date().toISOString()
     };
 
