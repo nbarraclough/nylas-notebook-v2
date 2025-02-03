@@ -1,11 +1,21 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
 
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
 export interface NylasEvent {
   id: string;
   title: string;
   description?: string;
-  start_time: number;
-  end_time: number;
+  when: {
+    start_time: number;
+    end_time: number;
+  };
   participants?: Array<{email: string; name?: string}>;
   master_event_id?: string;
   original_start_time?: number;
@@ -56,8 +66,9 @@ export const validateRecurringEvent = (event: NylasEvent, masterEvent?: NylasEve
     errors.push('Event cannot be both a master and an instance');
   }
 
-  if (event.master_event_id && !event.start_time) {
-    errors.push('Instance must have a start time');
+  // Check for when.start_time instead of start_time
+  if (event.master_event_id && (!event.when?.start_time || isNaN(event.when.start_time))) {
+    errors.push('Instance must have a valid start time in when.start_time');
   }
 
   if (masterEvent && !event.original_start_time) {
@@ -95,8 +106,8 @@ export const processRecurringEvent = async (
           user_id: userId,
           nylas_event_id: event.id,
           title: event.title,
-          start_time: new Date(event.start_time * 1000).toISOString(),
-          end_time: new Date(event.end_time * 1000).toISOString(),
+          start_time: new Date(event.when.start_time * 1000).toISOString(),
+          end_time: new Date(event.when.end_time * 1000).toISOString(),
           participants: event.participants || [],
           recurrence: event.recurrence,
           organizer: event.organizer || {},
@@ -110,7 +121,7 @@ export const processRecurringEvent = async (
     // For instances
     if (isRecurringInstance(event)) {
       const masterId = event.master_event_id || event.id.split('_')[0];
-      const instanceKey = `${masterId}_${event.start_time}`;
+      const instanceKey = `${masterId}_${event.when.start_time}`;
 
       // Check if we've already processed this instance
       const existing = processedInstances.get(instanceKey);
@@ -140,8 +151,8 @@ export const processRecurringEvent = async (
             user_id: userId,
             nylas_event_id: event.id,
             title: event.title,
-            start_time: new Date(event.start_time * 1000).toISOString(),
-            end_time: new Date(event.end_time * 1000).toISOString(),
+            start_time: new Date(event.when.start_time * 1000).toISOString(),
+            end_time: new Date(event.when.end_time * 1000).toISOString(),
             participants: event.participants || [],
             master_event_id: masterId,
             original_start_time: event.original_start_time 
@@ -155,8 +166,8 @@ export const processRecurringEvent = async (
             user_id: userId,
             nylas_event_id: event.id,
             title: masterEvent?.title || event.title,
-            start_time: new Date(event.start_time * 1000).toISOString(),
-            end_time: new Date(event.end_time * 1000).toISOString(),
+            start_time: new Date(event.when.start_time * 1000).toISOString(),
+            end_time: new Date(event.when.end_time * 1000).toISOString(),
             participants: masterEvent?.participants || event.participants || [],
             master_event_id: masterId,
             organizer: masterEvent?.organizer || event.organizer || {},
