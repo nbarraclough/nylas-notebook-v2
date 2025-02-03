@@ -28,10 +28,11 @@ const convertTimestamp = (timestamp: number | null): string | null => {
 
 // Process event data from webhook
 const processEventData = (eventData: any) => {
+  console.log('🔄 Processing event data:', JSON.stringify(eventData, null, 2));
+  
   return {
     title: eventData.title,
     description: eventData.description,
-    text_description: eventData.text_description,
     location: eventData.location,
     start_time: convertTimestamp(eventData.when?.start_time),
     end_time: convertTimestamp(eventData.when?.end_time),

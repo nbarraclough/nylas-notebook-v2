@@ -23,6 +23,7 @@ interface EventWebhookData {
   account_id: string;
   busy: boolean;
   calendar_id: string;
+  cancelled_occurrences?: string[];
   conferencing?: {
     details: {
       meeting_code?: string;
@@ -43,6 +44,7 @@ interface EventWebhookData {
   html_link?: string;
   ical_uid?: string;
   id: string;
+  location?: string;
   object: 'event';
   occurrences?: string[];
   organizer?: {
