@@ -6,11 +6,16 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS'
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { 
+      headers: corsHeaders,
+      status: 200
+    })
   }
 
   try {
@@ -23,6 +28,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
     if (!clientId || !clientSecret || !supabaseUrl || !supabaseServiceKey) {
+      console.error('Missing required environment variables')
       throw new Error('Missing required environment variables')
     }
 
@@ -87,7 +93,7 @@ serve(async (req) => {
       .from('profiles')
       .update({
         nylas_grant_id: grant_id,
-        grant_status: 'active', // Set status to active on successful authentication
+        grant_status: 'active',
         updated_at: new Date().toISOString()
       })
       .eq('id', userId)
@@ -105,16 +111,6 @@ serve(async (req) => {
 
     console.log('Successfully updated profile with grant info')
 
-    // Trigger events sync
-    const { error: syncError } = await supabase.functions.invoke('sync-nylas-events', {
-      body: { user_id: userId }
-    });
-
-    if (syncError) {
-      console.error('Error triggering events sync:', syncError)
-      // Don't throw here, as the authentication was successful
-    }
-
     return new Response(
       JSON.stringify({ 
         success: true, 
@@ -129,7 +125,10 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error during Nylas authentication:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: error.stack
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
