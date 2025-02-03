@@ -33,7 +33,6 @@ serve(async (req) => {
     authUrl.searchParams.append('redirect_uri', `${req.headers.get('origin')}/calendar`)
     authUrl.searchParams.append('response_type', 'code')
     authUrl.searchParams.append('state', state)
-    authUrl.searchParams.append('login_hint', email)
     authUrl.searchParams.append('provider', provider) // Add the provider parameter
 
     return new Response(
