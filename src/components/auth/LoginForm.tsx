@@ -64,7 +64,7 @@ export function LoginForm() {
               access_type: 'offline',
               prompt: 'consent',
               response_type: 'code',
-              scope: 'email openid profile offline_access',
+              scope: 'email openid profile',
             }}
           />
         </CardContent>
