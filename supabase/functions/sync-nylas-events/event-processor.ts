@@ -52,6 +52,13 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
       return;
     }
 
+    // Convert Unix timestamps (seconds) to ISO string
+    const startTime = new Date(event.when.start_time * 1000).toISOString();
+    const endTime = new Date(event.when.end_time * 1000).toISOString();
+    const originalStartTime = event.original_start_time 
+      ? new Date(event.original_start_time * 1000).toISOString()
+      : null;
+
     // Extract master_event_id from recurring event instance ID if present
     // Format example: "event_id_20250122T220000Z"
     let masterEventId = event.master_event_id;
@@ -70,8 +77,8 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
       title: event.title || 'Untitled Event',
       description: event.description,
       location: event.location,
-      start_time: new Date(event.when.start_time * 1000).toISOString(),
-      end_time: new Date(event.when.end_time * 1000).toISOString(),
+      start_time: startTime,
+      end_time: endTime,
       participants: event.participants || [],
       conference_url: event.conferencing?.details?.url || null,
       ical_uid: event.ical_uid,
@@ -85,8 +92,7 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
       recurrence: event.recurrence,
       status: event.status,
       visibility: event.visibility || 'default',
-      original_start_time: event.original_start_time ? 
-        new Date(event.original_start_time * 1000).toISOString() : null,
+      original_start_time: originalStartTime,
       last_updated_at: new Date().toISOString()
     };
 
