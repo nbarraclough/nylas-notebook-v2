@@ -16,6 +16,29 @@ const supabaseAdmin = createClient(
 const processEventData = (eventData: any) => {
   console.log('🔄 Processing event data:', JSON.stringify(eventData, null, 2));
   
+  // Validate and convert timestamps
+  let startTime = null;
+  let endTime = null;
+
+  if (eventData.when?.object === 'timespan') {
+    if (typeof eventData.when.start_time === 'number') {
+      startTime = new Date(eventData.when.start_time * 1000).toISOString();
+    }
+    if (typeof eventData.when.end_time === 'number') {
+      endTime = new Date(eventData.when.end_time * 1000).toISOString();
+    }
+  }
+
+  // If we don't have valid timestamps, log and throw error
+  if (!startTime || !endTime) {
+    console.error('Invalid timestamps in event data:', {
+      whenObject: eventData.when?.object,
+      startTime: eventData.when?.start_time,
+      endTime: eventData.when?.end_time
+    });
+    throw new Error('Invalid or missing timestamps in event data');
+  }
+  
   // Process participants, ensuring we include the organizer if they're a participant
   const allParticipants = eventData.participants || [];
   const organizer = eventData.organizer ? {
@@ -41,13 +64,14 @@ const processEventData = (eventData: any) => {
 
   console.log('👥 Processed participants:', JSON.stringify(participants, null, 2));
   console.log('👤 Processed organizer:', JSON.stringify(organizer, null, 2));
+  console.log('⏰ Processed timestamps:', { startTime, endTime });
 
   return {
     title: eventData.title || 'Untitled Event',
     description: eventData.description,
     location: eventData.location,
-    start_time: eventData.when?.start_time ? new Date(eventData.when.start_time * 1000).toISOString() : null,
-    end_time: eventData.when?.end_time ? new Date(eventData.when.end_time * 1000).toISOString() : null,
+    start_time: startTime,
+    end_time: endTime,
     participants,
     conference_url: eventData.conferencing?.details?.url || null,
     ical_uid: eventData.ical_uid,
