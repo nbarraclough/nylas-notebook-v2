@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+
+type NylasProvider = 'google' | 'microsoft';
 
 export const ConnectNylas = () => {
   const { toast } = useToast();
@@ -29,7 +30,6 @@ export const ConnectNylas = () => {
       if (profile) {
         setGrantStatus(profile.grant_status);
         
-        // If grant is expired, show a toast notification
         if (profile.grant_status === 'expired') {
           toast({
             title: "Calendar Connection Expired",
@@ -64,10 +64,8 @@ export const ConnectNylas = () => {
 
       setAuthStep('syncing');
       
-      // Remove code from URL without triggering a page reload
       window.history.replaceState({}, '', '/calendar');
 
-      // Sync events after successful connection
       const userId = (await supabase.auth.getUser()).data.user?.id;
       if (!userId) throw new Error('User not found');
 
@@ -82,7 +80,6 @@ export const ConnectNylas = () => {
         description: "Calendar connected and events synced successfully!",
       });
 
-      // Force a page reload to show the new events
       window.location.reload();
 
     } catch (error) {
@@ -92,13 +89,12 @@ export const ConnectNylas = () => {
         description: "Failed to connect calendar. Please try again.",
         variant: "destructive",
       });
-      // Reset loading state on error
       setIsLoading(false);
       setAuthStep('idle');
     }
   };
 
-  const handleNylasConnect = async () => {
+  const handleNylasConnect = async (provider: NylasProvider) => {
     try {
       setIsLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
@@ -107,13 +103,15 @@ export const ConnectNylas = () => {
       }
 
       const { data, error } = await supabase.functions.invoke('get-nylas-auth-url', {
-        body: { email: session.user.email }
+        body: { 
+          email: session.user.email,
+          provider
+        }
       });
 
       if (error) throw error;
       if (!data?.authUrl) throw new Error('No auth URL returned');
 
-      // Redirect to Nylas auth page
       window.location.href = data.authUrl;
     } catch (error) {
       console.error('Error getting Nylas auth URL:', error);
@@ -191,13 +189,30 @@ export const ConnectNylas = () => {
                   ? "Your calendar access has expired. Please reconnect to continue using Notebook."
                   : "Connect your calendar to start recording meetings with Notebook."}
               </p>
-              <Button 
-                size="lg" 
-                onClick={handleNylasConnect}
-                disabled={isLoading}
-              >
-                Connect with Nylas
-              </Button>
+              <div className="flex flex-col space-y-4">
+                <button
+                  onClick={() => handleNylasConnect('google')}
+                  disabled={isLoading}
+                  className="w-full flex justify-center items-center"
+                >
+                  <img 
+                    src="/lovable-uploads/5fe3ce98-cc17-401a-987b-a6aa508a8c2a.png" 
+                    alt="Sign in with Google"
+                    className="h-10"
+                  />
+                </button>
+                <button
+                  onClick={() => handleNylasConnect('microsoft')}
+                  disabled={isLoading}
+                  className="w-full flex justify-center items-center"
+                >
+                  <img 
+                    src="/lovable-uploads/24711847-41d3-4b74-8ff0-0439aa5f47ad.png" 
+                    alt="Sign in with Microsoft"
+                    className="h-10"
+                  />
+                </button>
+              </div>
             </>
           )}
         </CardContent>
