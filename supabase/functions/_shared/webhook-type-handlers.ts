@@ -19,6 +19,64 @@ const statusMapping = {
   concluded: { status: 'concluded', notetaker_status: 'concluded' },
 };
 
+// Convert Unix timestamp (seconds) to ISO string
+const convertTimestamp = (timestamp: number | null): string | null => {
+  if (!timestamp) return null;
+  try {
+    // Nylas sends timestamps in seconds, convert to milliseconds
+    const milliseconds = timestamp * 1000;
+    return new Date(milliseconds).toISOString();
+  } catch (error) {
+    console.error('Error converting timestamp:', timestamp, error);
+    return null;
+  }
+};
+
+// Process event data from webhook
+const processEventData = (eventData: any) => {
+  console.log('🔄 Processing event data:', JSON.stringify(eventData, null, 2));
+  
+  // Ensure when object exists and has required fields
+  if (!eventData.when || !eventData.when.start_time || !eventData.when.end_time) {
+    console.error('Missing required time fields:', eventData.when);
+    throw new Error('Missing required time fields in event data');
+  }
+
+  const startTime = convertTimestamp(eventData.when.start_time);
+  const endTime = convertTimestamp(eventData.when.end_time);
+
+  if (!startTime || !endTime) {
+    console.error('Failed to convert timestamps:', { 
+      start: eventData.when.start_time, 
+      end: eventData.when.end_time 
+    });
+    throw new Error('Failed to convert event timestamps');
+  }
+
+  return {
+    title: eventData.title,
+    description: eventData.description,
+    location: eventData.location,
+    start_time: startTime,
+    end_time: endTime,
+    participants: eventData.participants || [],
+    conference_url: eventData.conferencing?.details?.url || null,
+    ical_uid: eventData.ical_uid,
+    busy: eventData.busy !== false,
+    html_link: eventData.html_link,
+    master_event_id: eventData.master_event_id,
+    organizer: eventData.organizer || {},
+    resources: eventData.resources || [],
+    read_only: eventData.read_only || false,
+    reminders: eventData.reminders || {},
+    recurrence: eventData.recurrence,
+    status: eventData.status,
+    visibility: eventData.visibility || 'default',
+    original_start_time: convertTimestamp(eventData.original_start_time),
+    last_updated_at: new Date().toISOString()
+  };
+};
+
 export async function handleWebhookType(webhookData: NylasWebhookPayload, grantId: string, requestId: string) {
   console.log(`🎯 [${requestId}] Processing webhook type: ${webhookData.type}`);
 
@@ -88,9 +146,19 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
           return { success: false, message: `No profile found for grant: ${effectiveGrantId}` };
         }
 
+        // Process the event data with proper timestamp handling
+        const processedEventData = processEventData(eventData);
+        
         // Process the event using our recurring event utilities
         const result = await processRecurringEvent(
-          eventData,
+          {
+            ...eventData,
+            when: {
+              ...eventData.when,
+              start_time: processedEventData.start_time,
+              end_time: processedEventData.end_time
+            }
+          },
           profile.id,
           supabaseUrl,
           supabaseServiceKey,
