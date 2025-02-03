@@ -159,6 +159,21 @@ export async function processRecurringEvent(
         return { success: false, message: upsertError.message };
       }
 
+      // If this is a recurring instance, ensure the master event exists
+      if (event.master_event_id) {
+        console.log(`🔄 [${requestId}] Processing recurring instance with master_event_id:`, event.master_event_id);
+        const { data: masterEvent, error: masterError } = await supabase
+          .from('events')
+          .select('id')
+          .eq('nylas_event_id', event.master_event_id)
+          .eq('user_id', userId)
+          .single();
+
+        if (masterError || !masterEvent) {
+          console.log(`⚠️ [${requestId}] Master event not found, will be fetched by sync job`);
+        }
+      }
+
       return { success: true };
     } else {
       console.error(`❌ [${requestId}] Unsupported event type:`, event.when?.object);
@@ -168,4 +183,37 @@ export async function processRecurringEvent(
     console.error(`❌ [${requestId}] Error processing event:`, error);
     return { success: false, message: error.message };
   }
+}
+
+export async function cleanupOrphanedInstances(
+  masterEventId: string,
+  userId: string,
+  supabaseUrl: string,
+  supabaseServiceKey: string
+): Promise<void> {
+  console.log('🧹 Cleaning up orphaned instances for master event:', masterEventId);
+  
+  const supabase = createClient<Database>(
+    supabaseUrl,
+    supabaseServiceKey,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false
+      }
+    }
+  );
+
+  const { error } = await supabase
+    .from('events')
+    .delete()
+    .eq('master_event_id', masterEventId)
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Error cleaning up orphaned instances:', error);
+    throw error;
+  }
+  
+  console.log('✅ Successfully cleaned up orphaned instances');
 }
