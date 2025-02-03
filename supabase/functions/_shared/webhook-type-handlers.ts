@@ -19,9 +19,38 @@ const statusMapping = {
   concluded: { status: 'concluded', notetaker_status: 'concluded' },
 };
 
-const convertUnixTimestamp = (timestamp: number | null): string | null => {
+// Convert Unix timestamp (milliseconds) to ISO string
+const convertTimestamp = (timestamp: number | null): string | null => {
   if (!timestamp) return null;
-  return new Date(Number(timestamp) * 1000).toISOString();
+  // Nylas sends timestamps in milliseconds
+  return new Date(timestamp).toISOString();
+};
+
+// Process event data from webhook
+const processEventData = (eventData: any) => {
+  return {
+    title: eventData.title,
+    description: eventData.description,
+    text_description: eventData.text_description,
+    location: eventData.location,
+    start_time: convertTimestamp(eventData.when?.start_time),
+    end_time: convertTimestamp(eventData.when?.end_time),
+    participants: eventData.participants || [],
+    conference_url: eventData.conferencing?.details?.url || null,
+    ical_uid: eventData.ical_uid,
+    busy: eventData.busy !== false,
+    html_link: eventData.html_link,
+    master_event_id: eventData.master_event_id,
+    organizer: eventData.organizer || {},
+    resources: eventData.resources || [],
+    read_only: eventData.read_only || false,
+    reminders: eventData.reminders || {},
+    recurrence: eventData.recurrence,
+    status: eventData.status,
+    visibility: eventData.visibility || 'default',
+    original_start_time: convertTimestamp(eventData.original_start_time),
+    last_updated_at: new Date().toISOString()
+  };
 };
 
 export async function handleWebhookType(webhookData: NylasWebhookPayload, grantId: string, requestId: string) {
@@ -93,9 +122,19 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
           return { success: false, message: `No profile found for grant: ${effectiveGrantId}` };
         }
 
+        // Process the event data with proper timestamp handling
+        const processedEventData = processEventData(eventData);
+        
         // Process the event using our recurring event utilities
         const result = await processRecurringEvent(
-          eventData,
+          {
+            ...eventData,
+            when: {
+              ...eventData.when,
+              start_time: processedEventData.start_time,
+              end_time: processedEventData.end_time
+            }
+          },
           profile.id,
           supabaseUrl,
           supabaseServiceKey,

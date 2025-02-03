@@ -10,8 +10,8 @@ export type Json =
 
 interface TimeSpan {
   object: 'timespan';
-  start_time: number; // Unix timestamp in milliseconds
-  end_time: number;   // Unix timestamp in milliseconds
+  start_time: string; // ISO string converted from Unix timestamp
+  end_time: string;   // ISO string converted from Unix timestamp
   start_timezone?: string;
   end_timezone?: string;
 }
@@ -39,10 +39,10 @@ export interface NylasEvent {
     status?: string;
   }>;
   master_event_id?: string | null;
-  original_start_time?: number | null;
+  original_start_time?: string | null; // ISO string converted from Unix timestamp
   busy?: boolean;
   calendar_id?: string;
-  created_at?: number | null;
+  created_at?: string | null;
   grant_id?: string;
   html_link?: string | null;
   ical_uid?: string | null;
@@ -64,7 +64,7 @@ export interface NylasEvent {
   };
   recurrence?: string[];
   status?: 'confirmed' | 'cancelled' | 'maybe';
-  updated_at?: number | null;
+  updated_at?: string | null;
   visibility?: 'private' | 'public' | null;
 }
 
@@ -89,7 +89,7 @@ export function validateRecurringEvent(event: NylasEvent, masterEvent?: NylasEve
 
   // Check for when.start_time in timespan events
   if (event.master_event_id && event.when.object === 'timespan') {
-    if (!event.when.start_time || isNaN(event.when.start_time)) {
+    if (!event.when.start_time || isNaN(Date.parse(event.when.start_time))) {
       errors.push('Instance must have a valid start time in when.start_time');
     }
   }
@@ -130,8 +130,8 @@ export async function processRecurringEvent(
         title: event.title,
         description: event.description,
         text_description: event.text_description,
-        start_time: convertTimestampToISOString(event.when.start_time),
-        end_time: convertTimestampToISOString(event.when.end_time),
+        start_time: convertTimestampToISOString(Number(event.when.start_time)),
+        end_time: convertTimestampToISOString(Number(event.when.end_time)),
         participants: event.participants || [],
         recurrence: event.recurrence,
         organizer: event.organizer || {},
