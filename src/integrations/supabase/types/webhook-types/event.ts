@@ -1,5 +1,24 @@
 import { NylasWebhookBase } from './base';
 
+interface TimeSpan {
+  object: 'timespan';
+  start_time: number;
+  end_time: number;
+  start_timezone?: string;
+  end_timezone?: string;
+}
+
+interface DateSpan {
+  object: 'datespan';
+  start_date: string;
+  end_date: string;
+}
+
+interface DateOnly {
+  object: 'date';
+  date: string;
+}
+
 interface EventWebhookData {
   account_id: string;
   busy: boolean;
@@ -46,22 +65,22 @@ interface EventWebhookData {
   title: string;
   updated_at: number;
   visibility?: string;
-  when: {
-    end_time: number;
-    end_timezone?: string;
-    object: 'timespan';
-    start_time: number;
-    start_timezone?: string;
-  };
+  when: TimeSpan | DateSpan | DateOnly;
 }
 
 export interface EventCreatedWebhook extends NylasWebhookBase<EventWebhookData> {
   type: 'event.created';
+  specversion: '1.0';
+  source: string;
+  time: number;
   webhook_delivery_attempt?: number;
 }
 
 export interface EventUpdatedWebhook extends NylasWebhookBase<EventWebhookData & { master_event_id?: string }> {
   type: 'event.updated';
+  specversion: '1.0';
+  source: string;
+  time: number;
   webhook_delivery_attempt?: number;
 }
 
@@ -73,4 +92,7 @@ export interface EventDeletedWebhook extends NylasWebhookBase<{
   object: 'event';
 }> {
   type: 'event.deleted';
+  specversion: '1.0';
+  source: string;
+  time: number;
 }

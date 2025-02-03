@@ -19,11 +19,11 @@ const statusMapping = {
   concluded: { status: 'concluded', notetaker_status: 'concluded' },
 };
 
-// Convert Unix timestamp (milliseconds) to ISO string
+// Convert Unix timestamp (seconds) to ISO string
 const convertTimestamp = (timestamp: number | null): string | null => {
   if (!timestamp) return null;
-  // Nylas sends timestamps in milliseconds
-  return new Date(timestamp).toISOString();
+  // Nylas sends timestamps in seconds, convert to milliseconds
+  return new Date(timestamp * 1000).toISOString();
 };
 
 // Process event data from webhook
