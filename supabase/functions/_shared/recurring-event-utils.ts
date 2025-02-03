@@ -2,6 +2,14 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { Database } from './types/database.ts';
 import { unixSecondsToISOString, isValidISOString } from './timestamp-utils.ts';
 
+export function isRecurringInstance(event: any): boolean {
+  return !!event.master_event_id;
+}
+
+export function isModifiedInstance(event: any): boolean {
+  return isRecurringInstance(event) && event.original_start_time;
+}
+
 function validateEvent(event: any, requestId: string): string[] {
   const errors: string[] = [];
 
