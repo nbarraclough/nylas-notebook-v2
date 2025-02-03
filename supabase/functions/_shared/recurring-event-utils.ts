@@ -101,9 +101,17 @@ export function validateRecurringEvent(event: NylasEvent, masterEvent?: NylasEve
   return errors;
 }
 
-function convertTimestampToISOString(timestamp: number): string {
-  // Nylas timestamps are in milliseconds
-  return new Date(timestamp).toISOString();
+function convertTimestampToISOString(timestamp: number | null | undefined): string | null {
+  if (!timestamp) return null;
+  
+  try {
+    // Nylas sends timestamps in seconds, we need milliseconds
+    const milliseconds = timestamp * 1000;
+    return new Date(milliseconds).toISOString();
+  } catch (error) {
+    console.error('Error converting timestamp:', timestamp, error);
+    return null;
+  }
 }
 
 export async function processRecurringEvent(

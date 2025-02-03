@@ -22,8 +22,14 @@ const statusMapping = {
 // Convert Unix timestamp (seconds) to ISO string
 const convertTimestamp = (timestamp: number | null): string | null => {
   if (!timestamp) return null;
-  // Nylas sends timestamps in seconds, convert to milliseconds
-  return new Date(timestamp * 1000).toISOString();
+  try {
+    // Nylas sends timestamps in seconds, convert to milliseconds
+    const milliseconds = timestamp * 1000;
+    return new Date(milliseconds).toISOString();
+  } catch (error) {
+    console.error('Error converting timestamp:', timestamp, error);
+    return null;
+  }
 };
 
 // Process event data from webhook
