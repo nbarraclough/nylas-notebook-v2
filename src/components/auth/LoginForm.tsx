@@ -55,25 +55,9 @@ export function LoginForm() {
         <CardContent>
           <SupabaseAuth 
             supabaseClient={supabase}
-            appearance={{ 
-              theme: ThemeSupa,
-              style: {
-                button: {
-                  backgroundColor: 'hsl(var(--primary))',
-                  borderRadius: '0.5rem',
-                  height: '2.75rem',
-                  color: 'white',
-                },
-                input: {
-                  borderRadius: '0.5rem',
-                },
-              },
-              className: {
-                button: 'hover:bg-primary/90',
-              },
-            }}
+            appearance={{ theme: ThemeSupa }}
             theme="light"
-            providers={['google', 'azure']}
+            providers={['google', 'microsoft']}
             redirectTo={`${siteUrl}/calendar`}
             onlyThirdPartyProviders={true}
             queryParams={{
