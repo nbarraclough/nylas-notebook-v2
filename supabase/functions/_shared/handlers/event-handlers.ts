@@ -13,6 +13,28 @@ const supabaseAdmin = createClient(
   }
 );
 
+const convertUnixTimestamp = (timestamp: number | string | null): string | null => {
+  if (!timestamp) return null;
+  
+  // Convert string to number if needed
+  const unixSeconds = typeof timestamp === 'string' ? parseInt(timestamp, 10) : timestamp;
+  
+  // Validate it's a valid number
+  if (isNaN(unixSeconds)) {
+    console.error('Invalid timestamp:', timestamp);
+    return null;
+  }
+
+  try {
+    // Convert Unix seconds to milliseconds and create ISO string
+    const date = new Date(unixSeconds * 1000);
+    return date.toISOString();
+  } catch (error) {
+    console.error('Error converting timestamp:', timestamp, error);
+    return null;
+  }
+};
+
 const processEventData = (eventData: any) => {
   console.log('🔄 Processing event data:', JSON.stringify(eventData, null, 2));
   
@@ -23,17 +45,16 @@ const processEventData = (eventData: any) => {
   if (eventData.when?.object === 'timespan') {
     const { start_time, end_time } = eventData.when;
     
-    // Convert start time
-    if (start_time) {
-      startTime = new Date(start_time * 1000).toISOString();
-      console.log('Processed start_time:', { raw: start_time, converted: startTime });
-    }
-
-    // Convert end time
-    if (end_time) {
-      endTime = new Date(end_time * 1000).toISOString();
-      console.log('Processed end_time:', { raw: end_time, converted: endTime });
-    }
+    // Convert timestamps
+    startTime = convertUnixTimestamp(start_time);
+    endTime = convertUnixTimestamp(end_time);
+    
+    console.log('Processed timestamps:', {
+      originalStart: start_time,
+      originalEnd: end_time,
+      convertedStart: startTime,
+      convertedEnd: endTime
+    });
   }
 
   // Validate timestamps
@@ -95,7 +116,7 @@ const processEventData = (eventData: any) => {
     status: eventData.status,
     visibility: eventData.visibility || 'default',
     original_start_time: eventData.original_start_time ? 
-      new Date(eventData.original_start_time * 1000).toISOString() : null,
+      convertUnixTimestamp(eventData.original_start_time) : null,
   };
 };
 
