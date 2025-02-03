@@ -68,6 +68,19 @@ export interface NylasEvent {
   visibility?: 'private' | 'public' | null;
 }
 
+function convertTimestampToISOString(timestamp: number | null | undefined): string | null {
+  if (!timestamp) return null;
+  
+  try {
+    // Nylas sends timestamps in seconds, create Date object directly from seconds
+    const date = new Date(timestamp * 1000);
+    return date.toISOString();
+  } catch (error) {
+    console.error('Error converting timestamp:', timestamp, error);
+    return null;
+  }
+}
+
 export function isRecurringInstance(event: NylasEvent): boolean {
   return !!event.master_event_id;
 }
@@ -99,19 +112,6 @@ export function validateRecurringEvent(event: NylasEvent, masterEvent?: NylasEve
   }
 
   return errors;
-}
-
-function convertTimestampToISOString(timestamp: number | null | undefined): string | null {
-  if (!timestamp) return null;
-  
-  try {
-    // Nylas sends timestamps in seconds, we need milliseconds
-    const milliseconds = timestamp * 1000;
-    return new Date(milliseconds).toISOString();
-  } catch (error) {
-    console.error('Error converting timestamp:', timestamp, error);
-    return null;
-  }
 }
 
 export async function processRecurringEvent(
@@ -154,6 +154,8 @@ export async function processRecurringEvent(
         visibility: event.visibility,
         last_updated_at: new Date().toISOString()
       };
+
+      console.log(`📅 [${requestId}] Processing event data:`, JSON.stringify(eventData, null, 2));
 
       const { error: upsertError } = await supabase
         .from('events')
