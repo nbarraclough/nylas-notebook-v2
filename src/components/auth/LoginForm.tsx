@@ -57,7 +57,7 @@ export function LoginForm() {
             supabaseClient={supabase}
             appearance={{ theme: ThemeSupa }}
             theme="light"
-            providers={['google', 'microsoft']}
+            providers={['google', 'azure']}
             redirectTo={`${siteUrl}/calendar`}
             onlyThirdPartyProviders={true}
             queryParams={{
