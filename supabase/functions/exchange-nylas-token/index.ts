@@ -36,7 +36,12 @@ serve(async (req) => {
     const origin = req.headers.get('origin') || 'http://localhost:5173'
     const redirectUri = `${origin}/calendar`
 
-    console.log('Exchanging code for grant_id...')
+    console.log('Exchanging code for grant_id with params:', {
+      clientId,
+      redirectUri,
+      code: code.substring(0, 10) + '...' // Log partial code for debugging
+    })
+
     // Exchange the code for a nylas_grant_id using production URL
     const tokenResponse = await fetch('https://api.us.nylas.com/v3/connect/token', {
       method: 'POST',
@@ -63,6 +68,8 @@ serve(async (req) => {
     if (!grant_id) {
       throw new Error('No grant_id in Nylas response')
     }
+
+    console.log('Successfully received grant_id:', grant_id)
 
     // Get user ID from auth header
     const authHeader = req.headers.get('Authorization')?.split(' ')[1]
