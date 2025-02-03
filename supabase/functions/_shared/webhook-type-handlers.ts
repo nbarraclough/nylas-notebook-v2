@@ -36,12 +36,29 @@ const convertTimestamp = (timestamp: number | null): string | null => {
 const processEventData = (eventData: any) => {
   console.log('🔄 Processing event data:', JSON.stringify(eventData, null, 2));
   
+  // Ensure when object exists and has required fields
+  if (!eventData.when || !eventData.when.start_time || !eventData.when.end_time) {
+    console.error('Missing required time fields:', eventData.when);
+    throw new Error('Missing required time fields in event data');
+  }
+
+  const startTime = convertTimestamp(eventData.when.start_time);
+  const endTime = convertTimestamp(eventData.when.end_time);
+
+  if (!startTime || !endTime) {
+    console.error('Failed to convert timestamps:', { 
+      start: eventData.when.start_time, 
+      end: eventData.when.end_time 
+    });
+    throw new Error('Failed to convert event timestamps');
+  }
+
   return {
     title: eventData.title,
     description: eventData.description,
     location: eventData.location,
-    start_time: convertTimestamp(eventData.when?.start_time),
-    end_time: convertTimestamp(eventData.when?.end_time),
+    start_time: startTime,
+    end_time: endTime,
     participants: eventData.participants || [],
     conference_url: eventData.conferencing?.details?.url || null,
     ical_uid: eventData.ical_uid,
