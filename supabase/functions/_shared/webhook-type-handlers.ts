@@ -215,11 +215,83 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
         return { success: true, message: 'Event deleted' };
       }
 
-      // Handle other webhook types as needed
-      case 'grant.created':
-      case 'grant.updated':
-      case 'grant.deleted':
-      case 'grant.expired':
+      case 'grant.created': {
+        console.log(`📝 [${requestId}] Processing grant created:`, webhookData.data.object);
+        const { error } = await supabase
+          .from('profiles')
+          .update({ 
+            grant_status: 'active',
+            updated_at: new Date().toISOString()
+          })
+          .eq('nylas_grant_id', effectiveGrantId);
+
+        if (error) {
+          console.error(`❌ [${requestId}] Error updating grant status:`, error);
+          return { success: false, message: error.message };
+        }
+
+        console.log(`✅ [${requestId}] Successfully processed grant creation`);
+        return { success: true, message: 'Grant created successfully' };
+      }
+
+      case 'grant.updated': {
+        console.log(`📝 [${requestId}] Processing grant updated:`, webhookData.data.object);
+        const { error } = await supabase
+          .from('profiles')
+          .update({ 
+            grant_status: 'active',
+            updated_at: new Date().toISOString()
+          })
+          .eq('nylas_grant_id', effectiveGrantId);
+
+        if (error) {
+          console.error(`❌ [${requestId}] Error updating grant status:`, error);
+          return { success: false, message: error.message };
+        }
+
+        console.log(`✅ [${requestId}] Successfully processed grant update`);
+        return { success: true, message: 'Grant updated successfully' };
+      }
+
+      case 'grant.deleted': {
+        console.log(`📝 [${requestId}] Processing grant deleted:`, webhookData.data.object);
+        const { error } = await supabase
+          .from('profiles')
+          .update({ 
+            grant_status: 'revoked',
+            updated_at: new Date().toISOString()
+          })
+          .eq('nylas_grant_id', effectiveGrantId);
+
+        if (error) {
+          console.error(`❌ [${requestId}] Error updating grant status:`, error);
+          return { success: false, message: error.message };
+        }
+
+        console.log(`✅ [${requestId}] Successfully processed grant deletion`);
+        return { success: true, message: 'Grant deleted successfully' };
+      }
+
+      case 'grant.expired': {
+        console.log(`📝 [${requestId}] Processing grant expired:`, webhookData.data.object);
+        const { error } = await supabase
+          .from('profiles')
+          .update({ 
+            grant_status: 'expired',
+            updated_at: new Date().toISOString()
+          })
+          .eq('nylas_grant_id', effectiveGrantId);
+
+        if (error) {
+          console.error(`❌ [${requestId}] Error updating grant status:`, error);
+          return { success: false, message: error.message };
+        }
+
+        console.log(`✅ [${requestId}] Successfully processed grant expiration`);
+        return { success: true, message: 'Grant expiration processed successfully' };
+      }
+
+      default:
         console.warn(`⚠️ [${requestId}] Unhandled webhook type:`, webhookData.type);
         return { success: false, message: `Unhandled webhook type: ${webhookData.type}` };
     }
