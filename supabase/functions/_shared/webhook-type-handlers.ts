@@ -60,6 +60,93 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
         return { success: true, message: 'Notetaker status updated successfully' };
       }
 
+      case 'notetaker.media_updated': {
+        console.log(`📝 [${requestId}] Processing media update:`, webhookData.data.object);
+        
+        const { status, notetaker_id } = webhookData.data.object;
+        
+        if (!notetaker_id) {
+          console.error(`❌ [${requestId}] No notetaker_id in webhook payload`);
+          return { success: false, message: 'No notetaker_id in webhook payload' };
+        }
+
+        // Find recordings with this notetaker_id
+        const { data: recordings, error: fetchError } = await supabase
+          .from('recordings')
+          .select('id, user_id')
+          .eq('notetaker_id', notetaker_id)
+          .eq('status', 'recording');
+
+        if (fetchError) {
+          console.error(`❌ [${requestId}] Error fetching recordings:`, fetchError);
+          return { success: false, message: fetchError.message };
+        }
+
+        if (!recordings || recordings.length === 0) {
+          console.log(`ℹ️ [${requestId}] No recordings found for notetaker_id:`, notetaker_id);
+          return { success: true, message: 'No recordings to update' };
+        }
+
+        if (status === 'media_available') {
+          console.log(`📝 [${requestId}] Media available for recordings:`, recordings.map(r => r.id));
+          
+          // Update recordings to retrieving status
+          const { error: updateError } = await supabase
+            .from('recordings')
+            .update({ 
+              status: 'retrieving',
+              updated_at: new Date().toISOString()
+            })
+            .eq('notetaker_id', notetaker_id);
+
+          if (updateError) {
+            console.error(`❌ [${requestId}] Error updating recordings:`, updateError);
+            return { success: false, message: updateError.message };
+          }
+
+          // Trigger get-recording-media for each recording
+          for (const recording of recordings) {
+            try {
+              console.log(`📝 [${requestId}] Triggering media retrieval for recording:`, recording.id);
+              
+              const { error } = await supabase.functions.invoke('get-recording-media', {
+                body: { 
+                  recordingId: recording.id,
+                  notetakerId: notetaker_id
+                },
+              });
+
+              if (error) {
+                console.error(`❌ [${requestId}] Error triggering media retrieval:`, error);
+                // Continue with other recordings even if one fails
+                continue;
+              }
+            } catch (error) {
+              console.error(`❌ [${requestId}] Error invoking get-recording-media:`, error);
+              // Continue with other recordings even if one fails
+              continue;
+            }
+          }
+        } else if (status === 'processing') {
+          // Update recordings to processing status
+          const { error: updateError } = await supabase
+            .from('recordings')
+            .update({ 
+              status: 'processing',
+              updated_at: new Date().toISOString()
+            })
+            .eq('notetaker_id', notetaker_id);
+
+          if (updateError) {
+            console.error(`❌ [${requestId}] Error updating recordings:`, updateError);
+            return { success: false, message: updateError.message };
+          }
+        }
+
+        console.log(`✅ [${requestId}] Successfully processed media update`);
+        return { success: true, message: 'Media update processed successfully' };
+      }
+
       case 'event.created':
       case 'event.updated': {
         console.log(`📝 [${requestId}] Processing event ${webhookData.type}:`, webhookData.data.object.id);
@@ -133,7 +220,6 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
       case 'grant.updated':
       case 'grant.deleted':
       case 'grant.expired':
-      case 'notetaker.media_updated':
         console.warn(`⚠️ [${requestId}] Unhandled webhook type:`, webhookData.type);
         return { success: false, message: `Unhandled webhook type: ${webhookData.type}` };
     }
