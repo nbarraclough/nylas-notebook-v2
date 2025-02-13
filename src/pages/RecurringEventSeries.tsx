@@ -67,9 +67,9 @@ export default function RecurringEventSeries() {
         .from('recurring_event_notes')
         .select('*')
         .eq('master_event_id', masterId)
-        .single();
+        .maybeSingle();
 
-      if (noteError && noteError.code !== 'PGRST116') throw noteError;
+      if (noteError) throw noteError;
 
       return {
         events: finalEvents || [],
