@@ -2,12 +2,13 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { VideoPlayerView } from "@/components/library/VideoPlayerView";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventList } from "./EventList";
 import { PaginationControls } from "./PaginationControls";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Video, Clock } from "lucide-react";
 import { format } from "date-fns";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 interface RecurringEventInstancesProps {
   events: any[];
@@ -18,8 +19,8 @@ const ITEMS_PER_PAGE = 5;
 export function RecurringEventInstances({ events }: RecurringEventInstancesProps) {
   const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
   const [currentPage, setCurrentPage] = useState(1);
+  const [showOnlyRecordings, setShowOnlyRecordings] = useState(false);
 
   const toggleExpand = (eventId: string) => {
     const newExpanded = new Set(expandedEvents);
@@ -51,15 +52,16 @@ export function RecurringEventInstances({ events }: RecurringEventInstancesProps
   pastEvents.sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
 
   const nextUpcomingMeeting = upcomingEvents[0];
-  const hasRecordings = pastEvents.some(event => event.recordings?.length > 0);
-
-  // Filter current view events based on active tab
-  const currentEvents = activeTab === "upcoming" ? upcomingEvents.slice(1) : pastEvents;
+  
+  // Filter past events if showOnlyRecordings is true
+  const filteredPastEvents = showOnlyRecordings 
+    ? pastEvents.filter(event => event.recordings?.length > 0)
+    : pastEvents;
   
   // Calculate pagination
-  const totalPages = Math.ceil(currentEvents.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredPastEvents.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedEvents = currentEvents.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const paginatedEvents = filteredPastEvents.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   return (
     <div className="space-y-6">
@@ -100,80 +102,51 @@ export function RecurringEventInstances({ events }: RecurringEventInstancesProps
       )}
 
       <div className="space-y-4">
-        <Tabs value={activeTab} onValueChange={(value) => {
-          setActiveTab(value as "upcoming" | "past");
-          setCurrentPage(1);
-        }}>
-          <div className="flex justify-between items-center mb-4">
-            <TabsList>
-              <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-              <TabsTrigger value="past">
-                <div className="flex items-center gap-2">
-                  Past
-                  {hasRecordings && (
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/50">
-                      <Video className="h-3 w-3 mr-1" />
-                      Recordings
-                    </Badge>
-                  )}
-                </div>
-              </TabsTrigger>
-            </TabsList>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Past Meetings</h2>
+          <div className="flex items-center space-x-2">
+            <Checkbox 
+              id="show-recordings"
+              checked={showOnlyRecordings}
+              onCheckedChange={(checked) => {
+                setShowOnlyRecordings(checked as boolean);
+                setCurrentPage(1);
+              }}
+            />
+            <Label 
+              htmlFor="show-recordings"
+              className="text-sm text-muted-foreground cursor-pointer"
+            >
+              Only show meetings with recordings
+            </Label>
           </div>
+        </div>
 
-          <TabsContent value="upcoming" className="space-y-4">
-            {currentEvents.length === 0 ? (
-              <Card className="p-4">
-                <p className="text-center text-muted-foreground">
-                  No more upcoming events
-                </p>
-              </Card>
-            ) : (
-              <>
-                <EventList
-                  events={paginatedEvents}
-                  expandedEvents={expandedEvents}
-                  onToggleExpand={toggleExpand}
-                  onSelectRecording={setSelectedRecording}
-                  isUpcoming={true}
-                />
-                {totalPages > 1 && (
-                  <PaginationControls
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    onPageChange={setCurrentPage}
-                  />
-                )}
-              </>
+        {filteredPastEvents.length === 0 ? (
+          <Card className="p-4">
+            <p className="text-center text-muted-foreground">
+              {showOnlyRecordings 
+                ? "No recorded meetings found" 
+                : "No past meetings found"}
+            </p>
+          </Card>
+        ) : (
+          <>
+            <EventList
+              events={paginatedEvents}
+              expandedEvents={expandedEvents}
+              onToggleExpand={toggleExpand}
+              onSelectRecording={setSelectedRecording}
+            />
+            {totalPages > 1 && (
+              <PaginationControls
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
             )}
-          </TabsContent>
-
-          <TabsContent value="past" className="space-y-4">
-            {currentEvents.length === 0 ? (
-              <Card className="p-4">
-                <p className="text-center text-muted-foreground">
-                  No past events found
-                </p>
-              </Card>
-            ) : (
-              <>
-                <EventList
-                  events={paginatedEvents}
-                  expandedEvents={expandedEvents}
-                  onToggleExpand={toggleExpand}
-                  onSelectRecording={setSelectedRecording}
-                />
-                {totalPages > 1 && (
-                  <PaginationControls
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    onPageChange={setCurrentPage}
-                  />
-                )}
-              </>
-            )}
-          </TabsContent>
-        </Tabs>
+          </>
+        )}
       </div>
 
       {selectedRecording && (
