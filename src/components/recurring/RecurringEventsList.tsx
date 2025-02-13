@@ -108,41 +108,44 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
             value={searchQuery}
             onValueChange={setSearchQuery}
           />
-          {searchQuery && (
-            <ScrollArea className="max-h-[300px]">
-              <CommandEmpty>No results found.</CommandEmpty>
-              <CommandGroup>
-                {searchResults.map((result, index) => (
-                  <Link 
-                    to={`/recurring-event-series/${result.masterId}`}
-                    key={`${result.masterId}-${index}`}
-                  >
-                    <CommandItem
-                      value={result.text}
-                      className="flex items-center gap-2 p-2"
+          <ScrollArea className="max-h-[300px]">
+            {searchQuery ? (
+              searchResults.length > 0 ? (
+                <CommandGroup>
+                  {searchResults.map((result, index) => (
+                    <Link 
+                      to={`/recurring-event-series/${result.masterId}`}
+                      key={`${result.masterId}-${index}`}
                     >
-                      {result.type === 'note' ? (
-                        <StickyNote className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                      )}
-                      <div className="flex flex-col">
-                        <span className="font-medium">
-                          {result.type === 'note' ? 'Note: ' : ''}
-                          {result.text.length > 100 
-                            ? result.text.substring(0, 100) + '...' 
-                            : result.text}
-                        </span>
-                        <span className="text-sm text-muted-foreground">
-                          {result.event.title}
-                        </span>
-                      </div>
-                    </CommandItem>
-                  </Link>
-                ))}
-              </CommandGroup>
-            </ScrollArea>
-          )}
+                      <CommandItem
+                        value={result.text}
+                        className="flex items-center gap-2 p-2"
+                      >
+                        {result.type === 'note' ? (
+                          <StickyNote className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                        )}
+                        <div className="flex flex-col">
+                          <span className="font-medium">
+                            {result.type === 'note' ? 'Note: ' : ''}
+                            {result.text.length > 100 
+                              ? result.text.substring(0, 100) + '...' 
+                              : result.text}
+                          </span>
+                          <span className="text-sm text-muted-foreground">
+                            {result.event.title}
+                          </span>
+                        </div>
+                      </CommandItem>
+                    </Link>
+                  ))}
+                </CommandGroup>
+              ) : (
+                <CommandEmpty>No results found.</CommandEmpty>
+              )
+            ) : null}
+          </ScrollArea>
         </Command>
       </div>
 
