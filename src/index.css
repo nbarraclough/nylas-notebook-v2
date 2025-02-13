@@ -6,25 +6,25 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 167 74% 20%;
+    --foreground: 222 14% 13%;
 
     --card: 0 0% 100%;
-    --card-foreground: 167 74% 20%;
+    --card-foreground: 222 14% 13%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 167 74% 20%;
+    --popover-foreground: 222 14% 13%;
 
     --primary: 167 74% 38%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 167 30% 96%;
-    --secondary-foreground: 167 74% 20%;
+    --secondary-foreground: 222 14% 13%;
 
     --muted: 167 30% 96%;
-    --muted-foreground: 167 20% 65%;
+    --muted-foreground: 215 14% 34%;
 
     --accent: 167 30% 96%;
-    --accent-foreground: 167 74% 20%;
+    --accent-foreground: 222 14% 13%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 167 30% 96%;
@@ -66,7 +66,7 @@
 
 /* Professional typography styles */
 h1, h2, h3, h4, h5, h6 {
-  @apply tracking-tight;
+  @apply tracking-tight text-gray-900;
 }
 
 h1 {
@@ -94,7 +94,7 @@ h2 {
 
 /* Professional form styles */
 .form-input {
-  @apply rounded-md border-gray-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20;
+  @apply rounded-md border-gray-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 text-gray-900;
 }
 
 /* Professional badge styles */
@@ -103,14 +103,39 @@ h2 {
 }
 
 .badge-blue {
-  @apply bg-teal-50 text-teal-700 ring-1 ring-inset ring-teal-700/10;
+  @apply bg-teal-50 text-gray-700 ring-1 ring-inset ring-teal-700/10;
 }
 
 .badge-purple {
-  @apply bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-700/10;
+  @apply bg-purple-50 text-gray-700 ring-1 ring-inset ring-purple-700/10;
 }
 
 /* Professional transitions */
 .transition-smooth {
   @apply transition-all duration-300 ease-in-out;
+}
+
+/* Text styles for better readability */
+p {
+  @apply text-gray-600;
+}
+
+label {
+  @apply text-gray-700;
+}
+
+.text-muted {
+  @apply text-gray-500;
+}
+
+.text-body {
+  @apply text-gray-600;
+}
+
+.text-heading {
+  @apply text-gray-900;
+}
+
+.text-subtle {
+  @apply text-gray-400;
 }
