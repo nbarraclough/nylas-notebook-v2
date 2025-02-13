@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -26,7 +27,7 @@ export function RecurringEventNotes({ masterId, initialContent, onSave }: Recurr
     content: initialContent,
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none px-3 py-2',
+        class: 'min-h-[200px] w-full outline-none prose prose-sm max-w-none px-4 py-3',
       },
     },
   });
@@ -48,13 +49,13 @@ export function RecurringEventNotes({ masterId, initialContent, onSave }: Recurr
   return (
     <div className="space-y-2">
       <h4 className="font-medium">Notes</h4>
-      <div className="border rounded-md">
-        <div className="border-b p-2 flex gap-1 flex-wrap">
+      <div className="border rounded-lg overflow-hidden bg-white shadow-sm transition-all hover:shadow-md">
+        <div className="border-b bg-muted/50 p-2 flex gap-1.5 flex-wrap">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => editor.chain().focus().toggleBold().run()}
-            className={editor.isActive('bold') ? 'bg-muted' : ''}
+            className={`h-8 px-2.5 ${editor.isActive('bold') ? 'bg-muted' : ''}`}
           >
             <Bold className="h-4 w-4" />
           </Button>
@@ -62,7 +63,7 @@ export function RecurringEventNotes({ masterId, initialContent, onSave }: Recurr
             variant="ghost"
             size="sm"
             onClick={() => editor.chain().focus().toggleItalic().run()}
-            className={editor.isActive('italic') ? 'bg-muted' : ''}
+            className={`h-8 px-2.5 ${editor.isActive('italic') ? 'bg-muted' : ''}`}
           >
             <Italic className="h-4 w-4" />
           </Button>
@@ -70,7 +71,7 @@ export function RecurringEventNotes({ masterId, initialContent, onSave }: Recurr
             variant="ghost"
             size="sm"
             onClick={() => editor.chain().focus().toggleBulletList().run()}
-            className={editor.isActive('bulletList') ? 'bg-muted' : ''}
+            className={`h-8 px-2.5 ${editor.isActive('bulletList') ? 'bg-muted' : ''}`}
           >
             <List className="h-4 w-4" />
           </Button>
@@ -78,7 +79,7 @@ export function RecurringEventNotes({ masterId, initialContent, onSave }: Recurr
             variant="ghost"
             size="sm"
             onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-            className={editor.isActive('heading', { level: 3 }) ? 'bg-muted' : ''}
+            className={`h-8 px-2.5 ${editor.isActive('heading', { level: 3 }) ? 'bg-muted' : ''}`}
           >
             <Heading className="h-4 w-4" />
           </Button>
@@ -86,22 +87,27 @@ export function RecurringEventNotes({ masterId, initialContent, onSave }: Recurr
             variant="ghost"
             size="sm"
             onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-            className={editor.isActive('codeBlock') ? 'bg-muted' : ''}
+            className={`h-8 px-2.5 ${editor.isActive('codeBlock') ? 'bg-muted' : ''}`}
           >
             <Code className="h-4 w-4" />
           </Button>
         </div>
-        <div className="min-h-[200px] w-full rounded-md bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+        <div 
+          className="min-h-[200px] w-full cursor-text bg-white ring-offset-background focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2"
+          onClick={() => editor.chain().focus().run()}
+        >
           <EditorContent editor={editor} />
         </div>
       </div>
-      <Button 
-        onClick={handleSave}
-        disabled={isSaving}
-        className="text-white"
-      >
-        {isSaving ? 'Saving...' : 'Save Notes'}
-      </Button>
+      <div className="flex justify-end">
+        <Button 
+          onClick={handleSave}
+          disabled={isSaving}
+          className="text-white"
+        >
+          {isSaving ? 'Saving...' : 'Save Notes'}
+        </Button>
+      </div>
     </div>
   );
 }
