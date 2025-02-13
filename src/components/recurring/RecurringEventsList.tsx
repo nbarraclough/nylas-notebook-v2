@@ -111,7 +111,7 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
         <TabsTrigger value="group">Group Meetings ({groupedEvents.group?.length || 0})</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="all" className="space-y-4">
+      <TabsContent value="all" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {[...(groupedEvents.oneOnOne || []), ...(groupedEvents.group || [])]
           .sort((a, b) => {
             const aIsPinned = a.isPinned ? 1 : 0;
@@ -127,7 +127,7 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
           ))}
       </TabsContent>
 
-      <TabsContent value="oneOnOne" className="space-y-4">
+      <TabsContent value="oneOnOne" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {(groupedEvents.oneOnOne || [])
           .sort((a, b) => {
             const aIsPinned = a.isPinned ? 1 : 0;
@@ -143,7 +143,7 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
           ))}
       </TabsContent>
 
-      <TabsContent value="group" className="space-y-4">
+      <TabsContent value="group" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {(groupedEvents.group || [])
           .sort((a, b) => {
             const aIsPinned = a.isPinned ? 1 : 0;
