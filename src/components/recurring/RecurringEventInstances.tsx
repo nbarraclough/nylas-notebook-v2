@@ -7,8 +7,7 @@ import { PaginationControls } from "./PaginationControls";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Video, Clock } from "lucide-react";
 import { format } from "date-fns";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
+import { Toggle } from "@/components/ui/toggle";
 
 interface RecurringEventInstancesProps {
   events: any[];
@@ -20,7 +19,7 @@ export function RecurringEventInstances({ events }: RecurringEventInstancesProps
   const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
-  const [showOnlyRecordings, setShowOnlyRecordings] = useState(false);
+  const [showOnlyRecordings, setShowOnlyRecordings] = useState(true);
 
   const toggleExpand = (eventId: string) => {
     const newExpanded = new Set(expandedEvents);
@@ -104,22 +103,15 @@ export function RecurringEventInstances({ events }: RecurringEventInstancesProps
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Past Meetings</h2>
-          <div className="flex items-center space-x-2">
-            <Checkbox 
-              id="show-recordings"
-              checked={showOnlyRecordings}
-              onCheckedChange={(checked) => {
-                setShowOnlyRecordings(checked as boolean);
-                setCurrentPage(1);
-              }}
-            />
-            <Label 
-              htmlFor="show-recordings"
-              className="text-sm text-muted-foreground cursor-pointer"
-            >
-              Only show meetings with recordings
-            </Label>
-          </div>
+          <Toggle 
+            pressed={showOnlyRecordings}
+            onPressedChange={setShowOnlyRecordings}
+            variant="outline"
+            className="gap-2"
+          >
+            <Video className="h-4 w-4" />
+            Only show meetings with recordings
+          </Toggle>
         </div>
 
         {filteredPastEvents.length === 0 ? (
