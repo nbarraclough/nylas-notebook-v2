@@ -1,108 +1,35 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { AuthGuard } from "./components/auth/AuthGuard";
-import { NylasAuthGuard } from "./components/auth/NylasAuthGuard";
+
+import { Routes, Route } from "react-router-dom";
+import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Calendar from "./pages/Calendar";
-import Index from "./pages/Index";
-import Library from "./pages/Library";
-import Recordings from "./pages/Recordings";
 import Settings from "./pages/Settings";
+import Library from "./pages/Library";
 import Shared from "./pages/Shared";
+import Queue from "./pages/Queue";
+import AuthGuard from "./components/auth/AuthGuard";
+import NylasAuthGuard from "./components/auth/NylasAuthGuard";
+import Recordings from "./pages/Recordings";
 import RecurringEvents from "./pages/RecurringEvents";
 import RecurringEventSeries from "./pages/RecurringEventSeries";
 
-function App() {
+export default function App() {
   return (
-    <Router>
-      <Routes>
-        {/* Public routes - no auth required */}
-        <Route path="/shared/:token" element={<Shared />} />
-        <Route path="/auth" element={<Auth />} />
-
-        {/* Protected routes - require authentication */}
-        <Route
-          path="/"
-          element={
-            <AuthGuard>
-              <NylasAuthGuard>
-                <Index />
-              </NylasAuthGuard>
-            </AuthGuard>
-          }
-        />
-        <Route
-          path="/calendar"
-          element={
-            <AuthGuard>
-              <NylasAuthGuard>
-                <Calendar />
-              </NylasAuthGuard>
-            </AuthGuard>
-          }
-        />
-        <Route
-          path="/library"
-          element={
-            <AuthGuard>
-              <NylasAuthGuard>
-                <Library />
-              </NylasAuthGuard>
-            </AuthGuard>
-          }
-        />
-        <Route
-          path="/library/:recordingId"
-          element={
-            <AuthGuard>
-              <NylasAuthGuard>
-                <Library />
-              </NylasAuthGuard>
-            </AuthGuard>
-          }
-        />
-        <Route
-          path="/recordings"
-          element={
-            <AuthGuard>
-              <NylasAuthGuard>
-                <Recordings />
-              </NylasAuthGuard>
-            </AuthGuard>
-          }
-        />
-        <Route
-          path="/settings/*"
-          element={
-            <AuthGuard>
-              <NylasAuthGuard>
-                <Settings />
-              </NylasAuthGuard>
-            </AuthGuard>
-          }
-        />
-        <Route
-          path="/recurring-events"
-          element={
-            <AuthGuard>
-              <NylasAuthGuard>
-                <RecurringEvents />
-              </NylasAuthGuard>
-            </AuthGuard>
-          }
-        />
-        <Route
-          path="/recurring-events/:masterId"
-          element={
-            <AuthGuard>
-              <NylasAuthGuard>
-                <RecurringEventSeries />
-              </NylasAuthGuard>
-            </AuthGuard>
-          }
-        />
-      </Routes>
-    </Router>
+    <Routes>
+      <Route path="/" element={<Index />} />
+      <Route path="/auth" element={<Auth />} />
+      <Route path="/shared/:token" element={<Shared />} />
+      <Route element={<AuthGuard />}>
+        <Route element={<NylasAuthGuard />}>
+          <Route path="/calendar" element={<Calendar />} />
+        </Route>
+        <Route path="/settings/*" element={<Settings />} />
+        <Route path="/library" element={<Library />} />
+        <Route path="/queue" element={<Queue />} />
+        <Route path="/recordings" element={<Recordings />} />
+        <Route path="/recurring-events" element={<RecurringEvents />} />
+        <Route path="/recurring-event-series/:masterId" element={<RecurringEventSeries />} />
+      </Route>
+    </Routes>
   );
 }
-
-export default App;
