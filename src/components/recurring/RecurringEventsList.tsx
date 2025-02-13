@@ -1,3 +1,4 @@
+
 import { Card } from "@/components/ui/card";
 import { EventCard } from "./EventCard";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
@@ -7,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Link } from "react-router-dom";
 
 interface RecurringEventsListProps {
-  recurringEvents: Record<string, any[]>;
+  recurringEvents: Record<string, any>;
   isLoading: boolean;
   filters: {
     participants: string[];
@@ -21,35 +22,12 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
   const [searchQuery, setSearchQuery] = useState("");
 
   // Group events by participant count (1:1 vs Group)
-  const groupedEvents = Object.entries(recurringEvents || {}).reduce((acc, [masterId, events]) => {
-    if (!events || events.length === 0) return acc;
+  const groupedEvents = Object.entries(recurringEvents || {}).reduce((acc, [masterId, eventData]) => {
+    if (!eventData || !eventData.latestEvent) return acc;
     
-    const latestEvent = events[0];
-    if (!latestEvent) return acc;
-
-    const participantCount = latestEvent.participants?.length || 0;
+    const participantCount = eventData.latestEvent.participants?.length || 0;
     const isOneOnOne = participantCount === 2; // 2 participants = 1:1 meeting
     
-    const nextEvent = events.find(event => new Date(event.start_time) > new Date());
-    const recordingsCount = events.reduce((count, event) => 
-      count + (event.recordings?.length || 0), 0
-    );
-
-    const notes = events.flatMap(event => 
-      event.recurring_event_notes?.map((note: any) => ({
-        content: note?.content || '',
-        masterId
-      })) || []
-    );
-
-    const eventData = {
-      masterId,
-      latestEvent,
-      nextEvent,
-      recordingsCount,
-      notes
-    };
-
     if (isOneOnOne) {
       if (!acc.oneOnOne) acc.oneOnOne = [];
       acc.oneOnOne.push(eventData);
@@ -62,12 +40,11 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
   }, { oneOnOne: [], group: [] } as Record<string, any[]>);
 
   // Search through events and notes
-  const searchResults = Object.entries(recurringEvents || {}).flatMap(([masterId, events]) => {
-    if (!events || events.length === 0) return [];
+  const searchResults = Object.entries(recurringEvents || {}).flatMap(([masterId, eventData]) => {
+    if (!eventData || !eventData.latestEvent) return [];
     
     const results = [];
-    const latestEvent = events[0];
-    if (!latestEvent) return [];
+    const latestEvent = eventData.latestEvent;
     
     // Search in event title
     if (latestEvent.title?.toLowerCase().includes(searchQuery.toLowerCase())) {
@@ -80,19 +57,15 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
     }
     
     // Search in notes
-    events.forEach(event => {
-      if (!event.recurring_event_notes) return;
-      
-      event.recurring_event_notes.forEach((note: any) => {
-        if (note?.content && note.content.toLowerCase().includes(searchQuery.toLowerCase())) {
-          results.push({
-            type: 'note',
-            masterId,
-            text: note.content,
-            event: latestEvent
-          });
-        }
-      });
+    eventData.notes?.forEach((note: any) => {
+      if (note?.content && note.content.toLowerCase().includes(searchQuery.toLowerCase())) {
+        results.push({
+          type: 'note',
+          masterId,
+          text: note.content,
+          event: latestEvent
+        });
+      }
     });
     
     return results;
