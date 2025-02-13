@@ -1,3 +1,4 @@
+
 import { forwardRef } from "react";
 import { BaseVideoPlayer, type BaseVideoPlayerRef } from "@/components/recordings/player/BaseVideoPlayer";
 
@@ -12,17 +13,15 @@ interface SharedVideoPlayerProps {
 export const SharedVideoPlayer = forwardRef<BaseVideoPlayerRef, SharedVideoPlayerProps>(({ 
   muxPlaybackId
 }, ref) => {
-  // Only use Mux playback URL
-  const getMuxPlaybackUrl = (playbackId: string) => {
-    return `https://stream.mux.com/${playbackId}.m3u8`;
-  };
+  if (!muxPlaybackId) {
+    return (
+      <div className="w-full h-full bg-muted flex items-center justify-center text-muted-foreground">
+        Video not available
+      </div>
+    );
+  }
 
-  const videoSource = muxPlaybackId ? getMuxPlaybackUrl(muxPlaybackId) : null;
-
-  console.log('SharedVideoPlayer initialized with:', {
-    muxPlaybackId,
-    videoSource
-  });
+  const videoSource = `https://stream.mux.com/${muxPlaybackId}.m3u8`;
 
   return (
     <BaseVideoPlayer

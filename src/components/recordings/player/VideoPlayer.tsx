@@ -1,3 +1,4 @@
+
 import { forwardRef } from "react";
 import { BaseVideoPlayer, type BaseVideoPlayerRef } from "./BaseVideoPlayer";
 import type { EventParticipant } from "@/types/calendar";
@@ -16,9 +17,6 @@ interface VideoPlayerProps {
 export type VideoPlayerRef = BaseVideoPlayerRef;
 
 export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
-  recordingId,
-  videoUrl,
-  recordingUrl,
   muxPlaybackId,
 }, ref) => {
   // Only render if we have a Mux playback ID
