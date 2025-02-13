@@ -1,9 +1,10 @@
-import { Card, CardContent } from "@/components/ui/card";
+
+import { useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { EventCard } from "./EventCard";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { EventsSection } from "./EventsSection";
-import { useState, useCallback, useEffect } from "react";
-import { RecurringEventSkeleton } from "./RecurringEventSkeleton";
 
 interface RecurringEventsListProps {
   recurringEvents: Record<string, any[]>;
@@ -16,24 +17,43 @@ interface RecurringEventsListProps {
   };
 }
 
-export function RecurringEventsList({
-  recurringEvents,
-  isLoading,
-  filters,
-}: RecurringEventsListProps) {
+export function RecurringEventsList({ recurringEvents, isLoading, filters }: RecurringEventsListProps) {
+  const [activeTab, setActiveTab] = useState<string>("all");
   const { toast } = useToast();
-  const [localEvents, setLocalEvents] = useState<Record<string, any[]>>({});
-  const [hasInitialData, setHasInitialData] = useState(false);
 
-  // Update local events when we receive initial data
-  useEffect(() => {
-    if (!isLoading && Object.keys(recurringEvents).length > 0) {
-      setLocalEvents(recurringEvents);
-      setHasInitialData(true);
+  // Group events by participant count (1:1 vs Group)
+  const groupedEvents = Object.entries(recurringEvents).reduce((acc, [masterId, events]) => {
+    if (!events || events.length === 0) return acc;
+    
+    const latestEvent = events[0];
+    const participantCount = latestEvent.participants?.length || 0;
+    const isOneOnOne = participantCount === 2; // 2 participants = 1:1 meeting
+    
+    const nextEvent = events.find(event => new Date(event.start_time) > new Date());
+    const recordingsCount = events.reduce((count, event) => 
+      count + (event.recordings?.length || 0), 0
+    );
+
+    const eventData = {
+      masterId,
+      latestEvent,
+      nextEvent,
+      recordingsCount,
+      isPinned: events.some(event => event.recurring_event_notes?.some((note: any) => note.pinned))
+    };
+
+    if (isOneOnOne) {
+      if (!acc.oneOnOne) acc.oneOnOne = [];
+      acc.oneOnOne.push(eventData);
+    } else {
+      if (!acc.group) acc.group = [];
+      acc.group.push(eventData);
     }
-  }, [recurringEvents, isLoading]);
 
-  const togglePin = useCallback(async (masterId: string, currentPinned: boolean) => {
+    return acc;
+  }, { oneOnOne: [], group: [] } as Record<string, any[]>);
+
+  const handleTogglePin = async (masterId: string, currentPinned: boolean) => {
     try {
       const { error } = await supabase
         .from('recurring_event_notes')
@@ -42,138 +62,102 @@ export function RecurringEventsList({
 
       if (error) throw error;
 
-      setLocalEvents(prev => {
-        const updated = { ...prev };
-        const events = updated[masterId];
-        if (events?.[0]) {
-          events[0].recurring_event_notes = events[0].recurring_event_notes || [];
-          if (events[0].recurring_event_notes[0]) {
-            events[0].recurring_event_notes[0].pinned = !currentPinned;
-          } else {
-            events[0].recurring_event_notes[0] = { pinned: !currentPinned };
-          }
-        }
-        return updated;
-      });
-
       toast({
         title: currentPinned ? "Event unpinned" : "Event pinned",
-        description: currentPinned ? "Event removed from pinned items" : "Event will now appear at the top of the list",
+        description: "Your changes have been saved.",
       });
     } catch (error) {
       console.error('Error toggling pin:', error);
       toast({
         title: "Error",
-        description: "Failed to update pin status",
+        description: "Failed to update pin status. Please try again.",
         variant: "destructive",
       });
     }
-  }, [toast]);
+  };
 
-  // Show loading skeleton until we have initial data
-  if (isLoading || !hasInitialData) {
-    return <RecurringEventSkeleton />;
-  }
-
-  const processedEvents = Object.entries(localEvents || {})
-    .map(([masterId, events]) => {
-      if (!events || events.length === 0) return null;
-
-      // Filter events based on date range
-      const filteredEvents = events.filter(event => {
-        if (!event) return false;
-        if (filters.startDate && new Date(event.start_time) < filters.startDate) return false;
-        if (filters.endDate && new Date(event.start_time) > filters.endDate) return false;
-        return true;
-      });
-
-      if (filteredEvents.length === 0) return null;
-
-      // Filter by participants if specified
-      if (filters.participants.length > 0) {
-        const hasMatchingParticipant = filteredEvents.some(event =>
-          filters.participants.some(email =>
-            event.participants?.some((p: any) => p.email === email)
-          )
-        );
-        if (!hasMatchingParticipant) return null;
-      }
-
-      // Filter by search query if specified
-      if (filters.searchQuery) {
-        const hasMatchingTranscript = filteredEvents.some(event =>
-          event.recordings?.some((recording: any) =>
-            recording.transcript_content &&
-            JSON.stringify(recording.transcript_content)
-              .toLowerCase()
-              .includes(filters.searchQuery!.toLowerCase())
-          )
-        );
-        if (!hasMatchingTranscript) return null;
-      }
-
-      const sortedEvents = [...filteredEvents].sort((a, b) => 
-        new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
-      );
-
-      const latestEvent = sortedEvents[0];
-      const now = new Date();
-      const nextEvent = sortedEvents
-        .find(event => new Date(event.start_time) > now);
-
-      const recordingsCount = events.reduce((count, event) => 
-        count + (event.recordings?.length || 0), 0
-      );
-
-      const isPinned = events[0]?.recurring_event_notes?.[0]?.pinned || false;
-
-      return {
-        masterId,
-        latestEvent,
-        nextEvent,
-        recordingsCount,
-        isPinned
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => {
-      // First sort by pin status
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
-
-      // Then sort by next meeting date (if available)
-      const aNextTime = a.nextEvent ? new Date(a.nextEvent.start_time).getTime() : Infinity;
-      const bNextTime = b.nextEvent ? new Date(b.nextEvent.start_time).getTime() : Infinity;
-
-      // Sort by next event time ascending (earlier dates first)
-      return aNextTime - bNextTime;
-    });
-
-  if (!processedEvents || processedEvents.length === 0) {
+  if (isLoading) {
     return (
-      <Card>
-        <CardContent className="p-6 text-center text-muted-foreground">
-          No recurring events found
-        </CardContent>
+      <Card className="p-4">
+        <div className="animate-pulse space-y-4">
+          <div className="h-4 bg-muted rounded w-1/4" />
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-24 bg-muted rounded" />
+            ))}
+          </div>
+        </div>
       </Card>
     );
   }
 
-  const pinnedEvents = processedEvents.filter(event => event.isPinned);
-  const unpinnedEvents = processedEvents.filter(event => !event.isPinned);
+  const totalEvents = (groupedEvents.oneOnOne?.length || 0) + (groupedEvents.group?.length || 0);
+
+  if (totalEvents === 0) {
+    return (
+      <Card className="p-6">
+        <p className="text-center text-muted-foreground">
+          No recurring events found
+        </p>
+      </Card>
+    );
+  }
 
   return (
-    <div className="space-y-8">
-      <EventsSection 
-        title="Pinned Meetings" 
-        events={pinnedEvents}
-        onTogglePin={togglePin}
-      />
-      <EventsSection 
-        title="Recurring Meetings" 
-        events={unpinnedEvents}
-        onTogglePin={togglePin}
-      />
-    </div>
+    <Tabs defaultValue="all" className="space-y-4" onValueChange={setActiveTab}>
+      <TabsList>
+        <TabsTrigger value="all">All</TabsTrigger>
+        <TabsTrigger value="oneOnOne">1:1 Meetings ({groupedEvents.oneOnOne?.length || 0})</TabsTrigger>
+        <TabsTrigger value="group">Group Meetings ({groupedEvents.group?.length || 0})</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="all" className="space-y-4">
+        {[...(groupedEvents.oneOnOne || []), ...(groupedEvents.group || [])]
+          .sort((a, b) => {
+            const aIsPinned = a.isPinned ? 1 : 0;
+            const bIsPinned = b.isPinned ? 1 : 0;
+            return bIsPinned - aIsPinned;
+          })
+          .map((event) => (
+            <EventCard
+              key={event.masterId}
+              event={event}
+              onTogglePin={handleTogglePin}
+            />
+          ))}
+      </TabsContent>
+
+      <TabsContent value="oneOnOne" className="space-y-4">
+        {(groupedEvents.oneOnOne || [])
+          .sort((a, b) => {
+            const aIsPinned = a.isPinned ? 1 : 0;
+            const bIsPinned = b.isPinned ? 1 : 0;
+            return bIsPinned - aIsPinned;
+          })
+          .map((event) => (
+            <EventCard
+              key={event.masterId}
+              event={event}
+              onTogglePin={handleTogglePin}
+            />
+          ))}
+      </TabsContent>
+
+      <TabsContent value="group" className="space-y-4">
+        {(groupedEvents.group || [])
+          .sort((a, b) => {
+            const aIsPinned = a.isPinned ? 1 : 0;
+            const bIsPinned = b.isPinned ? 1 : 0;
+            return bIsPinned - aIsPinned;
+          })
+          .map((event) => (
+            <EventCard
+              key={event.masterId}
+              event={event}
+              onTogglePin={handleTogglePin}
+            />
+          ))}
+      </TabsContent>
+    </Tabs>
   );
 }
