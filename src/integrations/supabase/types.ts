@@ -302,6 +302,62 @@ export type Database = {
           },
         ]
       }
+      message_queue: {
+        Row: {
+          attempts: number
+          created_at: string
+          error_message: string | null
+          id: string
+          max_attempts: number
+          message_type: string
+          organization_id: string | null
+          payload: Json
+          priority: number
+          scheduled_for: string
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          max_attempts?: number
+          message_type: string
+          organization_id?: string | null
+          payload?: Json
+          priority?: number
+          scheduled_for?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          max_attempts?: number
+          message_type?: string
+          organization_id?: string | null
+          payload?: Json
+          priority?: number
+          scheduled_for?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_queue_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notetaker_queue: {
         Row: {
           attempts: number | null
@@ -486,57 +542,72 @@ export type Database = {
       }
       recordings: {
         Row: {
+          action_items: string[] | null
+          ai_summary: string | null
           created_at: string
           duration: number | null
           event_id: string
           id: string
           media_status: string | null
           meeting_state: string | null
+          meeting_topics: string[] | null
           mux_asset_id: string | null
           mux_playback_id: string | null
           notetaker_id: string | null
           notetaker_status: string | null
+          organization_id: string | null
           recording_url: string | null
           status: string
           transcript_content: Json | null
+          transcript_embedding: string | null
           transcript_url: string | null
           updated_at: string
           user_id: string
           video_url: string | null
         }
         Insert: {
+          action_items?: string[] | null
+          ai_summary?: string | null
           created_at?: string
           duration?: number | null
           event_id: string
           id?: string
           media_status?: string | null
           meeting_state?: string | null
+          meeting_topics?: string[] | null
           mux_asset_id?: string | null
           mux_playback_id?: string | null
           notetaker_id?: string | null
           notetaker_status?: string | null
+          organization_id?: string | null
           recording_url?: string | null
           status?: string
           transcript_content?: Json | null
+          transcript_embedding?: string | null
           transcript_url?: string | null
           updated_at?: string
           user_id: string
           video_url?: string | null
         }
         Update: {
+          action_items?: string[] | null
+          ai_summary?: string | null
           created_at?: string
           duration?: number | null
           event_id?: string
           id?: string
           media_status?: string | null
           meeting_state?: string | null
+          meeting_topics?: string[] | null
           mux_asset_id?: string | null
           mux_playback_id?: string | null
           notetaker_id?: string | null
           notetaker_status?: string | null
+          organization_id?: string | null
           recording_url?: string | null
           status?: string
           transcript_content?: Json | null
+          transcript_embedding?: string | null
           transcript_url?: string | null
           updated_at?: string
           user_id?: string
@@ -548,6 +619,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recordings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
@@ -628,6 +706,50 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      storage_config: {
+        Row: {
+          allowed_mime_types: string[]
+          bucket_name: string
+          bucket_path: string
+          created_at: string
+          id: string
+          max_file_size_mb: number
+          organization_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          allowed_mime_types?: string[]
+          bucket_name: string
+          bucket_path: string
+          created_at?: string
+          id?: string
+          max_file_size_mb?: number
+          organization_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          allowed_mime_types?: string[]
+          bucket_name?: string
+          bucket_path?: string
+          created_at?: string
+          id?: string
+          max_file_size_mb?: number
+          organization_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storage_config_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -737,6 +859,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      binary_quantize:
+        | {
+            Args: {
+              "": string
+            }
+            Returns: unknown
+          }
+        | {
+            Args: {
+              "": unknown
+            }
+            Returns: unknown
+          }
       get_shared_recording: {
         Args: {
           p_recording_id: string
@@ -752,6 +887,104 @@ export type Database = {
           event: Json
         }[]
       }
+      halfvec_avg: {
+        Args: {
+          "": number[]
+        }
+        Returns: unknown
+      }
+      halfvec_out: {
+        Args: {
+          "": unknown
+        }
+        Returns: unknown
+      }
+      halfvec_send: {
+        Args: {
+          "": unknown
+        }
+        Returns: string
+      }
+      halfvec_typmod_in: {
+        Args: {
+          "": unknown[]
+        }
+        Returns: number
+      }
+      hnsw_bit_support: {
+        Args: {
+          "": unknown
+        }
+        Returns: unknown
+      }
+      hnsw_halfvec_support: {
+        Args: {
+          "": unknown
+        }
+        Returns: unknown
+      }
+      hnsw_sparsevec_support: {
+        Args: {
+          "": unknown
+        }
+        Returns: unknown
+      }
+      hnswhandler: {
+        Args: {
+          "": unknown
+        }
+        Returns: unknown
+      }
+      ivfflat_bit_support: {
+        Args: {
+          "": unknown
+        }
+        Returns: unknown
+      }
+      ivfflat_halfvec_support: {
+        Args: {
+          "": unknown
+        }
+        Returns: unknown
+      }
+      ivfflathandler: {
+        Args: {
+          "": unknown
+        }
+        Returns: unknown
+      }
+      l2_norm:
+        | {
+            Args: {
+              "": unknown
+            }
+            Returns: number
+          }
+        | {
+            Args: {
+              "": unknown
+            }
+            Returns: number
+          }
+      l2_normalize:
+        | {
+            Args: {
+              "": string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              "": unknown
+            }
+            Returns: unknown
+          }
+        | {
+            Args: {
+              "": unknown
+            }
+            Returns: unknown
+          }
       process_missing_recording_media: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -777,12 +1010,73 @@ export type Database = {
         }
         Returns: boolean
       }
+      sparsevec_out: {
+        Args: {
+          "": unknown
+        }
+        Returns: unknown
+      }
+      sparsevec_send: {
+        Args: {
+          "": unknown
+        }
+        Returns: string
+      }
+      sparsevec_typmod_in: {
+        Args: {
+          "": unknown[]
+        }
+        Returns: number
+      }
       update_profile_grant_id: {
         Args: {
           p_user_id: string
           p_grant_id: string
         }
         Returns: Json
+      }
+      vector_avg: {
+        Args: {
+          "": number[]
+        }
+        Returns: string
+      }
+      vector_dims:
+        | {
+            Args: {
+              "": string
+            }
+            Returns: number
+          }
+        | {
+            Args: {
+              "": unknown
+            }
+            Returns: number
+          }
+      vector_norm: {
+        Args: {
+          "": string
+        }
+        Returns: number
+      }
+      vector_out: {
+        Args: {
+          "": string
+        }
+        Returns: unknown
+      }
+      vector_send: {
+        Args: {
+          "": string
+        }
+        Returns: string
+      }
+      vector_typmod_in: {
+        Args: {
+          "": unknown[]
+        }
+        Returns: number
       }
     }
     Enums: {
