@@ -1,12 +1,12 @@
+
 import { EventCard } from "./EventCard";
 
 interface EventsSectionProps {
   title: string;
   events: any[];
-  onTogglePin: (masterId: string, currentPinned: boolean) => Promise<void>;
 }
 
-export function EventsSection({ title, events, onTogglePin }: EventsSectionProps) {
+export function EventsSection({ title, events }: EventsSectionProps) {
   if (events.length === 0) return null;
 
   return (
@@ -17,7 +17,6 @@ export function EventsSection({ title, events, onTogglePin }: EventsSectionProps
           <EventCard 
             key={event.masterId} 
             event={event} 
-            onTogglePin={onTogglePin}
           />
         ))}
       </div>
