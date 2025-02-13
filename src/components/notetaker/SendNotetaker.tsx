@@ -4,76 +4,51 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Send, Check, X } from "lucide-react";
 import { NotetakerPopoverContent } from "./NotetakerPopoverContent";
 import { useNotetakerMutation } from "./useNotetakerMutation";
-
 export function SendNotetaker() {
   const [meetingInfo, setMeetingInfo] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-
   const handleClear = () => {
     setMeetingInfo("");
   };
-
   const mutation = useNotetakerMutation(() => {
     setMeetingInfo("");
     setIsOpen(false);
   });
-
   const handleSend = () => {
     if (!meetingInfo.trim()) return;
     mutation.mutate(meetingInfo);
   };
-
   const getButtonContent = () => {
     if (mutation.isSuccess) {
-      return (
-        <>
+      return <>
           <Check className="h-4 w-4" />
           Sent ✅
-        </>
-      );
+        </>;
     }
     if (mutation.isError) {
-      return (
-        <>
+      return <>
           <X className="h-4 w-4" />
           Failed ❌
-        </>
-      );
+        </>;
     }
-    return (
-      <>
+    return <>
         <Send className="h-4 w-4" />
         Send Notetaker
-      </>
-    );
+      </>;
   };
-
   const getButtonVariant = () => {
     if (mutation.isSuccess) return "outline";
     if (mutation.isError) return "destructive";
     return "default";
   };
-
-  return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+  return <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <Button 
-          variant={getButtonVariant()}
-          size="sm" 
-          className="gap-2"
-        >
+        <Button variant={getButtonVariant()} size="sm" className="gap-2 text-slate-50">
           {getButtonContent()}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80">
-        <NotetakerPopoverContent
-          meetingInfo={meetingInfo}
-          setMeetingInfo={setMeetingInfo}
-          handleClear={handleClear}
-          handleSend={handleSend}
-          isPending={mutation.isPending}
-        />
+        <NotetakerPopoverContent meetingInfo={meetingInfo} setMeetingInfo={setMeetingInfo} handleClear={handleClear} handleSend={handleSend} isPending={mutation.isPending} />
       </PopoverContent>
-    </Popover>
-  );
+    </Popover>;
 }
