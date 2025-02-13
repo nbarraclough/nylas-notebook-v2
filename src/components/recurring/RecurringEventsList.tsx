@@ -1,8 +1,10 @@
 
 import { Card } from "@/components/ui/card";
 import { EventCard } from "./EventCard";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { StickyNote, Calendar } from "lucide-react";
+import { useState } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface RecurringEventsListProps {
   recurringEvents: Record<string, any[]>;
@@ -16,7 +18,7 @@ interface RecurringEventsListProps {
 }
 
 export function RecurringEventsList({ recurringEvents, isLoading, filters }: RecurringEventsListProps) {
-  const { toast } = useToast();
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Group events by participant count (1:1 vs Group)
   const groupedEvents = Object.entries(recurringEvents).reduce((acc, [masterId, events]) => {
@@ -31,9 +33,11 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
       count + (event.recordings?.length || 0), 0
     );
 
-    // Find if any note is pinned for this recurring event
-    const isPinned = events.some(event => 
-      event.recurring_event_notes?.some((note: any) => note.pinned)
+    const notes = events.flatMap(event => 
+      event.recurring_event_notes?.map((note: any) => ({
+        content: note.content,
+        masterId
+      })) || []
     );
 
     const eventData = {
@@ -41,7 +45,7 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
       latestEvent,
       nextEvent,
       recordingsCount,
-      isPinned
+      notes
     };
 
     if (isOneOnOne) {
@@ -55,57 +59,39 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
     return acc;
   }, { oneOnOne: [], group: [] } as Record<string, any[]>);
 
-  const handleTogglePin = async (masterId: string, currentPinned: boolean) => {
-    try {
-      // First get any existing note for this master event
-      const { data: existingNotes, error: fetchError } = await supabase
-        .from('recurring_event_notes')
-        .select('*')
-        .eq('master_event_id', masterId)
-        .maybeSingle(); // Changed from .single() to .maybeSingle()
-
-      if (fetchError) {
-        throw fetchError;
-      }
-
-      if (existingNotes) {
-        // Update existing note
-        const { error } = await supabase
-          .from('recurring_event_notes')
-          .update({ pinned: !currentPinned })
-          .eq('master_event_id', masterId);
-
-        if (error) throw error;
-      } else {
-        // Create new note with pin
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError) throw userError;
-
-        const { error } = await supabase
-          .from('recurring_event_notes')
-          .insert({
-            master_event_id: masterId,
-            pinned: true,
-            content: '',
-            user_id: userData.user.id // Add user_id for RLS
-          });
-
-        if (error) throw error;
-      }
-
-      toast({
-        title: currentPinned ? "Event unpinned" : "Event pinned",
-        description: "Your changes have been saved.",
-      });
-    } catch (error) {
-      console.error('Error toggling pin:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update pin status. Please try again.",
-        variant: "destructive",
+  // Search through events and notes
+  const searchResults = Object.entries(recurringEvents).flatMap(([masterId, events]) => {
+    if (!events || events.length === 0) return [];
+    
+    const results = [];
+    const latestEvent = events[0];
+    
+    // Search in event title
+    if (latestEvent.title.toLowerCase().includes(searchQuery.toLowerCase())) {
+      results.push({
+        type: 'event',
+        masterId,
+        text: latestEvent.title,
+        event: latestEvent
       });
     }
-  };
+    
+    // Search in notes
+    events.forEach(event => {
+      event.recurring_event_notes?.forEach((note: any) => {
+        if (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase())) {
+          results.push({
+            type: 'note',
+            masterId,
+            text: note.content,
+            event: latestEvent
+          });
+        }
+      });
+    });
+    
+    return results;
+  });
 
   if (isLoading) {
     return (
@@ -136,23 +122,58 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
 
   return (
     <div className="space-y-8">
+      {/* Search Command */}
+      <div className="w-full">
+        <Command className="rounded-lg border shadow-md">
+          <CommandInput 
+            placeholder="Search events and notes..." 
+            value={searchQuery}
+            onValueChange={setSearchQuery}
+          />
+          {searchQuery && (
+            <ScrollArea className="max-h-[300px]">
+              <CommandEmpty>No results found.</CommandEmpty>
+              <CommandGroup>
+                {searchResults.map((result, index) => (
+                  <CommandItem
+                    key={index}
+                    value={result.text}
+                    className="flex items-center gap-2 p-2"
+                  >
+                    {result.type === 'note' ? (
+                      <StickyNote className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <div className="flex flex-col">
+                      <span className="font-medium">
+                        {result.type === 'note' ? 'Note: ' : ''}
+                        {result.text.length > 100 
+                          ? result.text.substring(0, 100) + '...' 
+                          : result.text}
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        {result.event.title}
+                      </span>
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </ScrollArea>
+          )}
+        </Command>
+      </div>
+
       {/* 1:1 Meetings Section */}
       <section>
         <h2 className="text-lg font-semibold mb-4">1:1 Meetings ({groupedEvents.oneOnOne?.length || 0})</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {(groupedEvents.oneOnOne || [])
-            .sort((a, b) => {
-              const aIsPinned = a.isPinned ? 1 : 0;
-              const bIsPinned = b.isPinned ? 1 : 0;
-              return bIsPinned - aIsPinned;
-            })
-            .map((event) => (
-              <EventCard
-                key={event.masterId}
-                event={event}
-                onTogglePin={handleTogglePin}
-              />
-            ))}
+          {(groupedEvents.oneOnOne || []).map((event) => (
+            <EventCard
+              key={event.masterId}
+              event={event}
+            />
+          ))}
         </div>
       </section>
 
@@ -160,19 +181,12 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
       <section>
         <h2 className="text-lg font-semibold mb-4">Group Meetings ({groupedEvents.group?.length || 0})</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {(groupedEvents.group || [])
-            .sort((a, b) => {
-              const aIsPinned = a.isPinned ? 1 : 0;
-              const bIsPinned = b.isPinned ? 1 : 0;
-              return bIsPinned - aIsPinned;
-            })
-            .map((event) => (
-              <EventCard
-                key={event.masterId}
-                event={event}
-                onTogglePin={handleTogglePin}
-              />
-            ))}
+          {(groupedEvents.group || []).map((event) => (
+            <EventCard
+              key={event.masterId}
+              event={event}
+            />
+          ))}
         </div>
       </section>
     </div>
