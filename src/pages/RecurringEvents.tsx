@@ -115,8 +115,16 @@ export default function RecurringEvents() {
   return (
     <PageLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <h1 className="text-2xl font-bold">Recurring Events</h1>
+          <div className="w-[300px]">
+            <RecurringEventsList
+              recurringEvents={recurringEvents || {}}
+              isLoading={isLoading}
+              filters={filters}
+              searchOnly
+            />
+          </div>
         </div>
 
         <RecurringEventsList

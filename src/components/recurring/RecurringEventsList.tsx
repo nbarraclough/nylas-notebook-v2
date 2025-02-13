@@ -16,9 +16,10 @@ interface RecurringEventsListProps {
     endDate: Date | null;
     searchQuery: string | null;
   };
+  searchOnly?: boolean;
 }
 
-export function RecurringEventsList({ recurringEvents, isLoading, filters }: RecurringEventsListProps) {
+export function RecurringEventsList({ recurringEvents, isLoading, filters, searchOnly = false }: RecurringEventsListProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [open, setOpen] = useState(false);
 
@@ -72,6 +73,76 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
     return results;
   });
 
+  if (searchOnly) {
+    return (
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button 
+            variant="outline" 
+            className="w-full justify-start text-muted-foreground"
+          >
+            <Search className="mr-2 h-4 w-4" />
+            Search events and notes...
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="p-0 w-[400px]" align="end">
+          <Command>
+            <CommandInput 
+              placeholder="Search events and notes..." 
+              value={searchQuery}
+              onValueChange={setSearchQuery}
+            />
+            <CommandList>
+              {searchQuery === "" ? null : (
+                <>
+                  {searchResults.length === 0 ? (
+                    <CommandEmpty>No results found.</CommandEmpty>
+                  ) : (
+                    <CommandGroup>
+                      {searchResults.map((result, index) => (
+                        <CommandItem
+                          key={`${result.masterId}-${index}`}
+                          value={result.text}
+                          className="flex items-center gap-2 p-2"
+                          onSelect={() => {
+                            setOpen(false);
+                            setSearchQuery("");
+                          }}
+                        >
+                          <Link 
+                            to={`/recurring-event-series/${result.masterId}`}
+                            className="flex items-center gap-2 w-full"
+                          >
+                            {result.type === 'note' ? (
+                              <StickyNote className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                            )}
+                            <div className="flex flex-col">
+                              <span className="font-medium">
+                                {result.type === 'note' ? 'Note: ' : ''}
+                                {result.text.length > 100 
+                                  ? result.text.substring(0, 100) + '...' 
+                                  : result.text}
+                              </span>
+                              <span className="text-sm text-muted-foreground">
+                                {result.event.title}
+                              </span>
+                            </div>
+                          </Link>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
+                </>
+              )}
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    );
+  }
+
   if (isLoading) {
     return (
       <Card className="p-4">
@@ -101,75 +172,6 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
 
   return (
     <div className="space-y-8">
-      {/* Search Command */}
-      <div className="w-full">
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <Button 
-              variant="outline" 
-              className="w-full justify-start text-muted-foreground"
-            >
-              <Search className="mr-2 h-4 w-4" />
-              Search events and notes...
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="p-0 w-[500px]" align="start">
-            <Command>
-              <CommandInput 
-                placeholder="Search events and notes..." 
-                value={searchQuery}
-                onValueChange={setSearchQuery}
-              />
-              <CommandList>
-                {searchQuery === "" ? null : (
-                  <>
-                    {searchResults.length === 0 ? (
-                      <CommandEmpty>No results found.</CommandEmpty>
-                    ) : (
-                      <CommandGroup>
-                        {searchResults.map((result, index) => (
-                          <CommandItem
-                            key={`${result.masterId}-${index}`}
-                            value={result.text}
-                            className="flex items-center gap-2 p-2"
-                            onSelect={() => {
-                              setOpen(false);
-                              setSearchQuery("");
-                            }}
-                          >
-                            <Link 
-                              to={`/recurring-event-series/${result.masterId}`}
-                              className="flex items-center gap-2 w-full"
-                            >
-                              {result.type === 'note' ? (
-                                <StickyNote className="h-4 w-4 text-muted-foreground" />
-                              ) : (
-                                <Calendar className="h-4 w-4 text-muted-foreground" />
-                              )}
-                              <div className="flex flex-col">
-                                <span className="font-medium">
-                                  {result.type === 'note' ? 'Note: ' : ''}
-                                  {result.text.length > 100 
-                                    ? result.text.substring(0, 100) + '...' 
-                                    : result.text}
-                                </span>
-                                <span className="text-sm text-muted-foreground">
-                                  {result.event.title}
-                                </span>
-                              </div>
-                            </Link>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    )}
-                  </>
-                )}
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
-      </div>
-
       {/* 1:1 Meetings Section */}
       <section className="space-y-4">
         <h2 className="text-2xl font-semibold">1:1 Meetings ({groupedEvents.oneOnOne?.length || 0})</h2>
