@@ -34,6 +34,17 @@ export type NotetakerMeetingState =
   | 'recording_active'
   | 'waiting_for_entry';
 
+export type NotetakerMediaStatus =
+  | 'available'
+  | 'deleted'
+  | 'error'
+  | 'processing';
+
+export interface NotetakerMedia {
+  recording?: string;
+  transcript?: string;
+}
+
 export interface NotetakerStatusData {
   status: NotetakerStatus;
   notetaker_id: string;
@@ -72,6 +83,20 @@ export interface NotetakerMeetingStateData {
   meeting_state: NotetakerMeetingState;
 }
 
+export interface NotetakerMediaData {
+  id: string;
+  grant_id: string;
+  calendar_id?: string;
+  event?: {
+    ical_uid?: string;
+    event_id?: string;
+    master_event_id?: string;
+  };
+  object: 'notetaker';
+  status: NotetakerMediaStatus;
+  media?: NotetakerMedia;
+}
+
 export interface NotetakerStatusWebhook extends NylasWebhookBase<NotetakerStatusData> {
   type: 'notetaker.status_updated';
 }
@@ -82,4 +107,8 @@ export interface NotetakerUpdateWebhook extends NylasWebhookBase<NotetakerUpdate
 
 export interface NotetakerMeetingStateWebhook extends NylasWebhookBase<NotetakerMeetingStateData> {
   type: 'notetaker.meeting_state';
+}
+
+export interface NotetakerMediaWebhook extends NylasWebhookBase<NotetakerMediaData> {
+  type: 'notetaker.media';
 }

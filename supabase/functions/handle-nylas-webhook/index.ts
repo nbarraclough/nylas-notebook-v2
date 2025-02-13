@@ -17,6 +17,7 @@ const SUPPORTED_WEBHOOK_TYPES = [
   "event.created",
   "event.updated",
   "event.deleted",
+  "notetaker.media",
   "notetaker.media_updated",
   "notetaker.status_updated",
   "notetaker.updated",
