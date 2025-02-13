@@ -1,4 +1,3 @@
-
 import { useParams } from "react-router-dom";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { Button } from "@/components/ui/button";
@@ -9,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { RecurringEventInstances } from "@/components/recurring/RecurringEventInstances";
 import { RecurringEventNotes } from "@/components/recurring/RecurringEventNotes";
 import { RecurringRecordingToggle } from "@/components/recurring/RecurringRecordingToggle";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 export default function RecurringEventSeries() {
   const { masterId } = useParams();
