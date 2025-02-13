@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { Database } from './types/database.ts';
 import { unixSecondsToISOString, isValidISOString } from './timestamp-utils.ts';
@@ -54,7 +55,7 @@ export async function processRecurringEvent(
   supabaseServiceKey: string,
   requestId: string
 ): Promise<{ success: boolean; message?: string }> {
-  console.log(`🔄 [${requestId}] Processing event:`, JSON.stringify(event, null, 2));
+  console.log(`🔄 [${requestId}] Processing recurring event:`, JSON.stringify(event, null, 2));
 
   const supabase = createClient<Database>(
     supabaseUrl,
@@ -125,31 +126,56 @@ export async function processRecurringEvent(
       last_updated_at: new Date().toISOString()
     };
 
-    console.log(`📅 [${requestId}] Upserting event data:`, JSON.stringify(eventData, null, 2));
-
-    const { error: upsertError } = await supabase
-      .from('events')
-      .upsert(eventData, {
-        onConflict: 'nylas_event_id,user_id'
-      });
-
-    if (upsertError) {
-      console.error(`❌ [${requestId}] Error upserting event:`, upsertError);
-      return { success: false, message: upsertError.message };
-    }
-
-    // If this is a recurring instance, ensure the master event exists
+    // For recurring instances, check if we already have this instance
     if (event.master_event_id) {
-      console.log(`🔄 [${requestId}] Processing recurring instance with master_event_id:`, event.master_event_id);
-      const { data: masterEvent, error: masterError } = await supabase
+      const { data: existingInstance, error: checkError } = await supabase
         .from('events')
         .select('id')
-        .eq('nylas_event_id', event.master_event_id)
+        .eq('nylas_event_id', event.id)
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
-      if (masterError || !masterEvent) {
-        console.log(`⚠️ [${requestId}] Master event not found, will be fetched by sync job`);
+      if (checkError) {
+        console.error(`❌ [${requestId}] Error checking for existing instance:`, checkError);
+        return { success: false, message: checkError.message };
+      }
+
+      // If instance doesn't exist, insert it
+      if (!existingInstance) {
+        console.log(`📝 [${requestId}] Creating new recurring instance:`, event.id);
+        const { error: insertError } = await supabase
+          .from('events')
+          .insert(eventData);
+
+        if (insertError) {
+          console.error(`❌ [${requestId}] Error inserting recurring instance:`, insertError);
+          return { success: false, message: insertError.message };
+        }
+      } else {
+        // Update existing instance
+        console.log(`📝 [${requestId}] Updating existing recurring instance:`, event.id);
+        const { error: updateError } = await supabase
+          .from('events')
+          .update(eventData)
+          .eq('id', existingInstance.id);
+
+        if (updateError) {
+          console.error(`❌ [${requestId}] Error updating recurring instance:`, updateError);
+          return { success: false, message: updateError.message };
+        }
+      }
+    } else {
+      // For non-recurring events or master events, use upsert
+      console.log(`📝 [${requestId}] Upserting event:`, event.id);
+      const { error: upsertError } = await supabase
+        .from('events')
+        .upsert(eventData, {
+          onConflict: 'nylas_event_id,user_id'
+        });
+
+      if (upsertError) {
+        console.error(`❌ [${requestId}] Error upserting event:`, upsertError);
+        return { success: false, message: upsertError.message };
       }
     }
 
@@ -161,12 +187,10 @@ export async function processRecurringEvent(
 }
 
 export async function cleanupOrphanedInstances(
-  masterEventId: string,
-  userId: string,
   supabaseUrl: string,
   supabaseServiceKey: string
 ): Promise<void> {
-  console.log('🧹 Cleaning up orphaned instances for master event:', masterEventId);
+  console.log('🧹 Cleaning up orphaned recurring instances');
   
   const supabase = createClient<Database>(
     supabaseUrl,
@@ -179,16 +203,46 @@ export async function cleanupOrphanedInstances(
     }
   );
 
-  const { error } = await supabase
-    .from('events')
-    .delete()
-    .eq('master_event_id', masterEventId)
-    .eq('user_id', userId);
+  try {
+    // Find all master_event_ids
+    const { data: masterIds, error: masterError } = await supabase
+      .from('events')
+      .select('master_event_id')
+      .not('master_event_id', 'is', null)
+      .not('master_event_id', 'eq', '')
+      .not('master_event_id', 'eq', 'undefined');
 
-  if (error) {
-    console.error('Error cleaning up orphaned instances:', error);
+    if (masterError) {
+      console.error('Error fetching master events:', masterError);
+      throw masterError;
+    }
+
+    // Get unique master IDs
+    const uniqueMasterIds = [...new Set(masterIds?.map(e => e.master_event_id))];
+    console.log(`Found ${uniqueMasterIds.length} unique master event IDs`);
+
+    // For each master ID, verify the master event exists
+    for (const masterId of uniqueMasterIds) {
+      const { data: masterEvent, error: checkError } = await supabase
+        .from('events')
+        .select('id')
+        .eq('nylas_event_id', masterId)
+        .single();
+
+      if (checkError || !masterEvent) {
+        console.log(`Master event ${masterId} not found, cleaning up instances`);
+        const { error: deleteError } = await supabase
+          .from('events')
+          .delete()
+          .eq('master_event_id', masterId);
+
+        if (deleteError) {
+          console.error(`Error cleaning up instances for master ${masterId}:`, deleteError);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error during cleanup:', error);
     throw error;
   }
-  
-  console.log('✅ Successfully cleaned up orphaned instances');
 }
