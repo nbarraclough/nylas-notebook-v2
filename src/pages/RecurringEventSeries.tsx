@@ -1,3 +1,4 @@
+
 import { useParams } from "react-router-dom";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { Button } from "@/components/ui/button";
@@ -61,18 +62,18 @@ export default function RecurringEventSeries() {
         finalEvents = icalEvents;
       }
 
-      // Get notes separately
-      const { data: notes, error: notesError } = await supabase
+      // Get note for this master_event_id
+      const { data: note, error: noteError } = await supabase
         .from('recurring_event_notes')
         .select('*')
         .eq('master_event_id', masterId)
-        .order('created_at', { ascending: false });
+        .single();
 
-      if (notesError) throw notesError;
+      if (noteError && noteError.code !== 'PGRST116') throw noteError;
 
       return {
         events: finalEvents || [],
-        notes: notes || []
+        note: note || null
       };
     },
   });
@@ -121,7 +122,7 @@ export default function RecurringEventSeries() {
           <div>
             <RecurringEventNotes 
               masterId={masterId || ''}
-              initialContent={events?.notes?.[0]?.content || ''}
+              initialContent={events?.note?.content || ''}
               onSave={async (masterId, content) => {
                 const { error } = await supabase
                   .from('recurring_event_notes')
