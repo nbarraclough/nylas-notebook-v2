@@ -17,6 +17,34 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
     console.log(`📝 [${requestId}] Using grant ID:`, effectiveGrantId);
 
     switch (webhookData.type) {
+      case 'notetaker.updated': {
+        console.log(`📝 [${requestId}] Processing notetaker updated:`, webhookData.data.object);
+        
+        const { id: notetakerId, status, event } = webhookData.data.object;
+        
+        if (!notetakerId) {
+          console.error(`❌ [${requestId}] No notetaker_id in webhook payload`);
+          return { success: false, message: 'No notetaker_id in webhook payload' };
+        }
+
+        // Update recording status based on notetaker status
+        const { error: recordingError } = await supabase
+          .from('recordings')
+          .update({ 
+            notetaker_status: status,
+            updated_at: new Date().toISOString()
+          })
+          .eq('notetaker_id', notetakerId);
+
+        if (recordingError) {
+          console.error(`❌ [${requestId}] Error updating recording:`, recordingError);
+          return { success: false, message: recordingError.message };
+        }
+
+        console.log(`✅ [${requestId}] Successfully processed notetaker updated webhook`);
+        return { success: true, message: 'Notetaker status updated successfully' };
+      }
+
       case 'notetaker.created': {
         console.log(`📝 [${requestId}] Processing notetaker created:`, webhookData.data.object);
         

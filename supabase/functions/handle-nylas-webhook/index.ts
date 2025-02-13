@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from '../_shared/cors.ts'
 import { verifyWebhookSignature } from '../_shared/webhook-verification.ts'
@@ -17,7 +18,8 @@ const SUPPORTED_WEBHOOK_TYPES = [
   "event.updated",
   "event.deleted",
   "notetaker.media_updated",
-  "notetaker.status_updated"  // Added this type
+  "notetaker.status_updated",  // Added this type
+  "notetaker.updated"         // Added this type
 ];
 
 serve(async (req) => {
