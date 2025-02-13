@@ -9,11 +9,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { RecurringEventInstances } from "@/components/recurring/RecurringEventInstances";
 import { RecurringEventNotes } from "@/components/recurring/RecurringEventNotes";
 import { RecurringRecordingToggle } from "@/components/recurring/RecurringRecordingToggle";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function RecurringEventSeries() {
   const { masterId } = useParams();
+  const { toast } = useToast();
 
-  const { data: events, isLoading } = useQuery({
+  const { data: events, isLoading, refetch } = useQuery({
     queryKey: ['recurring-event-series', masterId],
     queryFn: async () => {
       console.log('Starting fetch with masterId:', masterId);
@@ -72,24 +74,26 @@ export default function RecurringEventSeries() {
         console.log('Events found by ical_uid:', icalEvents?.length || 0);
       }
 
-      // Get note for this master_event_id
+      // Get note for this master_event_id and current user
       console.log('Fetching note for master_event_id:', masterId);
+      const { data: userInfo } = await supabase.auth.getUser();
+      const userId = userInfo.user?.id;
+
       const { data: notes, error: notesError } = await supabase
         .from('recurring_event_notes')
         .select('*')
-        .eq('master_event_id', masterId);
+        .eq('master_event_id', masterId)
+        .eq('user_id', userId)
+        .maybeSingle();
 
       if (notesError) {
         console.error('Error fetching notes:', notesError);
         throw notesError;
       }
 
-      console.log('Notes found:', notes?.length || 0);
-      const note = notes && notes.length > 0 ? notes[0] : null;
-
       return {
         events: finalEvents || [],
-        note: note
+        note: notes
       };
     },
   });
@@ -140,15 +144,38 @@ export default function RecurringEventSeries() {
               masterId={masterId || ''}
               initialContent={events?.note?.content || ''}
               onSave={async (masterId, content) => {
-                const { error } = await supabase
-                  .from('recurring_event_notes')
-                  .upsert({
-                    master_event_id: masterId,
-                    content: content,
-                    user_id: (await supabase.auth.getUser()).data.user?.id
-                  });
+                try {
+                  const { data: userInfo } = await supabase.auth.getUser();
+                  const userId = userInfo.user?.id;
 
-                if (error) throw error;
+                  if (!userId) {
+                    throw new Error('User not authenticated');
+                  }
+
+                  const { error } = await supabase
+                    .from('recurring_event_notes')
+                    .upsert({
+                      master_event_id: masterId,
+                      content: content,
+                      user_id: userId
+                    }, {
+                      onConflict: 'master_event_id,user_id'
+                    });
+
+                  if (error) throw error;
+                  
+                  await refetch();
+                  toast({
+                    description: "Notes saved successfully",
+                  });
+                } catch (error) {
+                  console.error('Error saving note:', error);
+                  toast({
+                    variant: "destructive",
+                    description: "Failed to save notes. Please try again.",
+                  });
+                  throw error;
+                }
               }}
             />
           </div>
