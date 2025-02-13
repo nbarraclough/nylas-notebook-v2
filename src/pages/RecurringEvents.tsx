@@ -1,3 +1,4 @@
+
 import { PageLayout } from "@/components/layout/PageLayout";
 import { RecurringEventsList } from "@/components/recurring/RecurringEventsList";
 import { useState } from "react";
@@ -60,7 +61,7 @@ export default function RecurringEvents() {
             )
           `)
           .eq('master_event_id', masterId)
-          .order('start_time', { ascending: false })
+          .order('start_time', { ascending: true })
       );
 
       const eventsResults = await Promise.all(eventsPromises);
@@ -81,6 +82,8 @@ export default function RecurringEvents() {
         throw notesError;
       }
 
+      const now = new Date();
+
       // Group events by master_event_id
       const groupedEvents = masterIds.reduce((acc, masterId, index) => {
         const events = eventsResults[index].data || [];
@@ -88,16 +91,21 @@ export default function RecurringEvents() {
           // Find notes for this master ID
           const eventNotes = notes?.filter(note => note.master_event_id === masterId) || [];
           
-          // Add notes to each event in the group
-          const eventsWithNotes = events.map(event => ({
-            ...event,
-            recurring_event_notes: eventNotes
-          }));
+          // Find the latest and next events
+          const latestEvent = events[0]; // Already sorted by start_time desc
+          const nextEvent = events.find(event => new Date(event.start_time) > now) || null;
           
-          acc[masterId] = eventsWithNotes;
+          // Add to accumulator with the calculated latest and next events
+          acc[masterId] = {
+            masterId,
+            latestEvent,
+            nextEvent,
+            recordingsCount: events.reduce((count, event) => count + (event.recordings?.length || 0), 0),
+            notes: eventNotes
+          };
         }
         return acc;
-      }, {} as Record<string, any[]>);
+      }, {} as Record<string, any>);
 
       console.log('Grouped recurring events:', groupedEvents);
       return groupedEvents;
