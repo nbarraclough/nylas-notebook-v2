@@ -16,7 +16,7 @@ export default function RecurringEventSeries() {
   const { data: events, isLoading } = useQuery({
     queryKey: ['recurring-event-series', masterId],
     queryFn: async () => {
-      console.log('Fetching recurring event series:', masterId);
+      console.log('Starting fetch with masterId:', masterId);
       
       // First get events by master_event_id
       const { data: events, error: eventsError } = await supabase
@@ -36,11 +36,17 @@ export default function RecurringEventSeries() {
         .eq('master_event_id', masterId)
         .order('start_time', { ascending: false });
 
-      if (eventsError) throw eventsError;
+      if (eventsError) {
+        console.error('Error fetching events:', eventsError);
+        throw eventsError;
+      }
+
+      console.log('Events found:', events?.length || 0);
 
       // If no events found by master_event_id, try finding by ical_uid
       let finalEvents = events;
       if (!events?.length && masterId) {
+        console.log('No events found by master_event_id, trying ical_uid');
         const { data: icalEvents, error: icalError } = await supabase
           .from('events')
           .select(`
@@ -58,22 +64,32 @@ export default function RecurringEventSeries() {
           .like('ical_uid', `${masterId}@%`)
           .order('start_time', { ascending: false });
 
-        if (icalError) throw icalError;
+        if (icalError) {
+          console.error('Error fetching ical events:', icalError);
+          throw icalError;
+        }
         finalEvents = icalEvents;
+        console.log('Events found by ical_uid:', icalEvents?.length || 0);
       }
 
       // Get note for this master_event_id
-      const { data: note, error: noteError } = await supabase
+      console.log('Fetching note for master_event_id:', masterId);
+      const { data: notes, error: notesError } = await supabase
         .from('recurring_event_notes')
         .select('*')
-        .eq('master_event_id', masterId)
-        .maybeSingle();
+        .eq('master_event_id', masterId);
 
-      if (noteError) throw noteError;
+      if (notesError) {
+        console.error('Error fetching notes:', notesError);
+        throw notesError;
+      }
+
+      console.log('Notes found:', notes?.length || 0);
+      const note = notes && notes.length > 0 ? notes[0] : null;
 
       return {
         events: finalEvents || [],
-        note: note || null
+        note: note
       };
     },
   });
