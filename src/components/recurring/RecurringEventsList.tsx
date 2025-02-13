@@ -1,10 +1,10 @@
-
 import { Card } from "@/components/ui/card";
 import { EventCard } from "./EventCard";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { StickyNote, Calendar } from "lucide-react";
 import { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Link } from "react-router-dom";
 
 interface RecurringEventsListProps {
   recurringEvents: Record<string, any[]>;
@@ -140,28 +140,32 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
               <CommandEmpty>No results found.</CommandEmpty>
               <CommandGroup>
                 {searchResults.map((result, index) => (
-                  <CommandItem
+                  <Link 
+                    to={`/recurring-event-series/${result.masterId}`}
                     key={`${result.masterId}-${index}`}
-                    value={result.text}
-                    className="flex items-center gap-2 p-2"
                   >
-                    {result.type === 'note' ? (
-                      <StickyNote className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                    )}
-                    <div className="flex flex-col">
-                      <span className="font-medium">
-                        {result.type === 'note' ? 'Note: ' : ''}
-                        {result.text.length > 100 
-                          ? result.text.substring(0, 100) + '...' 
-                          : result.text}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        {result.event.title}
-                      </span>
-                    </div>
-                  </CommandItem>
+                    <CommandItem
+                      value={result.text}
+                      className="flex items-center gap-2 p-2"
+                    >
+                      {result.type === 'note' ? (
+                        <StickyNote className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                      )}
+                      <div className="flex flex-col">
+                        <span className="font-medium">
+                          {result.type === 'note' ? 'Note: ' : ''}
+                          {result.text.length > 100 
+                            ? result.text.substring(0, 100) + '...' 
+                            : result.text}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {result.event.title}
+                        </span>
+                      </div>
+                    </CommandItem>
+                  </Link>
                 ))}
               </CommandGroup>
             </ScrollArea>
@@ -170,9 +174,9 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
       </div>
 
       {/* 1:1 Meetings Section */}
-      <section>
-        <h2 className="text-lg font-semibold mb-4">1:1 Meetings ({groupedEvents.oneOnOne?.length || 0})</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <section className="space-y-4">
+        <h2 className="text-2xl font-semibold">1:1 Meetings ({groupedEvents.oneOnOne?.length || 0})</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {(groupedEvents.oneOnOne || []).map((event) => (
             <EventCard
               key={event.masterId}
@@ -183,9 +187,9 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
       </section>
 
       {/* Group Meetings Section */}
-      <section>
-        <h2 className="text-lg font-semibold mb-4">Group Meetings ({groupedEvents.group?.length || 0})</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <section className="space-y-4">
+        <h2 className="text-2xl font-semibold">Group Meetings ({groupedEvents.group?.length || 0})</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {(groupedEvents.group || []).map((event) => (
             <EventCard
               key={event.masterId}
