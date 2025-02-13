@@ -1,7 +1,5 @@
 
-import { useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EventCard } from "./EventCard";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +16,6 @@ interface RecurringEventsListProps {
 }
 
 export function RecurringEventsList({ recurringEvents, isLoading, filters }: RecurringEventsListProps) {
-  const [activeTab, setActiveTab] = useState<string>("all");
   const { toast } = useToast();
 
   // Group events by participant count (1:1 vs Group)
@@ -104,60 +101,46 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
   }
 
   return (
-    <Tabs defaultValue="all" className="space-y-4" onValueChange={setActiveTab}>
-      <TabsList>
-        <TabsTrigger value="all">All</TabsTrigger>
-        <TabsTrigger value="oneOnOne">1:1 Meetings ({groupedEvents.oneOnOne?.length || 0})</TabsTrigger>
-        <TabsTrigger value="group">Group Meetings ({groupedEvents.group?.length || 0})</TabsTrigger>
-      </TabsList>
+    <div className="space-y-8">
+      {/* 1:1 Meetings Section */}
+      <section>
+        <h2 className="text-lg font-semibold mb-4">1:1 Meetings ({groupedEvents.oneOnOne?.length || 0})</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {(groupedEvents.oneOnOne || [])
+            .sort((a, b) => {
+              const aIsPinned = a.isPinned ? 1 : 0;
+              const bIsPinned = b.isPinned ? 1 : 0;
+              return bIsPinned - aIsPinned;
+            })
+            .map((event) => (
+              <EventCard
+                key={event.masterId}
+                event={event}
+                onTogglePin={handleTogglePin}
+              />
+            ))}
+        </div>
+      </section>
 
-      <TabsContent value="all" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {[...(groupedEvents.oneOnOne || []), ...(groupedEvents.group || [])]
-          .sort((a, b) => {
-            const aIsPinned = a.isPinned ? 1 : 0;
-            const bIsPinned = b.isPinned ? 1 : 0;
-            return bIsPinned - aIsPinned;
-          })
-          .map((event) => (
-            <EventCard
-              key={event.masterId}
-              event={event}
-              onTogglePin={handleTogglePin}
-            />
-          ))}
-      </TabsContent>
-
-      <TabsContent value="oneOnOne" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {(groupedEvents.oneOnOne || [])
-          .sort((a, b) => {
-            const aIsPinned = a.isPinned ? 1 : 0;
-            const bIsPinned = b.isPinned ? 1 : 0;
-            return bIsPinned - aIsPinned;
-          })
-          .map((event) => (
-            <EventCard
-              key={event.masterId}
-              event={event}
-              onTogglePin={handleTogglePin}
-            />
-          ))}
-      </TabsContent>
-
-      <TabsContent value="group" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {(groupedEvents.group || [])
-          .sort((a, b) => {
-            const aIsPinned = a.isPinned ? 1 : 0;
-            const bIsPinned = b.isPinned ? 1 : 0;
-            return bIsPinned - aIsPinned;
-          })
-          .map((event) => (
-            <EventCard
-              key={event.masterId}
-              event={event}
-              onTogglePin={handleTogglePin}
-            />
-          ))}
-      </TabsContent>
-    </Tabs>
+      {/* Group Meetings Section */}
+      <section>
+        <h2 className="text-lg font-semibold mb-4">Group Meetings ({groupedEvents.group?.length || 0})</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {(groupedEvents.group || [])
+            .sort((a, b) => {
+              const aIsPinned = a.isPinned ? 1 : 0;
+              const bIsPinned = b.isPinned ? 1 : 0;
+              return bIsPinned - aIsPinned;
+            })
+            .map((event) => (
+              <EventCard
+                key={event.masterId}
+                event={event}
+                onTogglePin={handleTogglePin}
+              />
+            ))}
+        </div>
+      </section>
+    </div>
   );
 }
