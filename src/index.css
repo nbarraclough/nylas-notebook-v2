@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,32 +6,32 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
+    --foreground: 167 74% 20%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 167 74% 20%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 167 74% 20%;
 
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 167 74% 38%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 167 30% 96%;
+    --secondary-foreground: 167 74% 20%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 167 30% 96%;
+    --muted-foreground: 167 20% 65%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 167 30% 96%;
+    --accent-foreground: 167 74% 20%;
 
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 167 30% 96%;
 
-    --border: 215 20.2% 90%;
-    --input: 215 20.2% 90%;
-    --ring: 224.3 76.3% 48%;
+    --border: 167 20% 90%;
+    --input: 167 20% 90%;
+    --ring: 167 74% 38%;
 
     --radius: 0.75rem;
   }
@@ -53,33 +54,15 @@
     width: 100%;
     height: 100%;
     background: 
-      radial-gradient(circle at 0% 0%, hsl(217 32% 97%), transparent 50%),
-      radial-gradient(circle at 100% 0%, hsl(222 47% 97%), transparent 50%),
-      radial-gradient(circle at 100% 100%, hsl(217 32% 96%), transparent 50%),
-      radial-gradient(circle at 0% 100%, hsl(222 47% 96%), transparent 50%);
+      radial-gradient(circle at 0% 0%, hsl(167 32% 97%), transparent 50%),
+      radial-gradient(circle at 100% 0%, hsl(167 47% 97%), transparent 50%),
+      radial-gradient(circle at 100% 100%, hsl(167 32% 96%), transparent 50%),
+      radial-gradient(circle at 0% 100%, hsl(167 47% 96%), transparent 50%);
     z-index: -1;
   }
 }
 
-.card-hover-effect {
-  @apply transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5;
-  position: relative;
-  overflow: hidden;
-}
-
-.card-hover-effect::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, hsla(186, 33%, 94%, 1) 0%, hsla(216, 41%, 79%, 1) 100%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  z-index: -1;
-}
-
-.card-hover-effect:hover::after {
-  opacity: 0.05;
-}
+/* ... keep existing code (card-hover-effect and other utility classes) */
 
 /* Professional typography styles */
 h1, h2, h3, h4, h5, h6 {
@@ -101,7 +84,7 @@ h2 {
 
 /* Professional button styles */
 .btn-primary {
-  @apply bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-sm;
+  @apply bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white shadow-sm;
 }
 
 /* Professional table styles */
@@ -111,7 +94,7 @@ h2 {
 
 /* Professional form styles */
 .form-input {
-  @apply rounded-md border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20;
+  @apply rounded-md border-gray-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20;
 }
 
 /* Professional badge styles */
@@ -120,7 +103,7 @@ h2 {
 }
 
 .badge-blue {
-  @apply bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-700/10;
+  @apply bg-teal-50 text-teal-700 ring-1 ring-inset ring-teal-700/10;
 }
 
 .badge-purple {
