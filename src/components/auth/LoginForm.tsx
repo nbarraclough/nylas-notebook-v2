@@ -1,3 +1,4 @@
+
 import { Auth as SupabaseAuth } from "@supabase/auth-ui-react";
 import { ThemeSupa } from "@supabase/auth-ui-shared";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,7 +60,7 @@ export function LoginForm() {
             theme="light"
             providers={['google', 'azure']}
             redirectTo={`${siteUrl}/calendar`}
-            onlyThirdPartyProviders={true}
+            onlyThirdPartyProviders={false}
             queryParams={{
               access_type: 'offline',
               prompt: 'consent',
