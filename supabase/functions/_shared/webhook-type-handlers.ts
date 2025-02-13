@@ -17,6 +17,62 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
     console.log(`📝 [${requestId}] Using grant ID:`, effectiveGrantId);
 
     switch (webhookData.type) {
+      case 'notetaker.status_updated': {
+        console.log(`📝 [${requestId}] Processing notetaker status update:`, webhookData.data.object);
+        
+        const { id: notetakerId, status } = webhookData.data.object;
+        
+        if (!notetakerId) {
+          console.error(`❌ [${requestId}] No notetaker_id in webhook payload`);
+          return { success: false, message: 'No notetaker_id in webhook payload' };
+        }
+
+        // Update recording with notetaker status
+        const { error: recordingError } = await supabase
+          .from('recordings')
+          .update({ 
+            notetaker_status: status,
+            updated_at: new Date().toISOString()
+          })
+          .eq('notetaker_id', notetakerId);
+
+        if (recordingError) {
+          console.error(`❌ [${requestId}] Error updating recording:`, recordingError);
+          return { success: false, message: recordingError.message };
+        }
+
+        console.log(`✅ [${requestId}] Successfully processed notetaker status webhook`);
+        return { success: true, message: 'Notetaker status updated successfully' };
+      }
+
+      case 'notetaker.meeting_state': {
+        console.log(`📝 [${requestId}] Processing notetaker meeting state:`, webhookData.data.object);
+        
+        const { id: notetakerId, meeting_state } = webhookData.data.object;
+        
+        if (!notetakerId) {
+          console.error(`❌ [${requestId}] No notetaker_id in webhook payload`);
+          return { success: false, message: 'No notetaker_id in webhook payload' };
+        }
+
+        // Update recording with meeting state
+        const { error: recordingError } = await supabase
+          .from('recordings')
+          .update({ 
+            meeting_state,
+            updated_at: new Date().toISOString()
+          })
+          .eq('notetaker_id', notetakerId);
+
+        if (recordingError) {
+          console.error(`❌ [${requestId}] Error updating recording:`, recordingError);
+          return { success: false, message: recordingError.message };
+        }
+
+        console.log(`✅ [${requestId}] Successfully processed notetaker meeting state webhook`);
+        return { success: true, message: 'Notetaker meeting state updated successfully' };
+      }
+
       case 'notetaker.media': {
         console.log(`📝 [${requestId}] Processing notetaker media:`, webhookData.data.object);
         
@@ -54,35 +110,6 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
 
         console.log(`✅ [${requestId}] Successfully processed notetaker media webhook`);
         return { success: true, message: 'Notetaker media status updated successfully' };
-      }
-
-      case 'notetaker.meeting_state': {
-        console.log(`📝 [${requestId}] Processing notetaker meeting state:`, webhookData.data.object);
-        
-        const { id: notetakerId, meeting_state, status } = webhookData.data.object;
-        
-        if (!notetakerId) {
-          console.error(`❌ [${requestId}] No notetaker_id in webhook payload`);
-          return { success: false, message: 'No notetaker_id in webhook payload' };
-        }
-
-        // Update recording with meeting state
-        const { error: recordingError } = await supabase
-          .from('recordings')
-          .update({ 
-            meeting_state,
-            notetaker_status: status,
-            updated_at: new Date().toISOString()
-          })
-          .eq('notetaker_id', notetakerId);
-
-        if (recordingError) {
-          console.error(`❌ [${requestId}] Error updating recording:`, recordingError);
-          return { success: false, message: recordingError.message };
-        }
-
-        console.log(`✅ [${requestId}] Successfully processed notetaker meeting state webhook`);
-        return { success: true, message: 'Notetaker meeting state updated successfully' };
       }
 
       case 'notetaker.updated': {
