@@ -31,12 +31,17 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
       count + (event.recordings?.length || 0), 0
     );
 
+    // Find if any note is pinned for this recurring event
+    const isPinned = events.some(event => 
+      event.recurring_event_notes?.some((note: any) => note.pinned)
+    );
+
     const eventData = {
       masterId,
       latestEvent,
       nextEvent,
       recordingsCount,
-      isPinned: events.some(event => event.recurring_event_notes?.some((note: any) => note.pinned))
+      isPinned
     };
 
     if (isOneOnOne) {
@@ -52,12 +57,37 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
 
   const handleTogglePin = async (masterId: string, currentPinned: boolean) => {
     try {
-      const { error } = await supabase
+      // First get any existing note for this master event
+      const { data: existingNotes, error: fetchError } = await supabase
         .from('recurring_event_notes')
-        .update({ pinned: !currentPinned })
-        .eq('master_event_id', masterId);
+        .select('*')
+        .eq('master_event_id', masterId)
+        .single();
 
-      if (error) throw error;
+      if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "not found" error
+        throw fetchError;
+      }
+
+      if (existingNotes) {
+        // Update existing note
+        const { error } = await supabase
+          .from('recurring_event_notes')
+          .update({ pinned: !currentPinned })
+          .eq('master_event_id', masterId);
+
+        if (error) throw error;
+      } else {
+        // Create new note with pin
+        const { error } = await supabase
+          .from('recurring_event_notes')
+          .insert({
+            master_event_id: masterId,
+            pinned: true,
+            content: ''
+          });
+
+        if (error) throw error;
+      }
 
       toast({
         title: currentPinned ? "Event unpinned" : "Event pinned",
