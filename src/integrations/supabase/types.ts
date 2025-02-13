@@ -490,6 +490,8 @@ export type Database = {
           duration: number | null
           event_id: string
           id: string
+          media_status: string | null
+          meeting_state: string | null
           mux_asset_id: string | null
           mux_playback_id: string | null
           notetaker_id: string | null
@@ -507,6 +509,8 @@ export type Database = {
           duration?: number | null
           event_id: string
           id?: string
+          media_status?: string | null
+          meeting_state?: string | null
           mux_asset_id?: string | null
           mux_playback_id?: string | null
           notetaker_id?: string | null
@@ -524,6 +528,8 @@ export type Database = {
           duration?: number | null
           event_id?: string
           id?: string
+          media_status?: string | null
+          meeting_state?: string | null
           mux_asset_id?: string | null
           mux_playback_id?: string | null
           notetaker_id?: string | null
