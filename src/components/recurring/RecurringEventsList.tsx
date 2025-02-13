@@ -19,6 +19,23 @@ interface RecurringEventsListProps {
   searchOnly?: boolean;
 }
 
+// Helper function to strip HTML tags
+const stripHtml = (html: string) => {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  return doc.body.textContent || '';
+};
+
+// Helper function to highlight search matches
+const highlightMatches = (text: string, query: string) => {
+  if (!query) return text;
+  const parts = text.split(new RegExp(`(${query})`, 'gi'));
+  return parts.map((part, i) => 
+    part.toLowerCase() === query.toLowerCase() ? 
+      <strong key={i} className="font-bold bg-yellow-100 dark:bg-yellow-900">{part}</strong> : 
+      part
+  );
+};
+
 export function RecurringEventsList({ recurringEvents, isLoading, filters, searchOnly = false }: RecurringEventsListProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -60,13 +77,16 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters, searc
     
     // Search in notes
     eventData.notes?.forEach((note: any) => {
-      if (note?.content && note.content.toLowerCase().includes(searchQuery.toLowerCase())) {
-        results.push({
-          type: 'note',
-          masterId,
-          text: note.content,
-          event: latestEvent
-        });
+      if (note?.content) {
+        const plainTextContent = stripHtml(note.content);
+        if (plainTextContent.toLowerCase().includes(searchQuery.toLowerCase())) {
+          results.push({
+            type: 'note',
+            masterId,
+            text: plainTextContent,
+            event: latestEvent
+          });
+        }
       }
     });
     
@@ -114,18 +134,23 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters, searc
                             className="flex items-center gap-2 w-full"
                           >
                             {result.type === 'note' ? (
-                              <StickyNote className="h-4 w-4 text-muted-foreground" />
+                              <StickyNote className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                             ) : (
-                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                              <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                             )}
-                            <div className="flex flex-col">
-                              <span className="font-medium">
-                                {result.type === 'note' ? 'Note: ' : ''}
-                                {result.text.length > 100 
-                                  ? result.text.substring(0, 100) + '...' 
-                                  : result.text}
-                              </span>
-                              <span className="text-sm text-muted-foreground">
+                            <div className="flex flex-col overflow-hidden">
+                              <div className="font-medium truncate">
+                                {result.type === 'note' && (
+                                  <span className="text-muted-foreground">Note: </span>
+                                )}
+                                {highlightMatches(
+                                  result.text.length > 100 
+                                    ? result.text.substring(0, 100) + '...' 
+                                    : result.text,
+                                  searchQuery
+                                )}
+                              </div>
+                              <span className="text-sm text-muted-foreground truncate">
                                 {result.event.title}
                               </span>
                             </div>
