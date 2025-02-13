@@ -1,7 +1,7 @@
 
 import { Card } from "@/components/ui/card";
 import { EventCard } from "./EventCard";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { StickyNote, Calendar } from "lucide-react";
 import { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -108,44 +108,47 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
             value={searchQuery}
             onValueChange={setSearchQuery}
           />
-          <ScrollArea className="max-h-[300px]">
-            {searchQuery ? (
-              searchResults.length > 0 ? (
-                <CommandGroup>
-                  {searchResults.map((result, index) => (
-                    <Link 
-                      to={`/recurring-event-series/${result.masterId}`}
-                      key={`${result.masterId}-${index}`}
-                    >
+          <CommandList>
+            {searchQuery === "" ? null : (
+              <>
+                {searchResults.length === 0 ? (
+                  <CommandEmpty>No results found.</CommandEmpty>
+                ) : (
+                  <CommandGroup>
+                    {searchResults.map((result, index) => (
                       <CommandItem
+                        key={`${result.masterId}-${index}`}
                         value={result.text}
                         className="flex items-center gap-2 p-2"
                       >
-                        {result.type === 'note' ? (
-                          <StickyNote className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                        )}
-                        <div className="flex flex-col">
-                          <span className="font-medium">
-                            {result.type === 'note' ? 'Note: ' : ''}
-                            {result.text.length > 100 
-                              ? result.text.substring(0, 100) + '...' 
-                              : result.text}
-                          </span>
-                          <span className="text-sm text-muted-foreground">
-                            {result.event.title}
-                          </span>
-                        </div>
+                        <Link 
+                          to={`/recurring-event-series/${result.masterId}`}
+                          className="flex items-center gap-2 w-full"
+                        >
+                          {result.type === 'note' ? (
+                            <StickyNote className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          <div className="flex flex-col">
+                            <span className="font-medium">
+                              {result.type === 'note' ? 'Note: ' : ''}
+                              {result.text.length > 100 
+                                ? result.text.substring(0, 100) + '...' 
+                                : result.text}
+                            </span>
+                            <span className="text-sm text-muted-foreground">
+                              {result.event.title}
+                            </span>
+                          </div>
+                        </Link>
                       </CommandItem>
-                    </Link>
-                  ))}
-                </CommandGroup>
-              ) : (
-                <CommandEmpty>No results found.</CommandEmpty>
-              )
-            ) : null}
-          </ScrollArea>
+                    ))}
+                  </CommandGroup>
+                )}
+              </>
+            )}
+          </CommandList>
         </Command>
       </div>
 
