@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -84,16 +85,14 @@ export const RecordingRules = ({
       });
 
       if (evalError) throw evalError;
+
+      return data;
     },
-    onSuccess: (_, variables) => {
-      onRulesChange(variables);
+    onMutate: (variables) => {
+      // Optimistically update local state
       setLocalState(prev => ({ ...prev, ...variables }));
-      toast({
-        title: "Success",
-        description: "Settings updated successfully!",
-      });
     },
-    onError: (error) => {
+    onError: (error, variables) => {
       console.error('Error updating profile:', error);
       // Revert local state on error
       if (profile) {
@@ -110,29 +109,32 @@ export const RecordingRules = ({
         variant: "destructive",
       });
     },
+    onSuccess: (_, variables) => {
+      onRulesChange(variables);
+      toast({
+        title: "Success",
+        description: "Settings updated successfully!",
+      });
+    }
   });
 
   const handleRecordExternalChange = () => {
     const newValue = !localState.record_external_meetings;
-    setLocalState(prev => ({ ...prev, record_external_meetings: newValue }));
     updateProfile.mutate({ record_external_meetings: newValue });
   };
 
   const handleRecordInternalChange = () => {
     const newValue = !localState.record_internal_meetings;
-    setLocalState(prev => ({ ...prev, record_internal_meetings: newValue }));
     updateProfile.mutate({ record_internal_meetings: newValue });
   };
 
   const handleShareExternalChange = () => {
     const newValue = !localState.share_external_recordings;
-    setLocalState(prev => ({ ...prev, share_external_recordings: newValue }));
     updateProfile.mutate({ share_external_recordings: newValue });
   };
 
   const handleShareInternalChange = () => {
     const newValue = !localState.share_internal_recordings;
-    setLocalState(prev => ({ ...prev, share_internal_recordings: newValue }));
     updateProfile.mutate({ share_internal_recordings: newValue });
   };
 
@@ -191,7 +193,6 @@ export const RecordingRules = ({
             <Switch 
               checked={localState.record_external_meetings}
               onCheckedChange={handleRecordExternalChange}
-              disabled={updateProfile.isPending}
             />
           </div>
           <div className="flex items-center justify-between">
@@ -204,7 +205,6 @@ export const RecordingRules = ({
             <Switch 
               checked={localState.record_internal_meetings}
               onCheckedChange={handleRecordInternalChange}
-              disabled={updateProfile.isPending}
             />
           </div>
         </CardContent>
@@ -225,7 +225,6 @@ export const RecordingRules = ({
             <Switch 
               checked={localState.share_internal_recordings}
               onCheckedChange={handleShareInternalChange}
-              disabled={updateProfile.isPending}
             />
           </div>
           <div className="flex items-center justify-between">
@@ -238,7 +237,6 @@ export const RecordingRules = ({
             <Switch 
               checked={localState.share_external_recordings}
               onCheckedChange={handleShareExternalChange}
-              disabled={updateProfile.isPending}
             />
           </div>
         </CardContent>
