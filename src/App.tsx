@@ -12,6 +12,7 @@ import { NylasAuthGuard } from "./components/auth/NylasAuthGuard";
 import Recordings from "./pages/Recordings";
 import RecurringEvents from "./pages/RecurringEvents";
 import RecurringEventSeries from "./pages/RecurringEventSeries";
+import { Outlet } from "react-router-dom";
 
 export default function App() {
   return (
@@ -19,8 +20,8 @@ export default function App() {
       <Route path="/" element={<Index />} />
       <Route path="/auth" element={<Auth />} />
       <Route path="/shared/:token" element={<Shared />} />
-      <Route element={<AuthGuard />}>
-        <Route element={<NylasAuthGuard />}>
+      <Route element={<AuthGuard><Outlet /></AuthGuard>}>
+        <Route element={<NylasAuthGuard><Outlet /></NylasAuthGuard>}>
           <Route path="/calendar" element={<Calendar />} />
         </Route>
         <Route path="/settings/*" element={<Settings />} />
