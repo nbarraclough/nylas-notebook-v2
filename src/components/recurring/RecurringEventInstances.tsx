@@ -1,9 +1,13 @@
+
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { VideoPlayerView } from "@/components/library/VideoPlayerView";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventList } from "./EventList";
 import { PaginationControls } from "./PaginationControls";
+import { Badge } from "@/components/ui/badge";
+import { Calendar, Video, Clock } from "lucide-react";
+import { format } from "date-fns";
 
 interface RecurringEventInstancesProps {
   events: any[];
@@ -27,48 +31,101 @@ export function RecurringEventInstances({ events }: RecurringEventInstancesProps
     setExpandedEvents(newExpanded);
   };
 
-  // Filter and sort events based on current date and tab
+  // Filter and sort events based on current date
   const now = new Date();
-  const filteredEvents = events
-    .filter(event => {
+  const { upcomingEvents, pastEvents } = events.reduce(
+    (acc, event) => {
       const eventDate = new Date(event.start_time);
-      return activeTab === "upcoming" ? eventDate >= now : eventDate < now;
-    })
-    .sort((a, b) => {
-      const dateA = new Date(a.start_time);
-      const dateB = new Date(b.start_time);
-      return activeTab === "upcoming" 
-        ? dateA.getTime() - dateB.getTime()  // Ascending for upcoming
-        : dateB.getTime() - dateA.getTime(); // Descending for past
-    });
+      if (eventDate >= now) {
+        acc.upcomingEvents.push(event);
+      } else {
+        acc.pastEvents.push(event);
+      }
+      return acc;
+    },
+    { upcomingEvents: [], pastEvents: [] }
+  );
 
+  // Sort upcoming events ascending, past events descending
+  upcomingEvents.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+  pastEvents.sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
+
+  const nextUpcomingMeeting = upcomingEvents[0];
+  const hasRecordings = pastEvents.some(event => event.recordings?.length > 0);
+
+  // Filter current view events based on active tab
+  const currentEvents = activeTab === "upcoming" ? upcomingEvents.slice(1) : pastEvents;
+  
   // Calculate pagination
-  const totalPages = Math.ceil(filteredEvents.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(currentEvents.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedEvents = filteredEvents.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-
-  // Reset to first page when changing tabs
-  const handleTabChange = (value: string) => {
-    setActiveTab(value as "upcoming" | "past");
-    setCurrentPage(1);
-  };
+  const paginatedEvents = currentEvents.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   return (
-    <div className="space-y-4">
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h4 className="font-medium text-lg">Events & Recordings</h4>
+    <div className="space-y-6">
+      {nextUpcomingMeeting && (
+        <Card className="p-6 bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-800">
+          <div className="space-y-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Next Meeting</h3>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                  <Calendar className="h-4 w-4" />
+                  <span>{format(new Date(nextUpcomingMeeting.start_time), "EEEE, MMMM d")}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  <span>{format(new Date(nextUpcomingMeeting.start_time), "h:mm a")}</span>
+                </div>
+              </div>
+              {nextUpcomingMeeting.conference_url && (
+                <a
+                  href={nextUpcomingMeeting.conference_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors"
+                >
+                  Join Meeting
+                </a>
+              )}
+            </div>
+            {nextUpcomingMeeting.description && (
+              <div className="bg-white dark:bg-purple-900/30 rounded-md p-4">
+                <h4 className="text-sm font-medium mb-2">Meeting Agenda</h4>
+                <div className="text-sm text-muted-foreground">{nextUpcomingMeeting.description}</div>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      <div className="space-y-4">
+        <Tabs value={activeTab} onValueChange={(value) => {
+          setActiveTab(value as "upcoming" | "past");
+          setCurrentPage(1);
+        }}>
+          <div className="flex justify-between items-center mb-4">
             <TabsList>
               <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-              <TabsTrigger value="past">Past</TabsTrigger>
+              <TabsTrigger value="past">
+                <div className="flex items-center gap-2">
+                  Past
+                  {hasRecordings && (
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/50">
+                      <Video className="h-3 w-3 mr-1" />
+                      Recordings
+                    </Badge>
+                  )}
+                </div>
+              </TabsTrigger>
             </TabsList>
           </div>
-          <TabsContent value="upcoming">
-            {paginatedEvents.length === 0 ? (
+
+          <TabsContent value="upcoming" className="space-y-4">
+            {currentEvents.length === 0 ? (
               <Card className="p-4">
                 <p className="text-center text-muted-foreground">
-                  No upcoming events found
+                  No more upcoming events
                 </p>
               </Card>
             ) : (
@@ -78,6 +135,7 @@ export function RecurringEventInstances({ events }: RecurringEventInstancesProps
                   expandedEvents={expandedEvents}
                   onToggleExpand={toggleExpand}
                   onSelectRecording={setSelectedRecording}
+                  isUpcoming={true}
                 />
                 {totalPages > 1 && (
                   <PaginationControls
@@ -89,8 +147,9 @@ export function RecurringEventInstances({ events }: RecurringEventInstancesProps
               </>
             )}
           </TabsContent>
-          <TabsContent value="past">
-            {paginatedEvents.length === 0 ? (
+
+          <TabsContent value="past" className="space-y-4">
+            {currentEvents.length === 0 ? (
               <Card className="p-4">
                 <p className="text-center text-muted-foreground">
                   No past events found
@@ -114,8 +173,8 @@ export function RecurringEventInstances({ events }: RecurringEventInstancesProps
               </>
             )}
           </TabsContent>
-        </div>
-      </Tabs>
+        </Tabs>
+      </div>
 
       {selectedRecording && (
         <VideoPlayerView
