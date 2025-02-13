@@ -62,9 +62,9 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
         .from('recurring_event_notes')
         .select('*')
         .eq('master_event_id', masterId)
-        .single();
+        .maybeSingle(); // Changed from .single() to .maybeSingle()
 
-      if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "not found" error
+      if (fetchError) {
         throw fetchError;
       }
 
@@ -78,12 +78,16 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
         if (error) throw error;
       } else {
         // Create new note with pin
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError) throw userError;
+
         const { error } = await supabase
           .from('recurring_event_notes')
           .insert({
             master_event_id: masterId,
             pinned: true,
-            content: ''
+            content: '',
+            user_id: userData.user.id // Add user_id for RLS
           });
 
         if (error) throw error;
