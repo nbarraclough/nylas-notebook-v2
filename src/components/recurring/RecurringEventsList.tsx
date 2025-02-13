@@ -21,10 +21,12 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
   const [searchQuery, setSearchQuery] = useState("");
 
   // Group events by participant count (1:1 vs Group)
-  const groupedEvents = Object.entries(recurringEvents).reduce((acc, [masterId, events]) => {
+  const groupedEvents = Object.entries(recurringEvents || {}).reduce((acc, [masterId, events]) => {
     if (!events || events.length === 0) return acc;
     
     const latestEvent = events[0];
+    if (!latestEvent) return acc;
+
     const participantCount = latestEvent.participants?.length || 0;
     const isOneOnOne = participantCount === 2; // 2 participants = 1:1 meeting
     
@@ -35,7 +37,7 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
 
     const notes = events.flatMap(event => 
       event.recurring_event_notes?.map((note: any) => ({
-        content: note.content,
+        content: note?.content || '',
         masterId
       })) || []
     );
@@ -60,14 +62,15 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
   }, { oneOnOne: [], group: [] } as Record<string, any[]>);
 
   // Search through events and notes
-  const searchResults = Object.entries(recurringEvents).flatMap(([masterId, events]) => {
+  const searchResults = Object.entries(recurringEvents || {}).flatMap(([masterId, events]) => {
     if (!events || events.length === 0) return [];
     
     const results = [];
     const latestEvent = events[0];
+    if (!latestEvent) return [];
     
     // Search in event title
-    if (latestEvent.title.toLowerCase().includes(searchQuery.toLowerCase())) {
+    if (latestEvent.title?.toLowerCase().includes(searchQuery.toLowerCase())) {
       results.push({
         type: 'event',
         masterId,
@@ -78,8 +81,10 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
     
     // Search in notes
     events.forEach(event => {
-      event.recurring_event_notes?.forEach((note: any) => {
-        if (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase())) {
+      if (!event.recurring_event_notes) return;
+      
+      event.recurring_event_notes.forEach((note: any) => {
+        if (note?.content && note.content.toLowerCase().includes(searchQuery.toLowerCase())) {
           results.push({
             type: 'note',
             masterId,
@@ -136,7 +141,7 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
               <CommandGroup>
                 {searchResults.map((result, index) => (
                   <CommandItem
-                    key={index}
+                    key={`${result.masterId}-${index}`}
                     value={result.text}
                     className="flex items-center gap-2 p-2"
                   >
