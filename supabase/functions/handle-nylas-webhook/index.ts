@@ -18,8 +18,9 @@ const SUPPORTED_WEBHOOK_TYPES = [
   "event.updated",
   "event.deleted",
   "notetaker.media_updated",
-  "notetaker.status_updated",  // Added this type
-  "notetaker.updated"         // Added this type
+  "notetaker.status_updated",
+  "notetaker.updated",
+  "notetaker.meeting_state"
 ];
 
 serve(async (req) => {

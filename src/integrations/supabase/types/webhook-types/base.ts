@@ -21,6 +21,19 @@ export type NotetakerStatus =
   | 'disconnected'
   | 'waiting_for_entry';
 
+export type NotetakerMeetingState =
+  | 'api'
+  | 'bad_meeting_code'
+  | 'dispatched'
+  | 'entry_denied'
+  | 'internal_error'
+  | 'kicked'
+  | 'no_meeting_activity'
+  | 'no_participants'
+  | 'no_response'
+  | 'recording_active'
+  | 'waiting_for_entry';
+
 export interface NotetakerStatusData {
   status: NotetakerStatus;
   notetaker_id: string;
@@ -45,10 +58,28 @@ export interface NotetakerUpdateData {
   status: NotetakerStatus;
 }
 
+export interface NotetakerMeetingStateData {
+  id: string;
+  grant_id: string;
+  calendar_id?: string;
+  event?: {
+    ical_uid?: string;
+    event_id?: string;
+    master_event_id?: string;
+  };
+  object: 'notetaker';
+  status: NotetakerStatus;
+  meeting_state: NotetakerMeetingState;
+}
+
 export interface NotetakerStatusWebhook extends NylasWebhookBase<NotetakerStatusData> {
   type: 'notetaker.status_updated';
 }
 
 export interface NotetakerUpdateWebhook extends NylasWebhookBase<NotetakerUpdateData> {
   type: 'notetaker.updated';
+}
+
+export interface NotetakerMeetingStateWebhook extends NylasWebhookBase<NotetakerMeetingStateData> {
+  type: 'notetaker.meeting_state';
 }
