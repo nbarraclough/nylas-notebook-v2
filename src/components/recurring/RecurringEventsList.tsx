@@ -1,10 +1,10 @@
-
 import { Card } from "@/components/ui/card";
 import { EventCard } from "./EventCard";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { StickyNote, Calendar } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { StickyNote, Calendar, Search } from "lucide-react";
 import { useState } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Link } from "react-router-dom";
 
 interface RecurringEventsListProps {
@@ -20,6 +20,7 @@ interface RecurringEventsListProps {
 
 export function RecurringEventsList({ recurringEvents, isLoading, filters }: RecurringEventsListProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [open, setOpen] = useState(false);
 
   // Group events by participant count (1:1 vs Group)
   const groupedEvents = Object.entries(recurringEvents || {}).reduce((acc, [masterId, eventData]) => {
@@ -102,54 +103,71 @@ export function RecurringEventsList({ recurringEvents, isLoading, filters }: Rec
     <div className="space-y-8">
       {/* Search Command */}
       <div className="w-full">
-        <Command className="rounded-lg border shadow-md">
-          <CommandInput 
-            placeholder="Search events and notes..." 
-            value={searchQuery}
-            onValueChange={setSearchQuery}
-          />
-          <CommandList>
-            {searchQuery === "" ? null : (
-              <>
-                {searchResults.length === 0 ? (
-                  <CommandEmpty>No results found.</CommandEmpty>
-                ) : (
-                  <CommandGroup>
-                    {searchResults.map((result, index) => (
-                      <CommandItem
-                        key={`${result.masterId}-${index}`}
-                        value={result.text}
-                        className="flex items-center gap-2 p-2"
-                      >
-                        <Link 
-                          to={`/recurring-event-series/${result.masterId}`}
-                          className="flex items-center gap-2 w-full"
-                        >
-                          {result.type === 'note' ? (
-                            <StickyNote className="h-4 w-4 text-muted-foreground" />
-                          ) : (
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                          )}
-                          <div className="flex flex-col">
-                            <span className="font-medium">
-                              {result.type === 'note' ? 'Note: ' : ''}
-                              {result.text.length > 100 
-                                ? result.text.substring(0, 100) + '...' 
-                                : result.text}
-                            </span>
-                            <span className="text-sm text-muted-foreground">
-                              {result.event.title}
-                            </span>
-                          </div>
-                        </Link>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button 
+              variant="outline" 
+              className="w-full justify-start text-muted-foreground"
+            >
+              <Search className="mr-2 h-4 w-4" />
+              Search events and notes...
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="p-0 w-[500px]" align="start">
+            <Command>
+              <CommandInput 
+                placeholder="Search events and notes..." 
+                value={searchQuery}
+                onValueChange={setSearchQuery}
+              />
+              <CommandList>
+                {searchQuery === "" ? null : (
+                  <>
+                    {searchResults.length === 0 ? (
+                      <CommandEmpty>No results found.</CommandEmpty>
+                    ) : (
+                      <CommandGroup>
+                        {searchResults.map((result, index) => (
+                          <CommandItem
+                            key={`${result.masterId}-${index}`}
+                            value={result.text}
+                            className="flex items-center gap-2 p-2"
+                            onSelect={() => {
+                              setOpen(false);
+                              setSearchQuery("");
+                            }}
+                          >
+                            <Link 
+                              to={`/recurring-event-series/${result.masterId}`}
+                              className="flex items-center gap-2 w-full"
+                            >
+                              {result.type === 'note' ? (
+                                <StickyNote className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                              )}
+                              <div className="flex flex-col">
+                                <span className="font-medium">
+                                  {result.type === 'note' ? 'Note: ' : ''}
+                                  {result.text.length > 100 
+                                    ? result.text.substring(0, 100) + '...' 
+                                    : result.text}
+                                </span>
+                                <span className="text-sm text-muted-foreground">
+                                  {result.event.title}
+                                </span>
+                              </div>
+                            </Link>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    )}
+                  </>
                 )}
-              </>
-            )}
-          </CommandList>
-        </Command>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* 1:1 Meetings Section */}
