@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Mail } from "lucide-react";
@@ -10,13 +11,15 @@ interface ShareViaEmailButtonProps {
   eventTitle: string;
   participants: EventParticipant[];
   recordingId: string;
+  children?: React.ReactNode;
 }
 
 export function ShareViaEmailButton({ 
   shareUrl, 
   eventTitle, 
   participants,
-  recordingId
+  recordingId,
+  children
 }: ShareViaEmailButtonProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
@@ -35,15 +38,19 @@ export function ShareViaEmailButton({
 
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={handleClick}
-        className="flex items-center gap-2"
-      >
-        <Mail className="h-4 w-4" />
-        Email to Participants
-      </Button>
+      {children ? (
+        <div onClick={handleClick}>{children}</div>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleClick}
+          className="flex items-center gap-2"
+        >
+          <Mail className="h-4 w-4" />
+          Email to Participants
+        </Button>
+      )}
 
       <EmailComposerDialog
         isOpen={isDialogOpen}
