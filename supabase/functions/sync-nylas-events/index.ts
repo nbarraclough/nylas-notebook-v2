@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { processEvent } from './event-processor.ts'
 import { startOfToday, addMonths, getUnixTime, formatDate } from './timestamp-utils.ts'
@@ -12,6 +13,148 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS'
+}
+
+const BATCH_SIZE = 50;
+const RATE_LIMIT_DELAY = 100; // ms
+
+interface UserGrantInfo {
+  userId: string;
+  email: string;
+  grantId: string;
+}
+
+interface EventCounts {
+  total: number;
+  masters: number;
+  modifiedInstances: number;
+  regularInstances: number;
+  standaloneEvents: number;
+}
+
+interface UserResult {
+  userId: string;
+  grantId: string;
+  eventsProcessed: EventCounts;
+  success: boolean;
+  error?: string;
+}
+
+interface GrantResult {
+  grantId: string;
+  userCount: number;
+  eventsFetched: number;
+  users: UserResult[];
+}
+
+async function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function fetchEventsFromNylas(grantId: string, startUnix: number, endUnix: number, requestId: string) {
+  let allEvents = [];
+  let totalEventsFetched = 0;
+  let hasMorePages = true;
+  let pageToken = null;
+  
+  while (hasMorePages) {
+    const queryParams = new URLSearchParams({
+      calendar_id: 'primary',
+      start: startUnix.toString(),
+      end: endUnix.toString(),
+      limit: '200',
+      expand_recurring: 'true',
+      ...(pageToken && { page_token: pageToken })
+    });
+
+    console.log(`📅 [${requestId}] Fetching events with params:`, queryParams.toString());
+
+    const eventsResponse = await fetch(
+      `https://api.us.nylas.com/v3/grants/${grantId}/events?${queryParams}`, 
+      {
+        headers: {
+          'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      }
+    );
+
+    if (!eventsResponse.ok) {
+      const errorData = await eventsResponse.text();
+      console.error(`❌ [${requestId}] Failed to fetch Nylas events:`, errorData);
+      throw new Error(`Failed to fetch events from Nylas: ${errorData}`);
+    }
+
+    const response = await eventsResponse.json();
+    const events = response.data || [];
+    allEvents = allEvents.concat(events);
+    pageToken = response.next_page_token;
+    totalEventsFetched += events.length;
+    hasMorePages = !!pageToken && events.length > 0;
+    
+    console.log(`📊 [${requestId}] Fetched ${events.length} events, total: ${totalEventsFetched}`);
+    
+    if (hasMorePages) {
+      await sleep(RATE_LIMIT_DELAY);
+    }
+  }
+
+  return allEvents;
+}
+
+async function processEventsForUser(
+  events: any[], 
+  userId: string, 
+  requestId: string,
+  SUPABASE_URL: string,
+  SUPABASE_SERVICE_ROLE_KEY: string
+): Promise<EventCounts> {
+  const masterEvents = events.filter(event => event.recurrence);
+  const instanceEvents = events.filter(event => !event.recurrence);
+  const modifiedInstances = instanceEvents.filter(event => isModifiedInstance(event));
+  const regularInstances = instanceEvents.filter(event => 
+    isRecurringInstance(event) && !isModifiedInstance(event)
+  );
+  const standaloneEvents = instanceEvents.filter(event => 
+    !isRecurringInstance(event) && !isModifiedInstance(event)
+  );
+
+  // Process master events first
+  console.log(`🔄 [${requestId}] Processing ${masterEvents.length} master events for user ${userId}`);
+  for (const master of masterEvents) {
+    await processRecurringEvent(master, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    await sleep(RATE_LIMIT_DELAY);
+  }
+
+  // Process modified instances
+  console.log(`🔄 [${requestId}] Processing ${modifiedInstances.length} modified instances for user ${userId}`);
+  for (const instance of modifiedInstances) {
+    await processRecurringEvent(instance, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    await sleep(RATE_LIMIT_DELAY);
+  }
+
+  // Process regular instances
+  console.log(`🔄 [${requestId}] Processing ${regularInstances.length} regular instances for user ${userId}`);
+  for (const instance of regularInstances) {
+    await processRecurringEvent(instance, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    await sleep(RATE_LIMIT_DELAY);
+  }
+
+  // Process standalone events
+  console.log(`🔄 [${requestId}] Processing ${standaloneEvents.length} standalone events for user ${userId}`);
+  for (const event of standaloneEvents) {
+    await processEvent(event, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    await sleep(RATE_LIMIT_DELAY);
+  }
+
+  return {
+    total: events.length,
+    masters: masterEvents.length,
+    modifiedInstances: modifiedInstances.length,
+    regularInstances: regularInstances.length,
+    standaloneEvents: standaloneEvents.length
+  };
 }
 
 serve(async (req) => {
@@ -44,27 +187,18 @@ serve(async (req) => {
       throw new Error('Missing required environment variables')
     }
 
-    const results = []
-    const errors = []
+    // Create a map to group users by grant ID
+    const usersByGrantId = new Map<string, UserGrantInfo[]>();
+    const errors: Array<{ userId: string; error: string }> = [];
+    const grantResults = new Map<string, GrantResult>();
 
-    const startDate = startOfToday()
-    const endDate = addMonths(startDate, 3)
-    const startUnix = getUnixTime(startDate)
-    const endUnix = getUnixTime(endDate)
-    
-    console.log(`📅 [${requestId}] Date range:`, { 
-      start: formatDate(startDate), 
-      end: formatDate(endDate),
-      startUnix,
-      endUnix
-    })
-
+    // Group users by grant ID
     for (const userId of userIdsToProcess) {
       try {
-        console.log(`👤 [${requestId}] Processing user:`, userId)
+        console.log(`👤 [${requestId}] Processing user:`, userId);
         
         const profileResponse = await fetch(
-          `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=nylas_grant_id`,
+          `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=nylas_grant_id,email`,
           {
             headers: {
               'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
@@ -74,193 +208,140 @@ serve(async (req) => {
               'Prefer': 'return=minimal'
             },
           }
-        )
+        );
 
         if (!profileResponse.ok) {
-          const errorText = await profileResponse.text()
-          console.error(`❌ [${requestId}] Profile fetch failed:`, {
-            status: profileResponse.status,
-            statusText: profileResponse.statusText,
-            error: errorText
-          })
-          throw new Error(`Failed to fetch profile: ${profileResponse.statusText}`)
+          throw new Error(`Failed to fetch profile: ${profileResponse.statusText}`);
         }
 
-        const profiles = await profileResponse.json()
-        console.log(`📝 [${requestId}] Profile response:`, profiles)
-
-        if (!Array.isArray(profiles) || profiles.length === 0) {
-          console.error(`❌ [${requestId}] No profile found for user:`, userId)
-          errors.push({ userId, error: 'Profile not found' })
-          continue
-        }
-
-        const profile = profiles[0]
-        if (!profile?.nylas_grant_id) {
-          console.error(`❌ [${requestId}] Profile found but no Nylas grant ID:`, profile)
-          errors.push({ userId, error: 'No Nylas grant ID found' })
-          continue
-        }
-
-        const grantId = profile.nylas_grant_id
-        console.log(`🔑 [${requestId}] Found Nylas grant ID:`, grantId)
-
-        let allEvents = []
-        let totalEventsFetched = 0
-        let hasMorePages = true
-        let pageToken = null
+        const profiles = await profileResponse.json();
         
-        while (hasMorePages) {
-          const queryParams = new URLSearchParams({
-            calendar_id: 'primary',
-            start: startUnix.toString(),
-            end: endUnix.toString(),
-            limit: '200',
-            expand_recurring: 'true',
-            ...(pageToken && { page_token: pageToken })
-          })
-
-          console.log(`Fetching events with params:`, queryParams.toString())
-
-          const eventsResponse = await fetch(
-            `https://api.us.nylas.com/v3/grants/${grantId}/events?${queryParams}`, 
-            {
-              headers: {
-                'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-              },
-            }
-          )
-
-          if (!eventsResponse.ok) {
-            const errorData = await eventsResponse.text()
-            console.error('Failed to fetch Nylas events:', errorData)
-            errors.push({ userId, error: 'Failed to fetch events from Nylas' })
-            break
-          }
-
-          const response = await eventsResponse.json()
-          const events = response.data || []
-          allEvents = allEvents.concat(events)
-          pageToken = response.next_page_token
-          totalEventsFetched += events.length
-          hasMorePages = !!pageToken && events.length > 0
-          
-          console.log(`Fetched ${events.length} events, total: ${totalEventsFetched}`)
-          
-          if (hasMorePages) {
-            await new Promise(resolve => setTimeout(resolve, 100))
-          }
+        if (!profiles?.[0]?.nylas_grant_id) {
+          throw new Error('No Nylas grant ID found');
         }
 
-        console.log(`Total events fetched for user ${userId}:`, allEvents.length)
+        const userInfo: UserGrantInfo = {
+          userId,
+          email: profiles[0].email,
+          grantId: profiles[0].nylas_grant_id
+        };
 
-        // Split events into categories
-        const masterEvents = allEvents.filter(event => event.recurrence);
-        const instanceEvents = allEvents.filter(event => !event.recurrence);
-        const modifiedInstances = instanceEvents.filter(event => isModifiedInstance(event));
-        const regularInstances = instanceEvents.filter(event => 
-          isRecurringInstance(event) && !isModifiedInstance(event)
-        );
-        const standaloneEvents = instanceEvents.filter(event => 
-          !isRecurringInstance(event) && !isModifiedInstance(event)
-        );
-
-        // Process master events first
-        console.log(`Processing ${masterEvents.length} master events`);
-        for (const master of masterEvents) {
-          try {
-            await processRecurringEvent(master, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-          } catch (error) {
-            console.error('Error processing master event:', {
-              eventId: master.id,
-              error: error.message
-            });
-            errors.push({ userId, eventId: master.id, error: 'Failed to process master event' });
-          }
+        // Add to users by grant ID map
+        if (!usersByGrantId.has(userInfo.grantId)) {
+          usersByGrantId.set(userInfo.grantId, []);
         }
-
-        // Process modified instances
-        console.log(`Processing ${modifiedInstances.length} modified instances`);
-        for (const instance of modifiedInstances) {
-          try {
-            await processRecurringEvent(instance, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-          } catch (error) {
-            console.error('Error processing modified instance:', {
-              eventId: instance.id,
-              error: error.message
-            });
-            errors.push({ userId, eventId: instance.id, error: 'Failed to process modified instance' });
-          }
-        }
-
-        // Process regular instances
-        console.log(`Processing ${regularInstances.length} regular instances`);
-        for (const instance of regularInstances) {
-          try {
-            await processRecurringEvent(instance, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-          } catch (error) {
-            console.error('Error processing regular instance:', {
-              eventId: instance.id,
-              error: error.message
-            });
-            errors.push({ userId, eventId: instance.id, error: 'Failed to process regular instance' });
-          }
-        }
-
-        // Process standalone events
-        console.log(`Processing ${standaloneEvents.length} standalone events`);
-        for (const event of standaloneEvents) {
-          try {
-            await processEvent(event, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-          } catch (error) {
-            console.error('Error processing standalone event:', {
-              eventId: event.id,
-              error: error.message
-            });
-            errors.push({ userId, eventId: event.id, error: 'Failed to process standalone event' });
-          }
-        }
-
-        results.push({ 
-          userId, 
-          eventsProcessed: {
-            total: allEvents.length,
-            masters: masterEvents.length,
-            modifiedInstances: modifiedInstances.length,
-            regularInstances: regularInstances.length,
-            standaloneEvents: standaloneEvents.length
-          }
-        });
+        usersByGrantId.get(userInfo.grantId)!.push(userInfo);
 
       } catch (error) {
-        console.error(`❌ [${requestId}] Error processing user:`, userId, error)
-        errors.push({ userId, error: error.message || 'Unknown error occurred' })
+        console.error(`❌ [${requestId}] Error processing user:`, userId, error);
+        errors.push({ userId, error: error.message || 'Unknown error occurred' });
       }
     }
 
+    const startDate = startOfToday();
+    const endDate = addMonths(startDate, 3);
+    const startUnix = getUnixTime(startDate);
+    const endUnix = getUnixTime(endDate);
+    
+    console.log(`📅 [${requestId}] Date range:`, { 
+      start: formatDate(startDate), 
+      end: formatDate(endDate),
+      startUnix,
+      endUnix
+    });
+
+    // Process events for each grant ID
+    for (const [grantId, users] of usersByGrantId.entries()) {
+      try {
+        // Log if multiple users share this grant
+        if (users.length > 1) {
+          console.log(`👥 [${requestId}] Processing shared grant ID ${grantId} for users:`, 
+            users.map(u => u.email).join(', ')
+          );
+        }
+
+        // Fetch events once for this grant ID
+        const events = await fetchEventsFromNylas(grantId, startUnix, endUnix, requestId);
+        console.log(`📊 [${requestId}] Fetched ${events.length} events for grant ${grantId}`);
+
+        const grantResult: GrantResult = {
+          grantId,
+          userCount: users.length,
+          eventsFetched: events.length,
+          users: []
+        };
+
+        // Process events for each user sharing this grant
+        for (const user of users) {
+          try {
+            const eventCounts = await processEventsForUser(
+              events,
+              user.userId,
+              `${requestId}-${user.userId}`,
+              SUPABASE_URL,
+              SUPABASE_SERVICE_ROLE_KEY
+            );
+
+            grantResult.users.push({
+              userId: user.userId,
+              grantId,
+              eventsProcessed: eventCounts,
+              success: true
+            });
+
+          } catch (error) {
+            console.error(`❌ [${requestId}] Error processing events for user:`, user.userId, error);
+            grantResult.users.push({
+              userId: user.userId,
+              grantId,
+              eventsProcessed: { total: 0, masters: 0, modifiedInstances: 0, regularInstances: 0, standaloneEvents: 0 },
+              success: false,
+              error: error.message
+            });
+          }
+        }
+
+        grantResults.set(grantId, grantResult);
+
+      } catch (error) {
+        console.error(`❌ [${requestId}] Error processing grant:`, grantId, error);
+        errors.push({ 
+          userId: users.map(u => u.userId).join(','), 
+          error: `Grant processing failed: ${error.message}` 
+        });
+      }
+    }
+
+    // Clean up orphaned instances
     try {
+      console.log(`🧹 [${requestId}] Starting cleanup of orphaned instances`);
       const cleanup = await cleanupOrphanedInstances(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-      console.log(`🧹 [${requestId}] Cleanup result:`, cleanup);
+      console.log(`✅ [${requestId}] Cleanup completed:`, cleanup);
     } catch (error) {
       console.error(`❌ [${requestId}] Cleanup error:`, error);
     }
 
+    // Prepare final response
+    const response = {
+      success: true,
+      results: {
+        grantsProcessed: grantResults.size,
+        totalUsers: userIdsToProcess.length,
+        grantResults: Array.from(grantResults.values()),
+      },
+      errors: errors.length > 0 ? errors : undefined
+    };
+
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        results,
-        errors: errors.length > 0 ? errors : undefined
-      }),
+      JSON.stringify(response),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200 
       }
-    )
+    );
 
   } catch (error) {
-    console.error(`❌ [${requestId}] Error in sync-nylas-events:`, error)
+    console.error(`❌ [${requestId}] Error in sync-nylas-events:`, error);
     return new Response(
       JSON.stringify({ 
         error: error.message || 'An unexpected error occurred',
@@ -270,6 +351,6 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500
       }
-    )
+    );
   }
 })
