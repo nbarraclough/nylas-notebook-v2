@@ -3,7 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
-import { Video, Users, CalendarClock, Calendar, ArrowRight } from "lucide-react";
+import { Video, Users, CalendarClock, Calendar, Crown, ArrowRight } from "lucide-react";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 
 interface EventCardProps {
   event: {
@@ -21,9 +26,6 @@ export function EventCard({ event }: EventCardProps) {
     ? formatDistanceToNow(new Date(event.nextEvent.start_time), { addSuffix: true })
     : "No upcoming events";
   
-  // Get a sample of participants to display
-  const participantSample = event.latestEvent.participants?.slice(0, 3) || [];
-  
   // Calculate meeting frequency if there's enough data
   const getFrequencyLabel = () => {
     if (!event.latestEvent || !event.nextEvent) return null;
@@ -39,13 +41,19 @@ export function EventCard({ event }: EventCardProps) {
 
   const frequencyLabel = getFrequencyLabel();
 
+  // Check if user is the organizer
+  const isOrganizer = event.latestEvent.organizer?.email === event.latestEvent.user_email;
+
   return (
     <Link to={`/recurring-event-series/${event.masterId}`}>
       <Card className="h-full hover:shadow-lg transition-all duration-200 cursor-pointer bg-white/80 backdrop-blur-sm border-gray-100">
         <CardHeader className="space-y-1 pb-4">
           <div className="flex justify-between items-start gap-2">
-            <CardTitle className="text-base line-clamp-2 leading-snug">
+            <CardTitle className="text-base line-clamp-2 leading-snug flex items-center gap-2">
               {event.latestEvent.title}
+              {isOrganizer && (
+                <Crown className="h-4 w-4 text-amber-500 flex-shrink-0" />
+              )}
             </CardTitle>
           </div>
         </CardHeader>
@@ -57,10 +65,34 @@ export function EventCard({ event }: EventCardProps) {
                 {frequencyLabel}
               </Badge>
             )}
-            <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
-              <Users className="h-3 w-3 mr-1" />
-              {participantsCount} {participantsCount === 1 ? 'participant' : 'participants'}
-            </Badge>
+            <HoverCard>
+              <HoverCardTrigger>
+                <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200 cursor-help">
+                  <Users className="h-3 w-3 mr-1" />
+                  {participantsCount} {participantsCount === 1 ? 'participant' : 'participants'}
+                </Badge>
+              </HoverCardTrigger>
+              <HoverCardContent className="w-80">
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold">Meeting Participants</h4>
+                  <div className="space-y-1">
+                    {event.latestEvent.organizer && (
+                      <div className="flex items-center gap-2">
+                        <Crown className="h-3 w-3 text-amber-500" />
+                        <span className="text-sm">
+                          {event.latestEvent.organizer.name || event.latestEvent.organizer.email}
+                        </span>
+                      </div>
+                    )}
+                    {event.latestEvent.participants?.map((participant: any, index: number) => (
+                      <div key={index} className="text-sm text-muted-foreground pl-5">
+                        {participant.name || participant.email}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </HoverCardContent>
+            </HoverCard>
             {event.recordingsCount > 0 && (
               <Badge variant="secondary" className="bg-teal-50 text-teal-700 border-teal-200">
                 <Video className="h-3 w-3 mr-1" />
@@ -74,25 +106,6 @@ export function EventCard({ event }: EventCardProps) {
               <Calendar className="h-4 w-4" />
               <span>Next: {nextEventDate}</span>
             </div>
-
-            {participantSample.length > 0 && (
-              <div className="flex items-center -space-x-2">
-                {participantSample.map((participant: any, index: number) => (
-                  <div
-                    key={index}
-                    className="relative inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-100 text-sm font-medium"
-                    title={participant.name || participant.email}
-                  >
-                    {participant.name?.[0] || participant.email?.[0] || '?'}
-                  </div>
-                ))}
-                {participantsCount > 3 && (
-                  <div className="relative inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-100 text-sm font-medium">
-                    +{participantsCount - 3}
-                  </div>
-                )}
-              </div>
-            )}
 
             {event.notes && event.notes.length > 0 && (
               <div className="pt-2">
