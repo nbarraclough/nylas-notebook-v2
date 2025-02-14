@@ -1,5 +1,6 @@
+
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { LibraryHeader } from "@/components/library/LibraryHeader";
 import { LibraryFilters } from "@/components/library/LibraryFilters";
@@ -15,8 +16,6 @@ import { useRecordings } from "@/hooks/use-recordings";
 const ITEMS_PER_PAGE = 8;
 
 export default function Library() {
-  const navigate = useNavigate();
-  const { recordingId } = useParams();
   const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
   const [myRecordingsPage, setMyRecordingsPage] = useState(1);
   const [sharedRecordingsPage, setSharedRecordingsPage] = useState(1);
@@ -31,13 +30,6 @@ export default function Library() {
     titleSearch: null as string | null,
     hasPublicLink: false
   });
-
-  // Handle deep linking
-  useEffect(() => {
-    if (recordingId) {
-      setSelectedRecording(recordingId);
-    }
-  }, [recordingId]);
 
   // Query for my recordings with pagination
   const { 
@@ -126,11 +118,6 @@ export default function Library() {
 
   const handleRecordingSelect = (id: string | null) => {
     setSelectedRecording(id);
-    if (id) {
-      navigate(`/library/${id}`);
-    } else {
-      navigate("/library");
-    }
   };
 
   if (myRecordingsError || sharedError || errorRecordingsError) {
