@@ -1,6 +1,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { VideoPlayer, type VideoPlayerRef } from "@/components/recordings/player/VideoPlayer";
 import { TranscriptSection } from "@/components/recordings/transcript/TranscriptSection";
 import { VideoHeader } from "./VideoHeader";
@@ -27,6 +28,18 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   const { data: profile } = useProfileData();
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
 
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      if (videoPlayerRef.current) {
+        videoPlayerRef.current.pause();
+        videoPlayerRef.current.cleanup();
+      }
+      // Clear the query cache for this recording to ensure fresh data on next open
+      queryClient.removeQueries({ queryKey: ['recording', recordingId] });
+      onClose();
+    }
+  };
+
   // Enhanced cleanup effect
   useEffect(() => {
     return () => {
@@ -36,16 +49,6 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
       }
     };
   }, []);
-
-  const handleClose = () => {
-    if (videoPlayerRef.current) {
-      videoPlayerRef.current.pause();
-      videoPlayerRef.current.cleanup();
-    }
-    // Clear the query cache for this recording to ensure fresh data on next open
-    queryClient.removeQueries({ queryKey: ['recording', recordingId] });
-    onClose();
-  };
 
   const isInternalMeeting = () => {
     if (!recording?.event?.organizer || !recording.event.participants) {
@@ -80,28 +83,32 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
 
   if (isRecordingLoading) {
     return (
-      <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4">
-        <Card className="w-full max-w-6xl my-4">
-          <CardContent className="p-6">
-            <div className="animate-pulse space-y-4">
-              <div className="h-8 bg-muted rounded w-1/3" />
-              <div className="aspect-video bg-muted rounded" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <Dialog open={true} onOpenChange={handleDialogClose}>
+        <DialogContent className="max-w-6xl w-[95vw]">
+          <Card>
+            <CardContent className="p-6">
+              <div className="animate-pulse space-y-4">
+                <div className="h-8 bg-muted rounded w-1/3" />
+                <div className="aspect-video bg-muted rounded" />
+              </div>
+            </CardContent>
+          </Card>
+        </DialogContent>
+      </Dialog>
     );
   }
 
   if (!recording) {
     return (
-      <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4">
-        <Card className="w-full max-w-6xl my-4">
-          <CardContent className="p-6">
-            <p className="text-center text-muted-foreground">Recording not found</p>
-          </CardContent>
-        </Card>
-      </div>
+      <Dialog open={true} onOpenChange={handleDialogClose}>
+        <DialogContent className="max-w-6xl w-[95vw]">
+          <Card>
+            <CardContent className="p-6">
+              <p className="text-center text-muted-foreground">Recording not found</p>
+            </CardContent>
+          </Card>
+        </DialogContent>
+      </Dialog>
     );
   }
 
@@ -133,9 +140,9 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
     : null;
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto">
-      <div className="min-h-screen py-4 px-4 flex items-start justify-center w-full">
-        <Card className="w-full max-w-6xl my-4">
+    <Dialog open={true} onOpenChange={handleDialogClose}>
+      <DialogContent className="max-w-6xl w-[95vw]">
+        <Card>
           <CardContent className="p-6 space-y-6">
             <VideoHeader
               title={recording.event?.title || ''}
@@ -144,7 +151,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
               participants={participants}
               grantId={profile?.nylas_grant_id}
               recordingId={recordingId}
-              onClose={handleClose}
+              onClose={() => handleDialogClose(false)}
               startTime={recording.event?.start_time}
               endTime={recording.event?.end_time}
               onShareUpdate={handleShareUpdate}
@@ -184,7 +191,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
             )}
           </CardContent>
         </Card>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
