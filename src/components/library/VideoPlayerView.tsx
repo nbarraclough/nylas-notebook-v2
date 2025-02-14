@@ -1,3 +1,4 @@
+
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { VideoPlayer, type VideoPlayerRef } from "@/components/recordings/player/VideoPlayer";
@@ -126,6 +127,11 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   const shareUrl = publicShare ? `${window.location.origin}/shared/${publicShare.external_token}` : null;
   const internal = isInternalMeeting();
 
+  // Get the video URL from Mux playback ID
+  const videoUrl = recording.mux_playback_id 
+    ? `https://stream.mux.com/${recording.mux_playback_id}.m3u8` 
+    : null;
+
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto">
       <div className="min-h-screen py-4 px-4 flex items-start justify-center w-full">
@@ -152,7 +158,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
                 <VideoPlayer
                   ref={videoPlayerRef}
                   recordingId={recordingId}
-                  videoUrl={null}
+                  videoUrl={videoUrl}
                   recordingUrl={null}
                   title={recording.event?.title || ''}
                   participants={participants}
