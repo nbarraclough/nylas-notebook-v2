@@ -84,7 +84,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   if (isRecordingLoading) {
     return (
       <Dialog open={true} onOpenChange={handleDialogClose}>
-        <DialogContent className="max-w-6xl w-[95vw]" hideCloseButton>
+        <DialogContent className="max-w-6xl w-[95vw]">
           <Card>
             <CardContent className="p-6">
               <div className="animate-pulse space-y-4">
@@ -101,7 +101,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   if (!recording) {
     return (
       <Dialog open={true} onOpenChange={handleDialogClose}>
-        <DialogContent className="max-w-6xl w-[95vw]" hideCloseButton>
+        <DialogContent className="max-w-6xl w-[95vw]">
           <Card>
             <CardContent className="p-6">
               <p className="text-center text-muted-foreground">Recording not found</p>
@@ -141,7 +141,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
 
   return (
     <Dialog open={true} onOpenChange={handleDialogClose}>
-      <DialogContent className="max-w-6xl w-[95vw]" hideCloseButton>
+      <DialogContent className="max-w-6xl w-[95vw]">
         <Card>
           <CardContent className="p-6 space-y-6">
             <VideoHeader
