@@ -1,5 +1,6 @@
+
 import { Badge } from "@/components/ui/badge";
-import { Share2, Shield, Globe, Users, Pencil, Check, X } from "lucide-react";
+import { X, Shield, Globe, Users, Pencil, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
@@ -81,7 +82,7 @@ export function VideoHeader({
   };
 
   return (
-    <div className="flex items-start justify-between">
+    <div className="flex items-start justify-between relative">
       <div className="space-y-1">
         <div className="flex items-center gap-2">
           {isEditing && manualMeetingId ? (
@@ -192,11 +193,12 @@ export function VideoHeader({
           />
         )}
         <Button 
-          variant="outline" 
+          size="icon"
+          variant="ghost" 
           onClick={onClose}
-          className="text-destructive border-destructive hover:bg-destructive/10 hover:text-destructive"
+          className="rounded-full hover:bg-gray-100 transition-colors"
         >
-          Close
+          <X className="h-5 w-5 text-gray-500 hover:text-gray-700" />
         </Button>
       </div>
     </div>
