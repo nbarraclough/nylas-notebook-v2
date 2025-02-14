@@ -1,3 +1,4 @@
+
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -82,7 +83,8 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
     "max-w-6xl w-[95vw] p-0",
     "bg-gradient-to-br from-white to-gray-50/80",
     "backdrop-blur-sm border border-gray-100",
-    "dark:from-gray-900 dark:to-gray-900/80 dark:border-gray-800"
+    "dark:from-gray-900 dark:to-gray-900/80 dark:border-gray-800",
+    "[&_.close-button]:hidden" // Hide the default close button
   );
 
   if (isRecordingLoading) {
