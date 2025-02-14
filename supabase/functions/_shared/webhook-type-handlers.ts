@@ -194,67 +194,97 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
         console.log(`📝 [${requestId}] Processing event ${webhookData.type}:`, webhookData.data.object.id);
         const eventData = webhookData.data.object;
         
-        // Find user associated with this grant
-        const { data: profile, error: profileError } = await supabase
+        // Find all users associated with this grant
+        const { data: profiles, error: profileError } = await supabase
           .from('profiles')
-          .select('id')
-          .eq('nylas_grant_id', effectiveGrantId)
-          .maybeSingle();
+          .select('id, email')
+          .eq('nylas_grant_id', effectiveGrantId);
 
         if (profileError) {
-          console.error(`❌ [${requestId}] Error finding profile for grant:`, profileError);
+          console.error(`❌ [${requestId}] Error finding profiles for grant:`, profileError);
           return { success: false, message: profileError.message };
         }
 
-        if (!profile) {
-          console.error(`❌ [${requestId}] No profile found for grant: ${effectiveGrantId}`);
-          return { success: false, message: `No profile found for grant: ${effectiveGrantId}` };
+        if (!profiles || profiles.length === 0) {
+          console.error(`❌ [${requestId}] No profiles found for grant: ${effectiveGrantId}`);
+          return { success: false, message: `No profiles found for grant: ${effectiveGrantId}` };
         }
 
-        // Process the event data
-        const result = await processEventData(eventData, profile.id, requestId);
-
-        if (!result.success) {
-          console.error(`❌ [${requestId}] Error processing event:`, result.message);
-          return { success: false, message: result.message };
+        // Log if multiple profiles are found
+        if (profiles.length > 1) {
+          console.log(`ℹ️ [${requestId}] Multiple profiles found for grant ${effectiveGrantId}:`, 
+            profiles.map(p => p.email).join(', ')
+          );
         }
 
-        console.log(`✅ [${requestId}] Successfully processed event:`, result);
-        return { success: true, message: 'Event processed successfully' };
+        // Process event for each profile
+        const results = await Promise.all(
+          profiles.map(profile => 
+            processEventData(eventData, profile.id, `${requestId}-${profile.id}`)
+          )
+        );
+
+        // Check if any processing failed
+        const failures = results.filter(r => !r.success);
+        if (failures.length > 0) {
+          console.error(`❌ [${requestId}] Error processing event for some users:`, failures);
+          return { 
+            success: false, 
+            message: 'Event processing failed for some users',
+            details: failures 
+          };
+        }
+
+        console.log(`✅ [${requestId}] Successfully processed event for ${profiles.length} users`);
+        return { 
+          success: true, 
+          message: `Event processed successfully for ${profiles.length} users` 
+        };
       }
 
       case 'event.deleted': {
         console.log(`📝 [${requestId}] Processing event deleted:`, webhookData.data.object.id);
         
-        const { data: profile, error: profileError } = await supabase
+        // Find all users associated with this grant
+        const { data: profiles, error: profileError } = await supabase
           .from('profiles')
-          .select('id')
-          .eq('nylas_grant_id', effectiveGrantId)
-          .maybeSingle();
+          .select('id, email')
+          .eq('nylas_grant_id', effectiveGrantId);
 
         if (profileError) {
-          console.error(`❌ [${requestId}] Error finding profile:`, profileError);
+          console.error(`❌ [${requestId}] Error finding profiles:`, profileError);
           return { success: false, message: profileError.message };
         }
 
-        if (!profile) {
-          console.error(`❌ [${requestId}] No profile found for grant: ${effectiveGrantId}`);
+        if (!profiles || profiles.length === 0) {
+          console.error(`❌ [${requestId}] No profiles found for grant: ${effectiveGrantId}`);
           return { success: false, message: 'Profile not found' };
         }
 
+        // Log if multiple profiles are found
+        if (profiles.length > 1) {
+          console.log(`ℹ️ [${requestId}] Deleting event for multiple profiles with grant ${effectiveGrantId}:`, 
+            profiles.map(p => p.email).join(', ')
+          );
+        }
+
+        // Delete event for all affected users
         const { error: eventError } = await supabase
           .from('events')
           .delete()
           .eq('nylas_event_id', webhookData.data.object.id)
-          .eq('user_id', profile.id);
+          .in('user_id', profiles.map(p => p.id));
 
         if (eventError) {
           console.error(`❌ [${requestId}] Error deleting event:`, eventError);
           return { success: false, message: eventError.message };
         }
 
-        console.log(`✅ [${requestId}] Successfully deleted event`);
-        return { success: true, message: 'Event deleted' };
+        console.log(`✅ [${requestId}] Successfully deleted event for ${profiles.length} users`);
+        return { 
+          success: true, 
+          message: `Event deleted for ${profiles.length} users` 
+        };
       }
 
       case 'grant.created': {
