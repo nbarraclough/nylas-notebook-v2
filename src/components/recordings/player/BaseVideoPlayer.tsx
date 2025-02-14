@@ -90,11 +90,12 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
         const hls = new Hls({
           enableWorker: true,
           lowLatencyMode: true,
-          backBufferLength: 90
+          backBufferLength: 90,
+          debug: true // Enable debug logs to help diagnose issues
         });
         
-        hls.loadSource(url);
         hls.attachMedia(video);
+        hls.loadSource(url);
         
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           console.log('HLS manifest parsed, attempting playback');
@@ -104,6 +105,7 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
         });
 
         hls.on(Hls.Events.ERROR, (event, data) => {
+          console.error('HLS error encountered:', data);
           if (data.fatal) {
             console.error('Fatal HLS error:', data);
             switch (data.type) {
@@ -127,12 +129,27 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         console.log('Using native HLS support');
         video.src = url;
+      } else {
+        console.error('HLS is not supported by this browser!');
       }
-    } else if (url) {
+    } else {
       // For non-HLS videos
       console.log('Using standard video player with URL:', url);
       video.src = url;
     }
+
+    // Add event listeners for debugging
+    video.addEventListener('error', (e) => {
+      console.error('Video element error:', video.error);
+    });
+
+    video.addEventListener('loadedmetadata', () => {
+      console.log('Video metadata loaded');
+    });
+
+    video.addEventListener('canplay', () => {
+      console.log('Video can play');
+    });
 
     return () => {
       cleanupHls();
@@ -194,7 +211,7 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
       className="w-full h-full"
       controls
       playsInline
-      preload="metadata"
+      preload="auto"
       controlsList="nodownload"
     >
       Your browser does not support the video tag.
