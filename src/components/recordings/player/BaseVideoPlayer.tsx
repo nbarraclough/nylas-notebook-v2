@@ -79,6 +79,8 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
       return;
     }
 
+    console.log('Initializing video player with URL:', url);
+
     // Clean up existing instance before creating a new one
     cleanupHls();
 
@@ -126,6 +128,10 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
         console.log('Using native HLS support');
         video.src = url;
       }
+    } else if (url) {
+      // For non-HLS videos
+      console.log('Using standard video player with URL:', url);
+      video.src = url;
     }
 
     return () => {
