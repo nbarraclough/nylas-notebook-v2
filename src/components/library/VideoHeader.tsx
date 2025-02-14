@@ -1,6 +1,6 @@
 
 import { Badge } from "@/components/ui/badge";
-import { X, Shield, Globe, Users, Pencil, Check } from "lucide-react";
+import { X, Shield, Globe, Users, Pencil, Check, Share2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
@@ -9,11 +9,7 @@ import { ShareViaEmailButton } from "@/components/recordings/email/ShareViaEmail
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import type { EventParticipant } from "@/types/calendar";
 
 interface VideoHeaderProps {
@@ -67,7 +63,6 @@ export function VideoHeader({
       });
       setIsEditing(false);
       
-      // Trigger a refresh of the recording data
       if (onShareUpdate) {
         onShareUpdate();
       }
@@ -83,7 +78,7 @@ export function VideoHeader({
 
   return (
     <div className="flex items-start justify-between relative">
-      <div className="space-y-1">
+      <div className="space-y-3">
         <div className="flex items-center gap-2">
           {isEditing && manualMeetingId ? (
             <div className="flex items-center gap-2">
@@ -120,7 +115,7 @@ export function VideoHeader({
                   size="sm"
                   variant="ghost"
                   onClick={() => setIsEditing(true)}
-                  className="h-8 w-8 p-0"
+                  className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-800"
                 >
                   <Pencil className="h-4 w-4" />
                 </Button>
@@ -183,22 +178,30 @@ export function VideoHeader({
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <ShareVideoDialog recordingId={recordingId} onShareUpdate={onShareUpdate} />
+        <ShareVideoDialog recordingId={recordingId} onShareUpdate={onShareUpdate}>
+          <Button variant="outline" size="icon" className="rounded-full">
+            <Share2 className="h-4 w-4" />
+          </Button>
+        </ShareVideoDialog>
         {shareUrl && (
           <ShareViaEmailButton
             shareUrl={shareUrl}
             eventTitle={title}
             participants={participants}
             recordingId={recordingId}
-          />
+          >
+            <Button variant="outline" size="icon" className="rounded-full">
+              <Mail className="h-4 w-4" />
+            </Button>
+          </ShareViaEmailButton>
         )}
         <Button 
-          size="icon"
-          variant="ghost" 
+          variant="outline"
+          size="icon" 
           onClick={onClose}
-          className="rounded-full hover:bg-gray-100 transition-colors"
+          className="rounded-full hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-colors"
         >
-          <X className="h-5 w-5 text-gray-500 hover:text-gray-700" />
+          <X className="h-4 w-4" />
         </Button>
       </div>
     </div>
