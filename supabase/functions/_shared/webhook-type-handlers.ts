@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
 import { corsHeaders } from './cors.ts';
-import { NylasWebhookPayload } from './types.ts';
 import { processEventData } from './event-utils.ts';
+import { NylasWebhookPayload } from './types.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -27,7 +27,6 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
           return { success: false, message: 'No notetaker_id in webhook payload' };
         }
 
-        // Update recording with notetaker status
         const { error: recordingError } = await supabase
           .from('recordings')
           .update({ 
@@ -55,7 +54,6 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
           return { success: false, message: 'No notetaker_id in webhook payload' };
         }
 
-        // Update recording with meeting state
         const { error: recordingError } = await supabase
           .from('recordings')
           .update({ 
@@ -83,7 +81,6 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
           return { success: false, message: 'No notetaker_id in webhook payload' };
         }
 
-        // Update recording with media status and URLs
         const updateData: any = {
           media_status: status,
           updated_at: new Date().toISOString()
@@ -108,6 +105,39 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
           return { success: false, message: recordingError.message };
         }
 
+        if (status === 'available') {
+          console.log(`📝 [${requestId}] Media is available, finding recording ID for notetaker:`, notetakerId);
+          
+          const { data: recording, error: findError } = await supabase
+            .from('recordings')
+            .select('id')
+            .eq('notetaker_id', notetakerId)
+            .single();
+
+          if (findError) {
+            console.error(`❌ [${requestId}] Error finding recording:`, findError);
+            return { success: false, message: findError.message };
+          }
+
+          if (recording) {
+            console.log(`📝 [${requestId}] Found recording ID ${recording.id}, triggering media processing`);
+            
+            try {
+              const result = await supabase.functions.invoke('get-recording-media', {
+                body: { 
+                  recordingId: recording.id,
+                  notetakerId 
+                }
+              });
+              
+              console.log(`✅ [${requestId}] Successfully triggered media processing:`, result);
+            } catch (error) {
+              console.error(`❌ [${requestId}] Error triggering media processing:`, error);
+              // Don't return error here as we've already updated the recording successfully
+            }
+          }
+        }
+
         console.log(`✅ [${requestId}] Successfully processed notetaker media webhook`);
         return { success: true, message: 'Notetaker media status updated successfully' };
       }
@@ -122,7 +152,6 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
           return { success: false, message: 'No notetaker_id in webhook payload' };
         }
 
-        // Update recording status based on notetaker status
         const { error: recordingError } = await supabase
           .from('recordings')
           .update({ 
@@ -150,11 +179,9 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
           return { success: false, message: 'No notetaker_id in webhook payload' };
         }
 
-        // If this is for a calendar event (not manual meeting)
         if (event?.event_id) {
           console.log(`📅 [${requestId}] Updating queue entry for event:`, event.event_id);
           
-          // Update queue entry with notetaker_id
           const { error: queueError } = await supabase
             .from('notetaker_queue')
             .update({ 
@@ -170,7 +197,6 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
           }
         }
 
-        // Update or create recording entry
         const { error: recordingError } = await supabase
           .from('recordings')
           .upsert({ 
@@ -194,7 +220,6 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
         console.log(`📝 [${requestId}] Processing event ${webhookData.type}:`, webhookData.data.object.id);
         const eventData = webhookData.data.object;
         
-        // Find all users associated with this grant
         const { data: profiles, error: profileError } = await supabase
           .from('profiles')
           .select('id, email')
@@ -210,21 +235,18 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
           return { success: false, message: `No profiles found for grant: ${effectiveGrantId}` };
         }
 
-        // Log if multiple profiles are found
         if (profiles.length > 1) {
           console.log(`ℹ️ [${requestId}] Multiple profiles found for grant ${effectiveGrantId}:`, 
             profiles.map(p => p.email).join(', ')
           );
         }
 
-        // Process event for each profile
         const results = await Promise.all(
           profiles.map(profile => 
             processEventData(eventData, profile.id, `${requestId}-${profile.id}`)
           )
         );
 
-        // Check if any processing failed
         const failures = results.filter(r => !r.success);
         if (failures.length > 0) {
           console.error(`❌ [${requestId}] Error processing event for some users:`, failures);
@@ -245,7 +267,6 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
       case 'event.deleted': {
         console.log(`📝 [${requestId}] Processing event deleted:`, webhookData.data.object.id);
         
-        // Find all users associated with this grant
         const { data: profiles, error: profileError } = await supabase
           .from('profiles')
           .select('id, email')
@@ -261,14 +282,12 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
           return { success: false, message: 'Profile not found' };
         }
 
-        // Log if multiple profiles are found
         if (profiles.length > 1) {
           console.log(`ℹ️ [${requestId}] Deleting event for multiple profiles with grant ${effectiveGrantId}:`, 
             profiles.map(p => p.email).join(', ')
           );
         }
 
-        // Delete event for all affected users
         const { error: eventError } = await supabase
           .from('events')
           .delete()
@@ -367,7 +386,7 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
         console.warn(`⚠️ [${requestId}] Unhandled webhook type:`, webhookData.type);
         return { success: false, message: `Unhandled webhook type: ${webhookData.type}` };
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error(`❌ [${requestId}] Error processing webhook:`, error);
     return { success: false, message: error.message };
   }
