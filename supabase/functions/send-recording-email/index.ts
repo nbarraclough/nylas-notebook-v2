@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0"
 
@@ -42,8 +43,16 @@ serve(async (req) => {
       throw new Error('Authentication failed');
     }
 
+    // Get the current URL from the request to construct the library URL
+    const url = new URL(req.url);
+    const baseUrl = `${url.protocol}//${url.host}`;
+    const libraryUrl = `${baseUrl}/library?recording=${recordingId}`;
+    
+    // Replace any direct video links with the library URL
+    const updatedBody = body.replace(/{RECORDING_LINK}/g, libraryUrl);
+
     // Format the body text into HTML, preserving newlines
-    const formattedHtml = body
+    const formattedHtml = updatedBody
       .split('\n')
       .map(line => `<p style="margin: 0 0 10px 0;">${line}</p>`)
       .join('');
