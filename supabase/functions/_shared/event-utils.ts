@@ -1,4 +1,5 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 import { unixSecondsToISOString } from './timestamp-utils.ts';
 
 function validateEventData(eventData: any, requestId: string): string[] {
@@ -6,10 +7,6 @@ function validateEventData(eventData: any, requestId: string): string[] {
 
   if (!eventData.id) {
     errors.push('Event ID is required');
-  }
-
-  if (!eventData.title) {
-    errors.push('Event title is required');
   }
 
   if (!eventData.when) {
@@ -79,10 +76,15 @@ export async function processEventData(eventData: any, userId: string, requestId
       return { success: false, message: 'Unsupported event type' };
     }
 
+    // Log if event has no title
+    if (!eventData.title) {
+      console.log(`ℹ️ [${requestId}] Processing event with no title. Event ID: ${eventData.id}`);
+    }
+
     const eventRecord = {
       user_id: userId,
       nylas_event_id: eventData.id,
-      title: eventData.title,
+      title: eventData.title || '(No title)',
       description: eventData.description,
       location: eventData.location,
       start_time: startTime,
