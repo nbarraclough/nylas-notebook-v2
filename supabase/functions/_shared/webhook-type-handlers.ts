@@ -7,6 +7,23 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+function mapNotetakerStatus(nylasStatus: string): string {
+  switch (nylasStatus) {
+    case 'waiting_for_entry': return 'waiting_for_admission';
+    case 'recording_active': return 'attending';
+    case 'entry_denied': return 'failed_entry';
+    case 'bad_meeting_code': return 'failed';
+    case 'internal_error': return 'failed';
+    case 'kicked': return 'failed';
+    case 'no_meeting_activity': return 'concluded';
+    case 'no_participants': return 'concluded';
+    case 'no_response': return 'failed_entry';
+    case 'api': return 'failed';
+    case 'dispatched': return 'joining';
+    default: return nylasStatus;
+  }
+}
+
 export async function handleWebhookType(webhookData: NylasWebhookPayload, grantId: string, requestId: string) {
   console.log(`🎯 [${requestId}] Processing webhook type: ${webhookData.type}`);
 
@@ -27,10 +44,15 @@ export async function handleWebhookType(webhookData: NylasWebhookPayload, grantI
           return { success: false, message: 'No notetaker_id in webhook payload' };
         }
 
+        // Map the Nylas status to our internal status
+        const mappedStatus = mapNotetakerStatus(status);
+        console.log(`📝 [${requestId}] Mapped status from ${status} to ${mappedStatus}`);
+
         const { error: recordingError } = await supabase
           .from('recordings')
           .update({ 
-            notetaker_status: status,
+            notetaker_status: status, // Keep original Nylas status for reference
+            status: mappedStatus, // Use our mapped status for UI
             updated_at: new Date().toISOString()
           })
           .eq('notetaker_id', notetakerId);
