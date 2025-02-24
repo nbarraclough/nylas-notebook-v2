@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -41,7 +42,7 @@ async function handleNotetakerCreatedWebhook(webhookData: any, grantId: string, 
       .from('recordings')
       .select('*')
       .eq('notetaker_id', notetakerId)
-      .single();
+      .maybeSingle();
 
     if (recordingError) {
       console.error(`❌ [${requestId}] Error finding recording for notetaker ${notetakerId}:`, recordingError);
@@ -188,16 +189,23 @@ async function handleNotetakerStatusWebhook(webhookData: any, grantId: string, r
     const notetakerId = webhookData.data.object.id;
     const newStatus = webhookData.data.object.status;
 
+    console.log(`📝 [${requestId}] Processing notetaker status update:`, { notetakerId, newStatus });
+
     const { data: recording, error: recordingError } = await supabase
       .from('recordings')
       .update({ notetaker_status: newStatus })
       .eq('notetaker_id', notetakerId)
       .select()
-      .single();
+      .maybeSingle();
 
     if (recordingError) {
       console.error(`❌ [${requestId}] Error updating recording status:`, recordingError);
       throw recordingError;
+    }
+
+    if (!recording) {
+      console.log(`⚠️ [${requestId}] No recording found for notetaker ${notetakerId}`);
+      return null;
     }
 
     console.log(`✅ [${requestId}] Updated recording ${recording.id} notetaker status to ${newStatus}`);
@@ -213,16 +221,23 @@ async function handleNotetakerMeetingStateWebhook(webhookData: any, grantId: str
     const notetakerId = webhookData.data.object.id;
     const newState = webhookData.data.object.meeting_state;
 
+    console.log(`📝 [${requestId}] Processing notetaker meeting state update:`, { notetakerId, newState });
+
     const { data: recording, error: recordingError } = await supabase
       .from('recordings')
       .update({ meeting_state: newState })
       .eq('notetaker_id', notetakerId)
       .select()
-      .single();
+      .maybeSingle();
 
     if (recordingError) {
       console.error(`❌ [${requestId}] Error updating recording meeting state:`, recordingError);
       throw recordingError;
+    }
+
+    if (!recording) {
+      console.log(`⚠️ [${requestId}] No recording found for notetaker ${notetakerId}`);
+      return null;
     }
 
     console.log(`✅ [${requestId}] Updated recording ${recording.id} meeting state to ${newState}`);
@@ -238,16 +253,23 @@ async function handleNotetakerMediaWebhook(webhookData: any, grantId: string, re
     const notetakerId = webhookData.data.object.id;
     const mediaStatus = webhookData.data.object.media_status;
 
+    console.log(`📝 [${requestId}] Processing notetaker media update:`, { notetakerId, mediaStatus });
+
     const { data: recording, error: recordingError } = await supabase
       .from('recordings')
       .update({ media_status: mediaStatus })
       .eq('notetaker_id', notetakerId)
       .select()
-      .single();
+      .maybeSingle();
 
     if (recordingError) {
       console.error(`❌ [${requestId}] Error updating recording media status:`, recordingError);
       throw recordingError;
+    }
+
+    if (!recording) {
+      console.log(`⚠️ [${requestId}] No recording found for notetaker ${notetakerId}`);
+      return null;
     }
 
     console.log(`✅ [${requestId}] Updated recording ${recording.id} media status to ${mediaStatus}`);
