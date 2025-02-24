@@ -13,25 +13,29 @@ async function logWebhook(requestId: string, webhookData: any, status = 'success
   const grantId = webhookData?.data?.grant_id || webhookData?.data?.object?.grant_id;
   const webhookType = webhookData?.type;
 
-  // Extract additional data based on webhook type
-  let eventId = null;
-  let recordingId = null;
-  let previousState = null;
-  let newState = null;
-  let userId = null;
-
   try {
-    // First, try to get the user_id from the grant_id if available
-    if (grantId) {
-      const { data: userData, error: userError } = await supabase
-        .rpc('get_user_id_from_grant', { grant_id_param: grantId });
+    // First, insert the webhook log
+    const { data: webhookLog, error: webhookError } = await supabase
+      .from('webhook_logs')
+      .insert({
+        request_id: requestId,
+        webhook_type: webhookType,
+        grant_id: grantId,
+        raw_payload: webhookData,
+        status,
+        error_message: errorMessage
+      })
+      .select()
+      .single();
 
-      if (userError) {
-        console.error(`Failed to get user_id for grant ${grantId}:`, userError);
-      } else {
-        userId = userData;
-      }
+    if (webhookError) {
+      console.error(`Failed to log webhook: ${webhookError.message}`);
+      return;
     }
+
+    // Extract relationship data based on webhook type
+    let eventId = null;
+    let recordingId = null;
 
     // Handle different webhook types
     if (webhookType?.startsWith('event.')) {
@@ -49,34 +53,24 @@ async function logWebhook(requestId: string, webhookData: any, status = 'success
           recordingId = recording.id;
         }
       }
+    }
 
-      // Extract state changes for status updates
-      if (webhookType === 'notetaker.status_updated') {
-        previousState = webhookData?.data?.object?.previous_status;
-        newState = webhookData?.data?.object?.status;
+    // Only create relationship if we have at least one related entity
+    if (eventId || recordingId || notetakerId) {
+      const { error: relationshipError } = await supabase
+        .from('webhook_relationships')
+        .insert({
+          webhook_log_id: webhookLog.id,
+          event_id: eventId,
+          recording_id: recordingId,
+          notetaker_id: notetakerId
+        });
+
+      if (relationshipError) {
+        console.error(`Failed to create webhook relationship: ${relationshipError.message}`);
       }
     }
 
-    const { error } = await supabase
-      .from('webhook_logs')
-      .insert({
-        request_id: requestId,
-        webhook_type: webhookType,
-        notetaker_id: notetakerId,
-        grant_id: grantId,
-        raw_payload: webhookData,
-        status,
-        error_message: errorMessage,
-        event_id: eventId,
-        recording_id: recordingId,
-        previous_state: previousState,
-        new_state: newState,
-        user_id: userId // Set the user_id we obtained
-      });
-
-    if (error) {
-      console.error(`Failed to log webhook: ${error.message}`);
-    }
   } catch (error) {
     console.error('Error logging webhook:', error);
   }
@@ -171,4 +165,3 @@ serve(async (req) => {
     );
   }
 });
-
