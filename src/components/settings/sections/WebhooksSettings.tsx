@@ -43,38 +43,40 @@ export function WebhooksSettings({ userId }: { userId: string }) {
       let query = supabase
         .from('webhook_logs')
         .select('*', { count: 'exact' })
-        .or(
-          `notetaker_id.eq.${userId},` +
-          `raw_payload->data->object->user_id.eq.${userId}`
-        )
+        .or(`notetaker_id.eq.${userId},raw_payload->data->object->user_id.eq.${userId}`)
         .order('received_at', { ascending: false });
 
       if (search) {
         query = query.or(
-          `webhook_type.ilike.%${search}%,` +
-          `notetaker_id.ilike.%${search}%,` +
-          `request_id.ilike.%${search}%,` +
-          `status.ilike.%${search}%,` +
-          `error_message.ilike.%${search}%,` +
-          `previous_state.ilike.%${search}%,` +
-          `new_state.ilike.%${search}%`
+          'webhook_type.ilike.%' + search + '%,' +
+          'notetaker_id.ilike.%' + search + '%,' +
+          'request_id.ilike.%' + search + '%,' +
+          'status.ilike.%' + search + '%,' +
+          'error_message.ilike.%' + search + '%,' +
+          'previous_state.ilike.%' + search + '%,' +
+          'new_state.ilike.%' + search + '%'
         );
       }
 
       const from = (currentPage - 1) * ITEMS_PER_PAGE;
       query = query.range(from, from + ITEMS_PER_PAGE - 1);
 
-      const { data, error, count } = await query;
-      
-      if (error) {
-        console.error('Error fetching webhook logs:', error);
+      try {
+        const { data, error, count } = await query;
+        
+        if (error) {
+          console.error('Error fetching webhook logs:', error);
+          throw error;
+        }
+
+        return {
+          logs: data as WebhookLog[],
+          totalCount: count || 0
+        };
+      } catch (error) {
+        console.error('Error in webhook logs query:', error);
         throw error;
       }
-
-      return {
-        logs: data as WebhookLog[],
-        totalCount: count || 0
-      };
     },
   });
 
