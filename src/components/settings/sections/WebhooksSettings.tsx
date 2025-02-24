@@ -23,6 +23,7 @@ interface WebhookLog {
   request_id: string;
   status: string;
   error_message: string | null;
+  raw_payload: any;
 }
 
 export function WebhooksSettings({ userId }: { userId: string }) {
@@ -34,6 +35,10 @@ export function WebhooksSettings({ userId }: { userId: string }) {
       let query = supabase
         .from('webhook_logs')
         .select('*')
+        .or(
+          `notetaker_id.eq.${userId},` +
+          `raw_payload->data->object->user_id.eq.${userId}`
+        )
         .order('received_at', { ascending: false });
 
       if (search) {
