@@ -26,6 +26,7 @@ export function useWebhookLogs({
         .select('*', { count: 'exact' })
         .order('received_at', { ascending: false });
 
+      // Apply filters
       if (webhookType !== 'all') {
         query = query.eq('webhook_type', webhookType);
       }
@@ -35,35 +36,31 @@ export function useWebhookLogs({
       }
 
       if (search) {
-        const searchPattern = `%${search}%`;
         query = query.or(
-          `webhook_type.ilike.${searchPattern},` +
-          `notetaker_id.ilike.${searchPattern},` +
-          `request_id.ilike.${searchPattern},` +
-          `error_message.ilike.${searchPattern},` +
-          `previous_state.ilike.${searchPattern},` +
-          `new_state.ilike.${searchPattern}`
+          `webhook_type.ilike.%${search}%,` +
+          `notetaker_id.ilike.%${search}%,` +
+          `request_id.ilike.%${search}%,` +
+          `error_message.ilike.%${search}%,` +
+          `previous_state.ilike.%${search}%,` +
+          `new_state.ilike.%${search}%`
         );
       }
 
+      // Apply pagination
       query = query.range(from, from + ITEMS_PER_PAGE - 1);
 
-      try {
-        const { data, error, count } = await query;
-        
-        if (error) {
-          console.error('Error fetching webhook logs:', error);
-          throw error;
-        }
-
-        return {
-          logs: data as WebhookLog[],
-          totalCount: count || 0
-        };
-      } catch (error) {
-        console.error('Error in webhook logs query:', error);
+      const { data, error, count } = await query;
+      
+      if (error) {
+        console.error('Error fetching webhook logs:', error);
         throw error;
       }
+
+      return {
+        logs: data as WebhookLog[],
+        totalCount: count || 0
+      };
     },
+    enabled: !!userId,
   });
 }
