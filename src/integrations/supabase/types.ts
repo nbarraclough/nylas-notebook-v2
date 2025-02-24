@@ -869,6 +869,7 @@ export type Database = {
           recording_id: string | null
           request_id: string
           status: string
+          user_id: string | null
           webhook_type: string
         }
         Insert: {
@@ -885,6 +886,7 @@ export type Database = {
           recording_id?: string | null
           request_id: string
           status?: string
+          user_id?: string | null
           webhook_type: string
         }
         Update: {
@@ -901,6 +903,7 @@ export type Database = {
           recording_id?: string | null
           request_id?: string
           status?: string
+          user_id?: string | null
           webhook_type?: string
         }
         Relationships: [
@@ -916,6 +919,13 @@ export type Database = {
             columns: ["recording_id"]
             isOneToOne: false
             referencedRelation: "recordings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -938,13 +948,6 @@ export type Database = {
             }
             Returns: unknown
           }
-      check_grant_ownership: {
-        Args: {
-          grant_id_param: string
-          user_id_param: string
-        }
-        Returns: boolean
-      }
       get_shared_recording: {
         Args: {
           p_recording_id: string
@@ -959,6 +962,12 @@ export type Database = {
           mux_playback_id: string
           event: Json
         }[]
+      }
+      get_user_id_from_grant: {
+        Args: {
+          grant_id_param: string
+        }
+        Returns: string
       }
       halfvec_avg: {
         Args: {

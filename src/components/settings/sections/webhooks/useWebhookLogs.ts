@@ -36,31 +36,44 @@ export function useWebhookLogs({
       }
 
       if (search) {
-        query = query.or(
-          `webhook_type.ilike.%${search}%,` +
-          `notetaker_id.ilike.%${search}%,` +
-          `request_id.ilike.%${search}%,` +
-          `error_message.ilike.%${search}%,` +
-          `previous_state.ilike.%${search}%,` +
-          `new_state.ilike.%${search}%`
-        );
+        const searchPattern = `%${search}%`;
+        const searchColumns = [
+          'webhook_type',
+          'notetaker_id',
+          'request_id',
+          'error_message',
+          'previous_state',
+          'new_state'
+        ];
+        
+        const searchConditions = searchColumns
+          .map(column => `${column}.ilike.${searchPattern}`)
+          .join(',');
+        
+        query = query.or(searchConditions);
       }
 
       // Apply pagination
       query = query.range(from, from + ITEMS_PER_PAGE - 1);
 
-      const { data, error, count } = await query;
-      
-      if (error) {
-        console.error('Error fetching webhook logs:', error);
+      try {
+        const { data, error, count } = await query;
+        
+        if (error) {
+          console.error('Error fetching webhook logs:', error);
+          throw error;
+        }
+
+        return {
+          logs: data as WebhookLog[],
+          totalCount: count || 0
+        };
+      } catch (error) {
+        console.error('Error in webhook logs query:', error);
         throw error;
       }
-
-      return {
-        logs: data as WebhookLog[],
-        totalCount: count || 0
-      };
     },
     enabled: !!userId,
+    retry: 1, // Only retry once to avoid excessive retries on RLS policy issues
   });
 }
