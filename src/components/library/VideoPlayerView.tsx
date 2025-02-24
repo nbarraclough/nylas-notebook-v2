@@ -12,6 +12,9 @@ import type { EventParticipant } from "@/types/calendar";
 import type { Json } from "@/integrations/supabase/types";
 import { useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { Copy } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 interface VideoPlayerViewProps {
   recordingId: string;
@@ -28,6 +31,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   const { data: recording, isLoading: isRecordingLoading } = useRecordingData(recordingId);
   const { data: profile } = useProfileData();
   const videoPlayerRef = useRef<VideoPlayerRef>(null);
+  const { toast } = useToast();
 
   const handleDialogClose = (open: boolean) => {
     if (!open) {
@@ -37,6 +41,22 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
       }
       queryClient.removeQueries({ queryKey: ['recording', recordingId] });
       onClose();
+    }
+  };
+
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: "Copied!",
+        description: `${label} copied to clipboard`,
+      });
+    } catch (err) {
+      toast({
+        title: "Failed to copy",
+        description: "Please try again",
+        variant: "destructive",
+      });
     }
   };
 
@@ -73,10 +93,6 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
       }
       return false;
     });
-  };
-
-  const handleShareUpdate = () => {
-    queryClient.invalidateQueries({ queryKey: ['recording', recordingId] });
   };
 
   const dialogContentClass = cn(
@@ -152,7 +168,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
             onClose={() => handleDialogClose(false)}
             startTime={recording.event?.start_time}
             endTime={recording.event?.end_time}
-            onShareUpdate={handleShareUpdate}
+            onShareUpdate={() => queryClient.invalidateQueries({ queryKey: ['recording', recordingId] })}
             ownerEmail={recording.owner_email}
             userId={recording.user_id}
             manualMeetingId={recording.event?.manual_meeting?.id}
@@ -183,6 +199,42 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
             )}
           </div>
 
+          {/* Debug Information */}
+          <div className="mt-4 space-y-2 border-t pt-4">
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>Notetaker ID:</span>
+              <div className="flex items-center gap-2">
+                <code className="bg-muted px-2 py-1 rounded">{recording.notetaker_id || 'N/A'}</code>
+                {recording.notetaker_id && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(recording.notetaker_id!, 'Notetaker ID')}
+                    className="h-8 w-8 p-0"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>Event ID:</span>
+              <div className="flex items-center gap-2">
+                <code className="bg-muted px-2 py-1 rounded">{recording.event?.id || 'N/A'}</code>
+                {recording.event?.id && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(recording.event.id!, 'Event ID')}
+                    className="h-8 w-8 p-0"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+
           {recording.event?.description && (
             <div className="border-t pt-6">
               <h3 className="text-lg font-medium mb-3">Description</h3>
@@ -194,3 +246,4 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
     </Dialog>
   );
 }
+
