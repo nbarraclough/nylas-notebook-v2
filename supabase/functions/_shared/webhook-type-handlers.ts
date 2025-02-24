@@ -1,415 +1,197 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
-import { corsHeaders } from './cors.ts';
-import { processEventData } from './event-utils.ts';
-import { NylasWebhookPayload } from './types.ts';
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-function mapNotetakerStatus(nylasStatus: string): string {
-  switch (nylasStatus) {
-    case 'waiting_for_entry': return 'waiting_for_admission';
-    case 'recording_active': return 'attending';
-    case 'entry_denied': return 'failed_entry';
-    case 'bad_meeting_code': return 'failed';
-    case 'internal_error': return 'failed';
-    case 'kicked': return 'failed';
-    case 'no_meeting_activity': return 'concluded';
-    case 'no_participants': return 'concluded';
-    case 'no_response': return 'failed_entry';
-    case 'api': return 'failed';
-    case 'dispatched': return 'joining';
-    default: return nylasStatus;
-  }
-}
-
-export async function handleWebhookType(webhookData: NylasWebhookPayload, grantId: string, requestId: string) {
+export async function handleWebhookType(webhookData: any, grantId: string, requestId: string) {
   console.log(`🎯 [${requestId}] Processing webhook type: ${webhookData.type}`);
 
   try {
-    const eventGrant = webhookData.data?.object?.grant_id;
-    const effectiveGrantId = grantId || eventGrant;
-
-    console.log(`📝 [${requestId}] Using grant ID:`, effectiveGrantId);
-
     switch (webhookData.type) {
-      case 'notetaker.status_updated': {
-        console.log(`📝 [${requestId}] Processing notetaker status update:`, webhookData.data.object);
-        
-        const { id: notetakerId, status } = webhookData.data.object;
-        
-        if (!notetakerId) {
-          console.error(`❌ [${requestId}] No notetaker_id in webhook payload`);
-          return { success: false, message: 'No notetaker_id in webhook payload' };
-        }
-
-        // Map the Nylas status to our internal status
-        const mappedStatus = mapNotetakerStatus(status);
-        console.log(`📝 [${requestId}] Mapped status from ${status} to ${mappedStatus}`);
-
-        const { error: recordingError } = await supabase
-          .from('recordings')
-          .update({ 
-            notetaker_status: status, // Keep original Nylas status for reference
-            status: mappedStatus, // Use our mapped status for UI
-            updated_at: new Date().toISOString()
-          })
-          .eq('notetaker_id', notetakerId);
-
-        if (recordingError) {
-          console.error(`❌ [${requestId}] Error updating recording:`, recordingError);
-          return { success: false, message: recordingError.message };
-        }
-
-        console.log(`✅ [${requestId}] Successfully processed notetaker status webhook`);
-        return { success: true, message: 'Notetaker status updated successfully' };
-      }
-
-      case 'notetaker.meeting_state': {
-        console.log(`📝 [${requestId}] Processing notetaker meeting state:`, webhookData.data.object);
-        
-        const { id: notetakerId, meeting_state } = webhookData.data.object;
-        
-        if (!notetakerId) {
-          console.error(`❌ [${requestId}] No notetaker_id in webhook payload`);
-          return { success: false, message: 'No notetaker_id in webhook payload' };
-        }
-
-        const { error: recordingError } = await supabase
-          .from('recordings')
-          .update({ 
-            meeting_state,
-            updated_at: new Date().toISOString()
-          })
-          .eq('notetaker_id', notetakerId);
-
-        if (recordingError) {
-          console.error(`❌ [${requestId}] Error updating recording:`, recordingError);
-          return { success: false, message: recordingError.message };
-        }
-
-        console.log(`✅ [${requestId}] Successfully processed notetaker meeting state webhook`);
-        return { success: true, message: 'Notetaker meeting state updated successfully' };
-      }
-
-      case 'notetaker.media': {
-        console.log(`📝 [${requestId}] Processing notetaker media:`, webhookData.data.object);
-        
-        const { id: notetakerId, status, media } = webhookData.data.object;
-        
-        if (!notetakerId) {
-          console.error(`❌ [${requestId}] No notetaker_id in webhook payload`);
-          return { success: false, message: 'No notetaker_id in webhook payload' };
-        }
-
-        const updateData: any = {
-          media_status: status,
-          updated_at: new Date().toISOString()
-        };
-
-        if (media) {
-          if (media.recording) {
-            updateData.recording_url = media.recording;
-          }
-          if (media.transcript) {
-            updateData.transcript_url = media.transcript;
-          }
-        }
-
-        const { error: recordingError } = await supabase
-          .from('recordings')
-          .update(updateData)
-          .eq('notetaker_id', notetakerId);
-
-        if (recordingError) {
-          console.error(`❌ [${requestId}] Error updating recording:`, recordingError);
-          return { success: false, message: recordingError.message };
-        }
-
-        if (status === 'available') {
-          console.log(`📝 [${requestId}] Media is available, finding recording ID for notetaker:`, notetakerId);
-          
-          const { data: recording, error: findError } = await supabase
-            .from('recordings')
-            .select('id')
-            .eq('notetaker_id', notetakerId)
-            .single();
-
-          if (findError) {
-            console.error(`❌ [${requestId}] Error finding recording:`, findError);
-            return { success: false, message: findError.message };
-          }
-
-          if (recording) {
-            console.log(`📝 [${requestId}] Found recording ID ${recording.id}, triggering media processing`);
-            
-            try {
-              const result = await supabase.functions.invoke('get-recording-media', {
-                body: { 
-                  recordingId: recording.id,
-                  notetakerId 
-                }
-              });
-              
-              console.log(`✅ [${requestId}] Successfully triggered media processing:`, result);
-            } catch (error) {
-              console.error(`❌ [${requestId}] Error triggering media processing:`, error);
-              // Don't return error here as we've already updated the recording successfully
-            }
-          }
-        }
-
-        console.log(`✅ [${requestId}] Successfully processed notetaker media webhook`);
-        return { success: true, message: 'Notetaker media status updated successfully' };
-      }
-
-      case 'notetaker.updated': {
-        console.log(`📝 [${requestId}] Processing notetaker updated:`, webhookData.data.object);
-        
-        const { id: notetakerId, status, event } = webhookData.data.object;
-        
-        if (!notetakerId) {
-          console.error(`❌ [${requestId}] No notetaker_id in webhook payload`);
-          return { success: false, message: 'No notetaker_id in webhook payload' };
-        }
-
-        const { error: recordingError } = await supabase
-          .from('recordings')
-          .update({ 
-            notetaker_status: status,
-            updated_at: new Date().toISOString()
-          })
-          .eq('notetaker_id', notetakerId);
-
-        if (recordingError) {
-          console.error(`❌ [${requestId}] Error updating recording:`, recordingError);
-          return { success: false, message: recordingError.message };
-        }
-
-        console.log(`✅ [${requestId}] Successfully processed notetaker updated webhook`);
-        return { success: true, message: 'Notetaker status updated successfully' };
-      }
-
-      case 'notetaker.created': {
-        console.log(`📝 [${requestId}] Processing notetaker created:`, webhookData.data.object);
-        
-        const { id: notetakerId, event } = webhookData.data.object;
-        
-        if (!notetakerId) {
-          console.error(`❌ [${requestId}] No notetaker_id in webhook payload`);
-          return { success: false, message: 'No notetaker_id in webhook payload' };
-        }
-
-        if (event?.event_id) {
-          console.log(`📅 [${requestId}] Updating queue entry for event:`, event.event_id);
-          
-          const { error: queueError } = await supabase
-            .from('notetaker_queue')
-            .update({ 
-              notetaker_id: notetakerId,
-              status: 'sent',
-              updated_at: new Date().toISOString()
-            })
-            .eq('event_id', event.event_id);
-
-          if (queueError) {
-            console.error(`❌ [${requestId}] Error updating queue entry:`, queueError);
-            // Continue to update recording even if queue update fails
-          }
-        }
-
-        const { error: recordingError } = await supabase
-          .from('recordings')
-          .upsert({ 
-            notetaker_id: notetakerId,
-            status: 'waiting',
-            updated_at: new Date().toISOString()
-          })
-          .eq('notetaker_id', notetakerId);
-
-        if (recordingError) {
-          console.error(`❌ [${requestId}] Error updating recording:`, recordingError);
-          return { success: false, message: recordingError.message };
-        }
-
-        console.log(`✅ [${requestId}] Successfully processed notetaker created webhook`);
-        return { success: true, message: 'Notetaker created successfully' };
-      }
-
       case 'event.created':
-      case 'event.updated': {
-        console.log(`📝 [${requestId}] Processing event ${webhookData.type}:`, webhookData.data.object.id);
-        const eventData = webhookData.data.object;
-        
-        const { data: profiles, error: profileError } = await supabase
-          .from('profiles')
-          .select('id, email')
-          .eq('nylas_grant_id', effectiveGrantId);
-
-        if (profileError) {
-          console.error(`❌ [${requestId}] Error finding profiles for grant:`, profileError);
-          return { success: false, message: profileError.message };
-        }
-
-        if (!profiles || profiles.length === 0) {
-          console.error(`❌ [${requestId}] No profiles found for grant: ${effectiveGrantId}`);
-          return { success: false, message: `No profiles found for grant: ${effectiveGrantId}` };
-        }
-
-        if (profiles.length > 1) {
-          console.log(`ℹ️ [${requestId}] Multiple profiles found for grant ${effectiveGrantId}:`, 
-            profiles.map(p => p.email).join(', ')
-          );
-        }
-
-        const results = await Promise.all(
-          profiles.map(profile => 
-            processEventData(eventData, profile.id, `${requestId}-${profile.id}`)
-          )
-        );
-
-        const failures = results.filter(r => !r.success);
-        if (failures.length > 0) {
-          console.error(`❌ [${requestId}] Error processing event for some users:`, failures);
-          return { 
-            success: false, 
-            message: 'Event processing failed for some users',
-            details: failures 
-          };
-        }
-
-        console.log(`✅ [${requestId}] Successfully processed event for ${profiles.length} users`);
-        return { 
-          success: true, 
-          message: `Event processed successfully for ${profiles.length} users` 
-        };
-      }
-
-      case 'event.deleted': {
-        console.log(`📝 [${requestId}] Processing event deleted:`, webhookData.data.object.id);
-        
-        const { data: profiles, error: profileError } = await supabase
-          .from('profiles')
-          .select('id, email')
-          .eq('nylas_grant_id', effectiveGrantId);
-
-        if (profileError) {
-          console.error(`❌ [${requestId}] Error finding profiles:`, profileError);
-          return { success: false, message: profileError.message };
-        }
-
-        if (!profiles || profiles.length === 0) {
-          console.error(`❌ [${requestId}] No profiles found for grant: ${effectiveGrantId}`);
-          return { success: false, message: 'Profile not found' };
-        }
-
-        if (profiles.length > 1) {
-          console.log(`ℹ️ [${requestId}] Deleting event for multiple profiles with grant ${effectiveGrantId}:`, 
-            profiles.map(p => p.email).join(', ')
-          );
-        }
-
-        const { error: eventError } = await supabase
-          .from('events')
-          .delete()
-          .eq('nylas_event_id', webhookData.data.object.id)
-          .in('user_id', profiles.map(p => p.id));
-
-        if (eventError) {
-          console.error(`❌ [${requestId}] Error deleting event:`, eventError);
-          return { success: false, message: eventError.message };
-        }
-
-        console.log(`✅ [${requestId}] Successfully deleted event for ${profiles.length} users`);
-        return { 
-          success: true, 
-          message: `Event deleted for ${profiles.length} users` 
-        };
-      }
-
-      case 'grant.created': {
-        console.log(`📝 [${requestId}] Processing grant created:`, webhookData.data.object);
-        const { error } = await supabase
-          .from('profiles')
-          .update({ 
-            grant_status: 'active',
-            updated_at: new Date().toISOString()
-          })
-          .eq('nylas_grant_id', effectiveGrantId);
-
-        if (error) {
-          console.error(`❌ [${requestId}] Error updating grant status:`, error);
-          return { success: false, message: error.message };
-        }
-
-        console.log(`✅ [${requestId}] Successfully processed grant creation`);
-        return { success: true, message: 'Grant created successfully' };
-      }
-
-      case 'grant.updated': {
-        console.log(`📝 [${requestId}] Processing grant updated:`, webhookData.data.object);
-        const { error } = await supabase
-          .from('profiles')
-          .update({ 
-            grant_status: 'active',
-            updated_at: new Date().toISOString()
-          })
-          .eq('nylas_grant_id', effectiveGrantId);
-
-        if (error) {
-          console.error(`❌ [${requestId}] Error updating grant status:`, error);
-          return { success: false, message: error.message };
-        }
-
-        console.log(`✅ [${requestId}] Successfully processed grant update`);
-        return { success: true, message: 'Grant updated successfully' };
-      }
-
-      case 'grant.deleted': {
-        console.log(`📝 [${requestId}] Processing grant deleted:`, webhookData.data.object);
-        const { error } = await supabase
-          .from('profiles')
-          .update({ 
-            grant_status: 'revoked',
-            updated_at: new Date().toISOString()
-          })
-          .eq('nylas_grant_id', effectiveGrantId);
-
-        if (error) {
-          console.error(`❌ [${requestId}] Error updating grant status:`, error);
-          return { success: false, message: error.message };
-        }
-
-        console.log(`✅ [${requestId}] Successfully processed grant deletion`);
-        return { success: true, message: 'Grant deleted successfully' };
-      }
-
-      case 'grant.expired': {
-        console.log(`📝 [${requestId}] Processing grant expired:`, webhookData.data.object);
-        const { error } = await supabase
-          .from('profiles')
-          .update({ 
-            grant_status: 'expired',
-            updated_at: new Date().toISOString()
-          })
-          .eq('nylas_grant_id', effectiveGrantId);
-
-        if (error) {
-          console.error(`❌ [${requestId}] Error updating grant status:`, error);
-          return { success: false, message: error.message };
-        }
-
-        console.log(`✅ [${requestId}] Successfully processed grant expiration`);
-        return { success: true, message: 'Grant expiration processed successfully' };
-      }
-
+      case 'event.updated':
+      case 'event.deleted':
+        await handleEventWebhook(webhookData, grantId, requestId);
+        break;
+      case 'notetaker.status_updated':
+        await handleNotetakerStatusWebhook(webhookData, grantId, requestId);
+        break;
+      case 'notetaker.meeting_state':
+        await handleNotetakerMeetingStateWebhook(webhookData, grantId, requestId);
+        break;
+      case 'notetaker.media':
+        await handleNotetakerMediaWebhook(webhookData, grantId, requestId);
+        break;
       default:
-        console.warn(`⚠️ [${requestId}] Unhandled webhook type:`, webhookData.type);
-        return { success: false, message: `Unhandled webhook type: ${webhookData.type}` };
+        console.log(`⚠️ [${requestId}] Unhandled webhook type: ${webhookData.type}`);
     }
-  } catch (error: any) {
-    console.error(`❌ [${requestId}] Error processing webhook:`, error);
-    return { success: false, message: error.message };
+  } catch (error) {
+    console.error(`❌ [${requestId}] Error in handleWebhookType:`, error);
+    throw error;
+  }
+}
+
+async function handleEventWebhook(webhookData: any, grantId: string, requestId: string) {
+  try {
+    // Get the user_id from the grant
+    const { data: userId, error: userError } = await supabase
+      .rpc('get_user_id_from_grant', { grant_id_param: grantId });
+
+    if (userError) {
+      console.error(`❌ [${requestId}] Error getting user_id:`, userError);
+      throw userError;
+    }
+
+    if (!userId) {
+      console.error(`❌ [${requestId}] No profiles found for grant:`, grantId);
+      return;
+    }
+
+    const eventData = webhookData.data.object;
+    console.log(`📝 [${requestId}] Processing event ${webhookData.type}: ${eventData.id}`);
+
+    if (webhookData.type === 'event.deleted') {
+      await handleEventDeletion(eventData.id, userId, requestId);
+    } else {
+      await handleEventUpsert(eventData, userId, requestId);
+    }
+  } catch (error) {
+    console.error(`❌ [${requestId}] Error in handleEventWebhook:`, error);
+    throw error;
+  }
+}
+
+async function handleEventUpsert(eventData: any, userId: string, requestId: string) {
+  try {
+    const eventRecord = {
+      user_id: userId,
+      nylas_event_id: eventData.id,
+      title: eventData.title,
+      description: eventData.description,
+      location: eventData.location,
+      start_time: eventData.when.start_time ? new Date(eventData.when.start_time * 1000).toISOString() : null,
+      end_time: eventData.when.end_time ? new Date(eventData.when.end_time * 1000).toISOString() : null,
+      participants: eventData.participants || [],
+      conference_url: eventData.conferencing?.url || null,
+      busy: eventData.busy,
+      status: eventData.status,
+      html_link: eventData.html_link,
+      ical_uid: eventData.ical_uid,
+      organizer: eventData.organizer || {},
+      recurrence: eventData.recurrence,
+      master_event_id: eventData.master_event_id,
+      original_start_time: eventData.original_start_time ? new Date(eventData.original_start_time * 1000).toISOString() : null,
+      last_updated_at: new Date().toISOString()
+    };
+
+    const { error } = await supabase
+      .from('events')
+      .upsert(eventRecord, {
+        onConflict: 'nylas_event_id,user_id'
+      });
+
+    if (error) {
+      console.error(`❌ [${requestId}] Error upserting event:`, error);
+      throw error;
+    }
+
+    console.log(`✅ [${requestId}] Successfully processed event ${eventData.id}`);
+  } catch (error) {
+    console.error(`❌ [${requestId}] Error in handleEventUpsert:`, error);
+    throw error;
+  }
+}
+
+async function handleEventDeletion(eventId: string, userId: string, requestId: string) {
+  try {
+    const { error } = await supabase
+      .from('events')
+      .delete()
+      .eq('nylas_event_id', eventId)
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error(`❌ [${requestId}] Error deleting event:`, error);
+      throw error;
+    }
+
+    console.log(`✅ [${requestId}] Successfully deleted event ${eventId}`);
+  } catch (error) {
+    console.error(`❌ [${requestId}] Error in handleEventDeletion:`, error);
+    throw error;
+  }
+}
+
+async function handleNotetakerStatusWebhook(webhookData: any, grantId: string, requestId: string) {
+  try {
+    const notetakerId = webhookData.data.object.id;
+    const newStatus = webhookData.data.object.status;
+
+    const { data: recording, error: recordingError } = await supabase
+      .from('recordings')
+      .update({ notetaker_status: newStatus })
+      .eq('notetaker_id', notetakerId)
+      .select()
+      .single();
+
+    if (recordingError) {
+      console.error(`❌ [${requestId}] Error updating recording status:`, recordingError);
+      throw recordingError;
+    }
+
+    console.log(`✅ [${requestId}] Updated recording ${recording.id} notetaker status to ${newStatus}`);
+  } catch (error) {
+    console.error(`❌ [${requestId}] Error in handleNotetakerStatusWebhook:`, error);
+    throw error;
+  }
+}
+
+async function handleNotetakerMeetingStateWebhook(webhookData: any, grantId: string, requestId: string) {
+  try {
+    const notetakerId = webhookData.data.object.id;
+    const newState = webhookData.data.object.meeting_state;
+
+    const { data: recording, error: recordingError } = await supabase
+      .from('recordings')
+      .update({ meeting_state: newState })
+      .eq('notetaker_id', notetakerId)
+      .select()
+      .single();
+
+    if (recordingError) {
+      console.error(`❌ [${requestId}] Error updating recording meeting state:`, recordingError);
+      throw recordingError;
+    }
+
+    console.log(`✅ [${requestId}] Updated recording ${recording.id} meeting state to ${newState}`);
+  } catch (error) {
+    console.error(`❌ [${requestId}] Error in handleNotetakerMeetingStateWebhook:`, error);
+    throw error;
+  }
+}
+
+async function handleNotetakerMediaWebhook(webhookData: any, grantId: string, requestId: string) {
+  try {
+    const notetakerId = webhookData.data.object.id;
+    const mediaStatus = webhookData.data.object.media_status;
+
+    const { data: recording, error: recordingError } = await supabase
+      .from('recordings')
+      .update({ media_status: mediaStatus })
+      .eq('notetaker_id', notetakerId)
+      .select()
+      .single();
+
+    if (recordingError) {
+      console.error(`❌ [${requestId}] Error updating recording media status:`, recordingError);
+      throw recordingError;
+    }
+
+    console.log(`✅ [${requestId}] Updated recording ${recording.id} media status to ${mediaStatus}`);
+  } catch (error) {
+    console.error(`❌ [${requestId}] Error in handleNotetakerMediaWebhook:`, error);
+    throw error;
   }
 }

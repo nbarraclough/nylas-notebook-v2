@@ -41,14 +41,6 @@ async function logWebhook(requestId: string, webhookData: any, status = 'success
       }
     }
 
-    // Extract state changes for status updates
-    let previousState = null;
-    let newState = null;
-    if (webhookType === 'notetaker.status_updated') {
-      previousState = webhookData?.data?.object?.previous_status;
-      newState = webhookData?.data?.object?.status;
-    }
-
     // Insert the webhook log
     const { data: webhookLog, error: webhookError } = await supabase
       .from('webhook_logs')
@@ -124,7 +116,7 @@ async function logWebhook(requestId: string, webhookData: any, status = 'success
       }
     }
 
-    return webhookLog;
+    return { webhookLog, grantId };
   } catch (error) {
     console.error('Error logging webhook:', error);
     throw error;
@@ -161,12 +153,16 @@ serve(async (req) => {
       const webhookData = JSON.parse(rawBody);
       console.log(`📝 [${requestId}] Webhook type:`, webhookData.type);
 
-      // First log the webhook
-      const webhookLog = await logWebhook(requestId, webhookData);
+      // First log the webhook and get the grant ID
+      const { webhookLog, grantId } = await logWebhook(requestId, webhookData);
+
+      if (!grantId || typeof grantId !== 'string') {
+        throw new Error(`Invalid grant ID: ${grantId}`);
+      }
 
       // Then process the webhook using the type handlers
       try {
-        await handleWebhookType(webhookData, supabase);
+        await handleWebhookType(webhookData, grantId, requestId);
         console.log(`✅ [${requestId}] Successfully processed webhook type:`, webhookData.type);
       } catch (processError: any) {
         console.error(`❌ [${requestId}] Error processing webhook:`, processError);
