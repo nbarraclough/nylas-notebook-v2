@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from '../_shared/cors.ts'
 import { verifyWebhookSignature } from '../_shared/webhook-verification.ts'
@@ -9,14 +10,26 @@ const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function logWebhook(requestId: string, webhookData: any, status = 'success', errorMessage?: string) {
-  const notetakerId = webhookData?.data?.object?.id;
-  const grantId = webhookData?.data?.grant_id || webhookData?.data?.object?.grant_id;
-  const webhookType = webhookData?.type;
-
   try {
+    // Extract notetaker ID and grant ID
+    const notetakerId = webhookData?.data?.object?.id;
+    let grantId;
+
+    // Properly extract grant_id based on webhook type and structure
+    if (webhookData?.data?.grant_id) {
+      grantId = webhookData.data.grant_id;
+    } else if (webhookData?.data?.object?.grant_id) {
+      grantId = webhookData.data.object.grant_id;
+    }
+
+    const webhookType = webhookData?.type;
+
+    console.log(`📝 [${requestId}] Processing webhook type: ${webhookType}`);
+    console.log(`📝 [${requestId}] Using grant ID:`, grantId);
+
     // First, try to get the user_id from the grant_id if available
     let userId = null;
-    if (grantId) {
+    if (grantId && typeof grantId === 'string') {
       const { data: userData, error: userError } = await supabase
         .rpc('get_user_id_from_grant', { grant_id_param: grantId });
 
@@ -24,6 +37,7 @@ async function logWebhook(requestId: string, webhookData: any, status = 'success
         console.error(`Failed to get user_id for grant ${grantId}:`, userError);
       } else {
         userId = userData;
+        console.log(`📝 [${requestId}] Found user ID:`, userId);
       }
     }
 
@@ -71,7 +85,7 @@ async function logWebhook(requestId: string, webhookData: any, status = 'success
           .single();
         
         if (event) {
-          eventId = event.id; // This will be a UUID
+          eventId = event.id;
           console.log(`Found internal event ID ${eventId} for Nylas event ${nylasEventId}`);
         } else {
           console.log(`No matching internal event found for Nylas event ${nylasEventId}`);
@@ -118,47 +132,29 @@ async function logWebhook(requestId: string, webhookData: any, status = 'success
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   const requestId = crypto.randomUUID();
-  console.log(`⚡ [${requestId}] Webhook handler started`);
 
   try {
-    // Handle challenge parameter (for both GET and POST)
-    const url = new URL(req.url);
-    const challenge = url.searchParams.get('challenge');
-    
-    if (challenge) {
-      console.log(`🎯 [${requestId}] Challenge received: ${challenge}`);
-      return new Response(challenge, {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
-      });
-    }
-
-    // Handle CORS preflight
-    if (req.method === 'OPTIONS') {
-      return new Response(null, { headers: corsHeaders });
-    }
-
     // Only process webhooks for POST requests
     if (req.method === 'POST') {
       const rawBody = await req.text();
       console.log(`📝 [${requestId}] Raw webhook body:`, rawBody);
 
       // Verify webhook signature
-      const signature = req.headers.get('x-nylas-signature');
-      const webhookSecret = Deno.env.get('NYLAS_WEBHOOK_SECRET');
+      const signature = req.headers.get('x-nylas-signature') || '';
+      const isValid = await verifyWebhookSignature(signature, rawBody);
       
-      if (!webhookSecret) {
-        const error = new Error('NYLAS_WEBHOOK_SECRET not configured');
-        await logWebhook(requestId, JSON.parse(rawBody), 'error', error.message);
-        throw error;
-      }
-
-      const isValid = await verifyWebhookSignature(rawBody, signature || '', webhookSecret);
       if (!isValid) {
-        const error = new Error('Invalid webhook signature');
-        await logWebhook(requestId, JSON.parse(rawBody), 'error', error.message);
-        throw error;
+        console.error(`❌ [${requestId}] Invalid webhook signature`);
+        return new Response(
+          JSON.stringify({ error: 'Invalid signature' }), 
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       // Parse webhook data
@@ -196,27 +192,16 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: false, message: 'Method not allowed' }),
+      JSON.stringify({ error: 'Method not allowed' }),
       { 
         status: 405,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
-
-  } catch (error: any) {
-    console.error(`❌ [${requestId}] Error processing webhook:`, error);
-    
-    // Try to log the error if we can parse the body
-    try {
-      const rawBody = await req.text();
-      const webhookData = JSON.parse(rawBody);
-      await logWebhook(requestId, webhookData, 'error', error.message);
-    } catch (logError) {
-      console.error('Failed to log webhook error:', logError);
-    }
-
+  } catch (error) {
+    console.error(`❌ [${requestId}] Error processing request:`, error);
     return new Response(
-      JSON.stringify({ success: false, message: error.message }),
+      JSON.stringify({ error: 'Internal server error' }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
