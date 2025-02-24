@@ -938,6 +938,13 @@ export type Database = {
             }
             Returns: unknown
           }
+      check_grant_ownership: {
+        Args: {
+          grant_id_param: string
+          user_id_param: string
+        }
+        Returns: boolean
+      }
       get_shared_recording: {
         Args: {
           p_recording_id: string
