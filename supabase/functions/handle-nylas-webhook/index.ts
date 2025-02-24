@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from '../_shared/cors.ts'
 import { verifyWebhookSignature } from '../_shared/webhook-verification.ts'
@@ -62,7 +61,22 @@ async function logWebhook(requestId: string, webhookData: any, status = 'success
 
     // Handle different webhook types
     if (webhookType?.startsWith('event.')) {
-      eventId = webhookData?.data?.object?.id;
+      const nylasEventId = webhookData?.data?.object?.id;
+      if (nylasEventId) {
+        // Look up our internal event ID using the Nylas event ID
+        const { data: event } = await supabase
+          .from('events')
+          .select('id')
+          .eq('nylas_event_id', nylasEventId)
+          .single();
+        
+        if (event) {
+          eventId = event.id; // This will be a UUID
+          console.log(`Found internal event ID ${eventId} for Nylas event ${nylasEventId}`);
+        } else {
+          console.log(`No matching internal event found for Nylas event ${nylasEventId}`);
+        }
+      }
     } else if (webhookType?.startsWith('notetaker.')) {
       // For notetaker webhooks, try to find the associated recording
       if (notetakerId) {
@@ -91,6 +105,8 @@ async function logWebhook(requestId: string, webhookData: any, status = 'success
 
       if (relationshipError) {
         console.error(`Failed to create webhook relationship: ${relationshipError.message}`);
+      } else {
+        console.log(`Created webhook relationship for log ${webhookLog.id} with event: ${eventId}, recording: ${recordingId}, notetaker: ${notetakerId}`);
       }
     }
 
