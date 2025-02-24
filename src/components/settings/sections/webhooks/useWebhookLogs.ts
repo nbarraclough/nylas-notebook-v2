@@ -23,7 +23,14 @@ export function useWebhookLogs({
       
       let query = supabase
         .from('webhook_logs')
-        .select('*', { count: 'exact' })
+        .select(`
+          *,
+          relationship:webhook_relationships (
+            event_id,
+            recording_id,
+            notetaker_id
+          )
+        `, { count: 'exact' })
         .order('received_at', { ascending: false });
 
       // Apply filters
@@ -37,20 +44,7 @@ export function useWebhookLogs({
 
       if (search) {
         const searchPattern = `%${search}%`;
-        const searchColumns = [
-          'webhook_type',
-          'notetaker_id',
-          'request_id',
-          'error_message',
-          'previous_state',
-          'new_state'
-        ];
-        
-        const searchConditions = searchColumns
-          .map(column => `${column}.ilike.${searchPattern}`)
-          .join(',');
-        
-        query = query.or(searchConditions);
+        query = query.or(`webhook_type.ilike.${searchPattern},request_id.ilike.${searchPattern},error_message.ilike.${searchPattern}`);
       }
 
       // Apply pagination
@@ -64,8 +58,18 @@ export function useWebhookLogs({
           throw error;
         }
 
+        // Process the data to match our WebhookLog type
+        const processedLogs = data.map((log: any) => ({
+          ...log,
+          relationship: log.relationship || {
+            event_id: null,
+            recording_id: null,
+            notetaker_id: null
+          }
+        }));
+
         return {
-          logs: data as WebhookLog[],
+          logs: processedLogs as WebhookLog[],
           totalCount: count || 0
         };
       } catch (error) {

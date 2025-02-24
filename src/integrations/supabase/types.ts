@@ -856,6 +856,53 @@ export type Database = {
       }
       webhook_logs: {
         Row: {
+          created_at: string | null
+          error_message: string | null
+          grant_id: string
+          id: string
+          raw_payload: Json
+          received_at: string | null
+          request_id: string
+          status: string | null
+          user_id: string | null
+          webhook_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          grant_id: string
+          id?: string
+          raw_payload: Json
+          received_at?: string | null
+          request_id: string
+          status?: string | null
+          user_id?: string | null
+          webhook_type: string
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          grant_id?: string
+          id?: string
+          raw_payload?: Json
+          received_at?: string | null
+          request_id?: string
+          status?: string | null
+          user_id?: string | null
+          webhook_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_logs_new_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webhook_logs_old: {
+        Row: {
           created_at: string
           error_message: string | null
           event_id: string | null
@@ -926,6 +973,52 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webhook_relationships: {
+        Row: {
+          created_at: string | null
+          event_id: string | null
+          notetaker_id: string | null
+          recording_id: string | null
+          webhook_log_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_id?: string | null
+          notetaker_id?: string | null
+          recording_id?: string | null
+          webhook_log_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_id?: string | null
+          notetaker_id?: string | null
+          recording_id?: string | null
+          webhook_log_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_relationships_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_relationships_recording_id_fkey"
+            columns: ["recording_id"]
+            isOneToOne: false
+            referencedRelation: "recordings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_relationships_webhook_log_id_fkey"
+            columns: ["webhook_log_id"]
+            isOneToOne: true
+            referencedRelation: "webhook_logs"
             referencedColumns: ["id"]
           },
         ]
