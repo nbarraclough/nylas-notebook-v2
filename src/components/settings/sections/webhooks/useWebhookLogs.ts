@@ -24,7 +24,6 @@ export function useWebhookLogs({
       let query = supabase
         .from('webhook_logs')
         .select('*', { count: 'exact' })
-        .or(`notetaker_id.eq.${userId}`) // Simplified to only check user's own logs
         .order('received_at', { ascending: false });
 
       if (webhookType !== 'all') {
