@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
+import { PaginationControls } from "@/components/recurring/PaginationControls";
 
 interface WebhookLog {
   id: string;
@@ -26,15 +27,18 @@ interface WebhookLog {
   raw_payload: any;
 }
 
+const ITEMS_PER_PAGE = 10;
+
 export function WebhooksSettings({ userId }: { userId: string }) {
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const { data: webhookLogs, isLoading } = useQuery({
     queryKey: ['webhook_logs', search],
     queryFn: async () => {
       let query = supabase
         .from('webhook_logs')
-        .select('*')
+        .select('*', { count: 'exact' })
         .or(
           `notetaker_id.eq.${userId},` +
           `raw_payload->data->object->user_id.eq.${userId}`
@@ -51,16 +55,25 @@ export function WebhooksSettings({ userId }: { userId: string }) {
         );
       }
 
-      const { data, error } = await query;
+      // Add pagination
+      const from = (currentPage - 1) * ITEMS_PER_PAGE;
+      query = query.range(from, from + ITEMS_PER_PAGE - 1);
+
+      const { data, error, count } = await query;
       
       if (error) {
         console.error('Error fetching webhook logs:', error);
         throw error;
       }
 
-      return data as WebhookLog[];
+      return {
+        logs: data as WebhookLog[],
+        totalCount: count || 0
+      };
     },
   });
+
+  const totalPages = webhookLogs ? Math.ceil(webhookLogs.totalCount / ITEMS_PER_PAGE) : 1;
 
   return (
     <div className="space-y-6">
@@ -99,14 +112,14 @@ export function WebhooksSettings({ userId }: { userId: string }) {
                   Loading...
                 </TableCell>
               </TableRow>
-            ) : webhookLogs?.length === 0 ? (
+            ) : webhookLogs?.logs.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
                   No results
                 </TableCell>
               </TableRow>
             ) : (
-              webhookLogs?.map((log) => (
+              webhookLogs?.logs.map((log) => (
                 <TableRow key={log.id}>
                   <TableCell className="font-mono">
                     {format(new Date(log.received_at), "MMM d, HH:mm:ss")}
@@ -132,6 +145,14 @@ export function WebhooksSettings({ userId }: { userId: string }) {
             )}
           </TableBody>
         </Table>
+
+        {webhookLogs?.logs.length > 0 && (
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
+        )}
       </div>
     </div>
   );
