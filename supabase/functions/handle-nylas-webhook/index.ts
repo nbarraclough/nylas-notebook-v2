@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from '../_shared/cors.ts'
 import { verifyWebhookSignature } from '../_shared/webhook-verification.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
+import { handleWebhookType } from '../_shared/webhook-type-handlers.ts'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -14,7 +15,28 @@ async function logWebhook(requestId: string, webhookData: any, status = 'success
   const webhookType = webhookData?.type;
 
   try {
-    // First, insert the webhook log
+    // First, try to get the user_id from the grant_id if available
+    let userId = null;
+    if (grantId) {
+      const { data: userData, error: userError } = await supabase
+        .rpc('get_user_id_from_grant', { grant_id_param: grantId });
+
+      if (userError) {
+        console.error(`Failed to get user_id for grant ${grantId}:`, userError);
+      } else {
+        userId = userData;
+      }
+    }
+
+    // Extract state changes for status updates
+    let previousState = null;
+    let newState = null;
+    if (webhookType === 'notetaker.status_updated') {
+      previousState = webhookData?.data?.object?.previous_status;
+      newState = webhookData?.data?.object?.status;
+    }
+
+    // Insert the webhook log
     const { data: webhookLog, error: webhookError } = await supabase
       .from('webhook_logs')
       .insert({
@@ -23,7 +45,8 @@ async function logWebhook(requestId: string, webhookData: any, status = 'success
         grant_id: grantId,
         raw_payload: webhookData,
         status,
-        error_message: errorMessage
+        error_message: errorMessage,
+        user_id: userId
       })
       .select()
       .single();
@@ -55,7 +78,7 @@ async function logWebhook(requestId: string, webhookData: any, status = 'success
       }
     }
 
-    // Only create relationship if we have at least one related entity
+    // Create webhook relationship if we have related entities
     if (eventId || recordingId || notetakerId) {
       const { error: relationshipError } = await supabase
         .from('webhook_relationships')
@@ -71,8 +94,10 @@ async function logWebhook(requestId: string, webhookData: any, status = 'success
       }
     }
 
+    return webhookLog;
   } catch (error) {
     console.error('Error logging webhook:', error);
+    throw error;
   }
 }
 
@@ -124,8 +149,26 @@ serve(async (req) => {
       const webhookData = JSON.parse(rawBody);
       console.log(`📝 [${requestId}] Webhook type:`, webhookData.type);
 
-      // Log the webhook before processing
-      await logWebhook(requestId, webhookData);
+      // First log the webhook
+      const webhookLog = await logWebhook(requestId, webhookData);
+
+      // Then process the webhook using the type handlers
+      try {
+        await handleWebhookType(webhookData, supabase);
+        console.log(`✅ [${requestId}] Successfully processed webhook type:`, webhookData.type);
+      } catch (processError: any) {
+        console.error(`❌ [${requestId}] Error processing webhook:`, processError);
+        // Update the webhook log with the error
+        await supabase
+          .from('webhook_logs')
+          .update({ 
+            status: 'error',
+            error_message: processError.message
+          })
+          .eq('id', webhookLog.id);
+        
+        throw processError;
+      }
 
       return new Response(
         JSON.stringify({ success: true, status: 'acknowledged' }),
