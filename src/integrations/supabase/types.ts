@@ -854,6 +854,45 @@ export type Database = {
           },
         ]
       }
+      webhook_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          grant_id: string | null
+          id: string
+          notetaker_id: string | null
+          raw_payload: Json
+          received_at: string
+          request_id: string
+          status: string
+          webhook_type: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          grant_id?: string | null
+          id?: string
+          notetaker_id?: string | null
+          raw_payload: Json
+          received_at?: string
+          request_id: string
+          status?: string
+          webhook_type: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          grant_id?: string | null
+          id?: string
+          notetaker_id?: string | null
+          raw_payload?: Json
+          received_at?: string
+          request_id?: string
+          status?: string
+          webhook_type?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

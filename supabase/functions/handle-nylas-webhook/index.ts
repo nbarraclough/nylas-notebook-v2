@@ -9,6 +9,11 @@ import {
   logWebhookError 
 } from '../_shared/webhook-logger.ts'
 import { handleWebhookType } from '../_shared/webhook-type-handlers.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
+
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const SUPPORTED_WEBHOOK_TYPES = [
   "grant.created",
@@ -23,6 +28,32 @@ const SUPPORTED_WEBHOOK_TYPES = [
   "notetaker.updated",
   "notetaker.meeting_state"
 ];
+
+async function logWebhook(requestId: string, webhookData: any, status = 'success', errorMessage?: string) {
+  const notetakerId = webhookData?.data?.object?.id;
+  const grantId = webhookData?.data?.grant_id || webhookData?.data?.object?.grant_id;
+  const webhookType = webhookData?.type;
+
+  try {
+    const { error } = await supabase
+      .from('webhook_logs')
+      .insert({
+        request_id: requestId,
+        webhook_type: webhookType,
+        notetaker_id: notetakerId,
+        grant_id: grantId,
+        raw_payload: webhookData,
+        status,
+        error_message: errorMessage
+      });
+
+    if (error) {
+      console.error(`Failed to log webhook: ${error.message}`);
+    }
+  } catch (error) {
+    console.error('Error logging webhook:', error);
+  }
+}
 
 serve(async (req) => {
   const requestId = crypto.randomUUID();
@@ -58,7 +89,9 @@ serve(async (req) => {
       const webhookSecret = Deno.env.get('NYLAS_WEBHOOK_SECRET');
       
       if (!webhookSecret) {
-        logWebhookError('configuration', new Error('NYLAS_WEBHOOK_SECRET not configured'));
+        const error = new Error('NYLAS_WEBHOOK_SECRET not configured');
+        await logWebhook(requestId, JSON.parse(rawBody), 'error', error.message);
+        logWebhookError('configuration', error);
         return new Response(
           JSON.stringify({
             success: false,
@@ -74,7 +107,9 @@ serve(async (req) => {
 
       const isValid = await verifyWebhookSignature(rawBody, signature || '', webhookSecret);
       if (!isValid) {
-        logWebhookError('signature verification', new Error('Invalid webhook signature'));
+        const error = new Error('Invalid webhook signature');
+        await logWebhook(requestId, JSON.parse(rawBody), 'error', error.message);
+        logWebhookError('signature verification', error);
         return new Response(
           JSON.stringify({
             success: false,
@@ -92,12 +127,20 @@ serve(async (req) => {
       const webhookData = JSON.parse(rawBody);
       logParsedWebhook(webhookData);
 
+      // Log the webhook before processing
+      await logWebhook(requestId, webhookData);
+
       // Extract grant ID from webhook data
       const grantId = webhookData.data?.grant_id;
       
       // Handle webhook by type
       const result = await handleWebhookType(webhookData, grantId, requestId);
       
+      // Update log status if there was an error
+      if (!result.success) {
+        await logWebhook(requestId, webhookData, 'error', result.message);
+      }
+
       return new Response(
         JSON.stringify({
           ...result,
@@ -124,6 +167,15 @@ serve(async (req) => {
     );
 
   } catch (error) {
+    // Log the error in webhook_logs if we can parse the body
+    try {
+      const rawBody = await req.text();
+      const webhookData = JSON.parse(rawBody);
+      await logWebhook(requestId, webhookData, 'error', error.message);
+    } catch (logError) {
+      console.error('Failed to log webhook error:', logError);
+    }
+
     logWebhookError('webhook processing', error);
     return new Response(
       JSON.stringify({
