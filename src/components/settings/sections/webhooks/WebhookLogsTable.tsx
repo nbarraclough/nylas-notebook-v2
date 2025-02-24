@@ -31,13 +31,13 @@ const getStatusBadgeColor = (status: string) => {
   }
 };
 
-const formatState = (prev: string | null, next: string | null) => {
-  if (!prev && !next) return null;
+const formatState = (raw_payload: any) => {
+  if (!raw_payload?.previous_state && !raw_payload?.new_state) return null;
   return (
     <div className="flex items-center gap-2 text-sm">
-      {prev && <Badge variant="outline">{prev}</Badge>}
-      {prev && next && <ChevronDown className="h-4 w-4" />}
-      {next && <Badge>{next}</Badge>}
+      {raw_payload?.previous_state && <Badge variant="outline">{raw_payload.previous_state}</Badge>}
+      {raw_payload?.previous_state && raw_payload?.new_state && <ChevronDown className="h-4 w-4" />}
+      {raw_payload?.new_state && <Badge>{raw_payload.new_state}</Badge>}
     </div>
   );
 };
@@ -89,7 +89,7 @@ export function WebhookLogsTable({
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  {formatState(log.previous_state, log.new_state)}
+                  {formatState(log.raw_payload)}
                 </TableCell>
                 <TableCell className="max-w-xs">
                   <div className="truncate text-sm">
@@ -97,9 +97,9 @@ export function WebhookLogsTable({
                       <span className="text-red-600">{log.error_message}</span>
                     ) : (
                       <span className="text-muted-foreground">
-                        {log.recording_id ? `Recording: ${log.recording_id} ` : ''}
-                        {log.event_id ? `Event: ${log.event_id} ` : ''}
-                        {log.notetaker_id ? `Notetaker: ${log.notetaker_id}` : ''}
+                        {log.relationship?.recording_id ? `Recording: ${log.relationship.recording_id} ` : ''}
+                        {log.relationship?.event_id ? `Event: ${log.relationship.event_id} ` : ''}
+                        {log.relationship?.notetaker_id ? `Notetaker: ${log.relationship.notetaker_id}` : ''}
                       </span>
                     )}
                   </div>
@@ -136,4 +136,3 @@ export function WebhookLogsTable({
     </Table>
   );
 }
-
