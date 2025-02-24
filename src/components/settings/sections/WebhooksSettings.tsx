@@ -20,11 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -85,9 +80,7 @@ export function WebhooksSettings({ userId }: { userId: string }) {
       let query = supabase
         .from('webhook_logs')
         .select('*', { count: 'exact' })
-        // Use proper parameter binding for user filtering
-        .or('notetaker_id.eq.:userId,raw_payload->data->object->user_id.eq.:userId', 
-            { userId })
+        .or(`notetaker_id.eq.${userId},raw_payload->data->object->user_id.eq.${userId}`)
         .order('received_at', { ascending: false });
 
       // Apply webhook type filter
@@ -102,14 +95,14 @@ export function WebhooksSettings({ userId }: { userId: string }) {
 
       // Apply search within user's results
       if (search) {
-        query = query.and(
-          `(webhook_type.ilike.(:search) OR 
-            notetaker_id.ilike.(:search) OR 
-            request_id.ilike.(:search) OR 
-            error_message.ilike.(:search) OR 
-            previous_state.ilike.(:search) OR 
-            new_state.ilike.(:search))`,
-          { search: `%${search}%` }
+        const searchPattern = `%${search}%`;
+        query = query.or(
+          `webhook_type.ilike.${searchPattern},` +
+          `notetaker_id.ilike.${searchPattern},` +
+          `request_id.ilike.${searchPattern},` +
+          `error_message.ilike.${searchPattern},` +
+          `previous_state.ilike.${searchPattern},` +
+          `new_state.ilike.${searchPattern}`
         );
       }
 
