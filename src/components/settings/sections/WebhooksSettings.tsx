@@ -42,24 +42,35 @@ export function WebhooksSettings({ userId }: { userId: string }) {
     queryFn: async () => {
       let query = supabase
         .from('webhook_logs')
-        .select('*', { count: 'exact' })
-        .or(`notetaker_id.eq.${userId},raw_payload->data->object->user_id.eq.${userId}`)
-        .order('received_at', { ascending: false });
+        .select('*', { count: 'exact' });
 
+      // Base filters for user's logs
+      const filters = [
+        { column: 'notetaker_id', operator: 'eq', value: userId },
+        `raw_payload->data->object->user_id=eq.${userId}`
+      ];
+      query = query.or(filters.join(','));
+
+      // Search filters if search term exists
       if (search) {
-        query = query.or(
-          'webhook_type.ilike.%' + search + '%,' +
-          'notetaker_id.ilike.%' + search + '%,' +
-          'request_id.ilike.%' + search + '%,' +
-          'status.ilike.%' + search + '%,' +
-          'error_message.ilike.%' + search + '%,' +
-          'previous_state.ilike.%' + search + '%,' +
-          'new_state.ilike.%' + search + '%'
-        );
+        const searchPattern = `%${search}%`;
+        const searchFilters = [
+          { column: 'webhook_type', operator: 'ilike', value: searchPattern },
+          { column: 'notetaker_id', operator: 'ilike', value: searchPattern },
+          { column: 'request_id', operator: 'ilike', value: searchPattern },
+          { column: 'status', operator: 'ilike', value: searchPattern },
+          { column: 'error_message', operator: 'ilike', value: searchPattern },
+          { column: 'previous_state', operator: 'ilike', value: searchPattern },
+          { column: 'new_state', operator: 'ilike', value: searchPattern }
+        ];
+        query = query.or(searchFilters.map(f => `${f.column}.${f.operator}.${f.value}`).join(','));
       }
 
+      // Apply sorting and pagination
       const from = (currentPage - 1) * ITEMS_PER_PAGE;
-      query = query.range(from, from + ITEMS_PER_PAGE - 1);
+      query = query
+        .order('received_at', { ascending: false })
+        .range(from, from + ITEMS_PER_PAGE - 1);
 
       try {
         const { data, error, count } = await query;
