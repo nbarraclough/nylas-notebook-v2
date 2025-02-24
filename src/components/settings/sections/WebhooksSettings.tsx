@@ -37,7 +37,13 @@ export function WebhooksSettings({ userId }: { userId: string }) {
         .order('received_at', { ascending: false });
 
       if (search) {
-        query = query.or(`notetaker_id.ilike.%${search}%,grant_id.ilike.%${search}%`);
+        query = query.or(
+          `webhook_type.ilike.%${search}%,` +
+          `notetaker_id.ilike.%${search}%,` +
+          `request_id.ilike.%${search}%,` +
+          `status.ilike.%${search}%,` +
+          `error_message.ilike.%${search}%`
+        );
       }
 
       const { data, error } = await query;
@@ -56,14 +62,14 @@ export function WebhooksSettings({ userId }: { userId: string }) {
       <div>
         <h3 className="text-lg font-medium">Webhook Logs</h3>
         <p className="text-sm text-muted-foreground">
-          View and search through webhook logs. Search by notetaker ID or grant ID.
+          View and search through webhook logs. Search by type, notetaker ID, request ID, status, or error message.
         </p>
       </div>
 
       <div className="relative">
         <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search by notetaker ID or grant ID..."
+          placeholder="Search webhooks..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pl-10"
@@ -77,7 +83,6 @@ export function WebhooksSettings({ userId }: { userId: string }) {
               <TableHead>Time</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Notetaker ID</TableHead>
-              <TableHead>Grant ID</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Error</TableHead>
             </TableRow>
@@ -85,14 +90,14 @@ export function WebhooksSettings({ userId }: { userId: string }) {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-4">
+                <TableCell colSpan={5} className="text-center py-4">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : webhookLogs?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
-                  No webhook logs found
+                <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                  No results
                 </TableCell>
               </TableRow>
             ) : (
@@ -104,9 +109,6 @@ export function WebhooksSettings({ userId }: { userId: string }) {
                   <TableCell>{log.webhook_type}</TableCell>
                   <TableCell className="font-mono">
                     {log.notetaker_id || "-"}
-                  </TableCell>
-                  <TableCell className="font-mono">
-                    {log.grant_id || "-"}
                   </TableCell>
                   <TableCell>
                     <span className={`px-2 py-1 rounded-full text-xs ${
