@@ -13,19 +13,16 @@ export async function handleWebhookType(webhookData: any, grantId: string, reque
       case 'event.created':
       case 'event.updated':
       case 'event.deleted':
-        await handleEventWebhook(webhookData, grantId, requestId);
-        break;
+        return await handleEventWebhook(webhookData, grantId, requestId);
       case 'notetaker.status_updated':
-        await handleNotetakerStatusWebhook(webhookData, grantId, requestId);
-        break;
+        return await handleNotetakerStatusWebhook(webhookData, grantId, requestId);
       case 'notetaker.meeting_state':
-        await handleNotetakerMeetingStateWebhook(webhookData, grantId, requestId);
-        break;
+        return await handleNotetakerMeetingStateWebhook(webhookData, grantId, requestId);
       case 'notetaker.media':
-        await handleNotetakerMediaWebhook(webhookData, grantId, requestId);
-        break;
+        return await handleNotetakerMediaWebhook(webhookData, grantId, requestId);
       default:
         console.log(`⚠️ [${requestId}] Unhandled webhook type: ${webhookData.type}`);
+        return null;
     }
   } catch (error) {
     console.error(`❌ [${requestId}] Error in handleWebhookType:`, error);
@@ -46,7 +43,7 @@ async function handleEventWebhook(webhookData: any, grantId: string, requestId: 
 
     if (!userId) {
       console.error(`❌ [${requestId}] No profiles found for grant:`, grantId);
-      return;
+      return null;
     }
 
     const eventData = webhookData.data.object;
@@ -54,8 +51,10 @@ async function handleEventWebhook(webhookData: any, grantId: string, requestId: 
 
     if (webhookData.type === 'event.deleted') {
       await handleEventDeletion(eventData.id, userId, requestId);
+      return { eventId: null }; // Event was deleted
     } else {
-      await handleEventUpsert(eventData, userId, requestId);
+      const eventId = await handleEventUpsert(eventData, userId, requestId);
+      return { eventId };
     }
   } catch (error) {
     console.error(`❌ [${requestId}] Error in handleEventWebhook:`, error);
@@ -86,11 +85,13 @@ async function handleEventUpsert(eventData: any, userId: string, requestId: stri
       last_updated_at: new Date().toISOString()
     };
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('events')
       .upsert(eventRecord, {
         onConflict: 'nylas_event_id,user_id'
-      });
+      })
+      .select()
+      .single();
 
     if (error) {
       console.error(`❌ [${requestId}] Error upserting event:`, error);
@@ -98,6 +99,7 @@ async function handleEventUpsert(eventData: any, userId: string, requestId: stri
     }
 
     console.log(`✅ [${requestId}] Successfully processed event ${eventData.id}`);
+    return data.id;
   } catch (error) {
     console.error(`❌ [${requestId}] Error in handleEventUpsert:`, error);
     throw error;
@@ -142,6 +144,7 @@ async function handleNotetakerStatusWebhook(webhookData: any, grantId: string, r
     }
 
     console.log(`✅ [${requestId}] Updated recording ${recording.id} notetaker status to ${newStatus}`);
+    return { recordingId: recording.id };
   } catch (error) {
     console.error(`❌ [${requestId}] Error in handleNotetakerStatusWebhook:`, error);
     throw error;
@@ -166,6 +169,7 @@ async function handleNotetakerMeetingStateWebhook(webhookData: any, grantId: str
     }
 
     console.log(`✅ [${requestId}] Updated recording ${recording.id} meeting state to ${newState}`);
+    return { recordingId: recording.id };
   } catch (error) {
     console.error(`❌ [${requestId}] Error in handleNotetakerMeetingStateWebhook:`, error);
     throw error;
@@ -190,6 +194,7 @@ async function handleNotetakerMediaWebhook(webhookData: any, grantId: string, re
     }
 
     console.log(`✅ [${requestId}] Updated recording ${recording.id} media status to ${mediaStatus}`);
+    return { recordingId: recording.id };
   } catch (error) {
     console.error(`❌ [${requestId}] Error in handleNotetakerMediaWebhook:`, error);
     throw error;

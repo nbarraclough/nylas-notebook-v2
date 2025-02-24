@@ -9,13 +9,12 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function logWebhook(requestId: string, webhookData: any, status = 'success', errorMessage?: string) {
+async function logWebhook(requestId: string, webhookData: any, processedData: any = null, status = 'success', errorMessage?: string) {
   try {
-    // Extract notetaker ID and grant ID
     const notetakerId = webhookData?.data?.object?.id;
     let grantId;
 
-    // Properly extract grant_id based on webhook type and structure
+    // Extract grant_id based on webhook type and structure
     if (webhookData?.data?.grant_id) {
       grantId = webhookData.data.grant_id;
     } else if (webhookData?.data?.object?.grant_id) {
@@ -23,25 +22,20 @@ async function logWebhook(requestId: string, webhookData: any, status = 'success
     }
 
     const webhookType = webhookData?.type;
+    console.log(`📝 [${requestId}] Logging webhook type: ${webhookType}`);
 
-    console.log(`📝 [${requestId}] Processing webhook type: ${webhookType}`);
-    console.log(`📝 [${requestId}] Using grant ID:`, grantId);
-
-    // First, try to get the user_id from the grant_id if available
+    // Get user_id from grant_id if available
     let userId = null;
     if (grantId && typeof grantId === 'string') {
       const { data: userData, error: userError } = await supabase
         .rpc('get_user_id_from_grant', { grant_id_param: grantId });
 
-      if (userError) {
-        console.error(`Failed to get user_id for grant ${grantId}:`, userError);
-      } else {
+      if (!userError) {
         userId = userData;
-        console.log(`📝 [${requestId}] Found user ID:`, userId);
       }
     }
 
-    // Insert the webhook log
+    // Insert webhook log
     const { data: webhookLog, error: webhookError } = await supabase
       .from('webhook_logs')
       .insert({
@@ -61,58 +55,33 @@ async function logWebhook(requestId: string, webhookData: any, status = 'success
       return;
     }
 
-    // Extract relationship data based on webhook type
-    let eventId = null;
-    let recordingId = null;
+    // Use processedData to create relationships if available
+    if (processedData) {
+      const relationshipData: any = {
+        webhook_log_id: webhookLog.id
+      };
 
-    // Handle different webhook types
-    if (webhookType?.startsWith('event.')) {
-      const nylasEventId = webhookData?.data?.object?.id;
-      if (nylasEventId) {
-        // Look up our internal event ID using the Nylas event ID
-        const { data: event } = await supabase
-          .from('events')
-          .select('id')
-          .eq('nylas_event_id', nylasEventId)
-          .single();
-        
-        if (event) {
-          eventId = event.id;
-          console.log(`Found internal event ID ${eventId} for Nylas event ${nylasEventId}`);
-        } else {
-          console.log(`No matching internal event found for Nylas event ${nylasEventId}`);
-        }
+      if (processedData.eventId) {
+        relationshipData.event_id = processedData.eventId;
       }
-    } else if (webhookType?.startsWith('notetaker.')) {
-      // For notetaker webhooks, try to find the associated recording
+      if (processedData.recordingId) {
+        relationshipData.recording_id = processedData.recordingId;
+      }
       if (notetakerId) {
-        const { data: recording } = await supabase
-          .from('recordings')
-          .select('id')
-          .eq('notetaker_id', notetakerId)
-          .single();
-        
-        if (recording) {
-          recordingId = recording.id;
-        }
+        relationshipData.notetaker_id = notetakerId;
       }
-    }
 
-    // Create webhook relationship if we have related entities
-    if (eventId || recordingId || notetakerId) {
-      const { error: relationshipError } = await supabase
-        .from('webhook_relationships')
-        .insert({
-          webhook_log_id: webhookLog.id,
-          event_id: eventId,
-          recording_id: recordingId,
-          notetaker_id: notetakerId
-        });
+      // Only create relationship if we have related entities
+      if (Object.keys(relationshipData).length > 1) {
+        const { error: relationshipError } = await supabase
+          .from('webhook_relationships')
+          .insert(relationshipData);
 
-      if (relationshipError) {
-        console.error(`Failed to create webhook relationship: ${relationshipError.message}`);
-      } else {
-        console.log(`Created webhook relationship for log ${webhookLog.id} with event: ${eventId}, recording: ${recordingId}, notetaker: ${notetakerId}`);
+        if (relationshipError) {
+          console.error(`Failed to create webhook relationship: ${relationshipError.message}`);
+        } else {
+          console.log(`Created webhook relationship for log ${webhookLog.id}`);
+        }
       }
     }
 
@@ -151,31 +120,36 @@ serve(async (req) => {
 
       // Parse webhook data
       const webhookData = JSON.parse(rawBody);
-      console.log(`📝 [${requestId}] Webhook type:`, webhookData.type);
+      console.log(`📝 [${requestId}] Processing webhook type:`, webhookData.type);
 
-      // First log the webhook and get the grant ID
-      const { webhookLog, grantId } = await logWebhook(requestId, webhookData);
-
+      // Extract grant ID
+      let grantId = webhookData?.data?.grant_id || webhookData?.data?.object?.grant_id;
+      
       if (!grantId || typeof grantId !== 'string') {
         throw new Error(`Invalid grant ID: ${grantId}`);
       }
 
-      // Then process the webhook using the type handlers
+      // First process the webhook data
+      let processedData = null;
+      let errorMessage = null;
+      
       try {
-        await handleWebhookType(webhookData, grantId, requestId);
+        // Process webhook and get any created/updated record IDs
+        processedData = await handleWebhookType(webhookData, grantId, requestId);
         console.log(`✅ [${requestId}] Successfully processed webhook type:`, webhookData.type);
       } catch (processError: any) {
         console.error(`❌ [${requestId}] Error processing webhook:`, processError);
-        // Update the webhook log with the error
-        await supabase
-          .from('webhook_logs')
-          .update({ 
-            status: 'error',
-            error_message: processError.message
-          })
-          .eq('id', webhookLog.id);
-        
+        errorMessage = processError.message;
         throw processError;
+      } finally {
+        // Log webhook after processing, including any error information
+        await logWebhook(
+          requestId,
+          webhookData,
+          processedData,
+          errorMessage ? 'error' : 'success',
+          errorMessage
+        );
       }
 
       return new Response(
