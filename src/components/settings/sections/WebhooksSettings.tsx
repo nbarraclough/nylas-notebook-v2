@@ -25,6 +25,10 @@ interface WebhookLog {
   status: string;
   error_message: string | null;
   raw_payload: any;
+  event_id: string | null;
+  recording_id: string | null;
+  previous_state: string | null;
+  new_state: string | null;
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -34,7 +38,7 @@ export function WebhooksSettings({ userId }: { userId: string }) {
   const [currentPage, setCurrentPage] = useState(1);
 
   const { data: webhookLogs, isLoading } = useQuery({
-    queryKey: ['webhook_logs', search],
+    queryKey: ['webhook_logs', search, currentPage],
     queryFn: async () => {
       let query = supabase
         .from('webhook_logs')
@@ -51,11 +55,12 @@ export function WebhooksSettings({ userId }: { userId: string }) {
           `notetaker_id.ilike.%${search}%,` +
           `request_id.ilike.%${search}%,` +
           `status.ilike.%${search}%,` +
-          `error_message.ilike.%${search}%`
+          `error_message.ilike.%${search}%,` +
+          `previous_state.ilike.%${search}%,` +
+          `new_state.ilike.%${search}%`
         );
       }
 
-      // Add pagination
       const from = (currentPage - 1) * ITEMS_PER_PAGE;
       query = query.range(from, from + ITEMS_PER_PAGE - 1);
 
@@ -80,7 +85,7 @@ export function WebhooksSettings({ userId }: { userId: string }) {
       <div>
         <h3 className="text-lg font-medium">Webhook Logs</h3>
         <p className="text-sm text-muted-foreground">
-          View and search through webhook logs. Search by type, notetaker ID, request ID, status, or error message.
+          View and search through webhook logs. Search by type, status, state changes, and more.
         </p>
       </div>
 
@@ -100,9 +105,9 @@ export function WebhooksSettings({ userId }: { userId: string }) {
             <TableRow>
               <TableHead>Time</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Notetaker ID</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Error</TableHead>
+              <TableHead>State Change</TableHead>
+              <TableHead>Details</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -125,9 +130,6 @@ export function WebhooksSettings({ userId }: { userId: string }) {
                     {format(new Date(log.received_at), "MMM d, HH:mm:ss")}
                   </TableCell>
                   <TableCell>{log.webhook_type}</TableCell>
-                  <TableCell className="font-mono">
-                    {log.notetaker_id || "-"}
-                  </TableCell>
                   <TableCell>
                     <span className={`px-2 py-1 rounded-full text-xs ${
                       log.status === 'success' 
@@ -137,8 +139,27 @@ export function WebhooksSettings({ userId }: { userId: string }) {
                       {log.status}
                     </span>
                   </TableCell>
-                  <TableCell className="max-w-xs truncate">
-                    {log.error_message || "-"}
+                  <TableCell>
+                    {log.previous_state && log.new_state ? (
+                      <span className="text-xs">
+                        {log.previous_state} → {log.new_state}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="max-w-xs">
+                    <div className="truncate text-xs">
+                      {log.error_message ? (
+                        <span className="text-red-600">{log.error_message}</span>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          {log.recording_id ? `Recording: ${log.recording_id} ` : ''}
+                          {log.event_id ? `Event: ${log.event_id} ` : ''}
+                          {log.notetaker_id ? `Notetaker: ${log.notetaker_id}` : ''}
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

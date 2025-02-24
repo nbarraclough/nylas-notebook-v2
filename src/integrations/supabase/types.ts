@@ -858,11 +858,15 @@ export type Database = {
         Row: {
           created_at: string
           error_message: string | null
+          event_id: string | null
           grant_id: string | null
           id: string
+          new_state: string | null
           notetaker_id: string | null
+          previous_state: string | null
           raw_payload: Json
           received_at: string
+          recording_id: string | null
           request_id: string
           status: string
           webhook_type: string
@@ -870,11 +874,15 @@ export type Database = {
         Insert: {
           created_at?: string
           error_message?: string | null
+          event_id?: string | null
           grant_id?: string | null
           id?: string
+          new_state?: string | null
           notetaker_id?: string | null
+          previous_state?: string | null
           raw_payload: Json
           received_at?: string
+          recording_id?: string | null
           request_id: string
           status?: string
           webhook_type: string
@@ -882,16 +890,35 @@ export type Database = {
         Update: {
           created_at?: string
           error_message?: string | null
+          event_id?: string | null
           grant_id?: string | null
           id?: string
+          new_state?: string | null
           notetaker_id?: string | null
+          previous_state?: string | null
           raw_payload?: Json
           received_at?: string
+          recording_id?: string | null
           request_id?: string
           status?: string
           webhook_type?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "webhook_logs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_logs_recording_id_fkey"
+            columns: ["recording_id"]
+            isOneToOne: false
+            referencedRelation: "recordings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

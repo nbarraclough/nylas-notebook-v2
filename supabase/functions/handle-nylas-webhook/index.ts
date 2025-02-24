@@ -2,37 +2,46 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from '../_shared/cors.ts'
 import { verifyWebhookSignature } from '../_shared/webhook-verification.ts'
-import { 
-  logWebhookRequest, 
-  logRawBody, 
-  logParsedWebhook, 
-  logWebhookError 
-} from '../_shared/webhook-logger.ts'
-import { handleWebhookType } from '../_shared/webhook-type-handlers.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-const SUPPORTED_WEBHOOK_TYPES = [
-  "grant.created",
-  "grant.deleted",
-  "grant.expired",
-  "event.created",
-  "event.updated",
-  "event.deleted",
-  "notetaker.media",
-  "notetaker.media_updated",
-  "notetaker.status_updated",
-  "notetaker.updated",
-  "notetaker.meeting_state"
-];
-
 async function logWebhook(requestId: string, webhookData: any, status = 'success', errorMessage?: string) {
   const notetakerId = webhookData?.data?.object?.id;
   const grantId = webhookData?.data?.grant_id || webhookData?.data?.object?.grant_id;
   const webhookType = webhookData?.type;
+
+  // Extract additional data based on webhook type
+  let eventId = null;
+  let recordingId = null;
+  let previousState = null;
+  let newState = null;
+
+  // Handle different webhook types
+  if (webhookType?.startsWith('event.')) {
+    eventId = webhookData?.data?.object?.id;
+  } else if (webhookType?.startsWith('notetaker.')) {
+    // For notetaker webhooks, try to find the associated recording
+    if (notetakerId) {
+      const { data: recording } = await supabase
+        .from('recordings')
+        .select('id')
+        .eq('notetaker_id', notetakerId)
+        .single();
+      
+      if (recording) {
+        recordingId = recording.id;
+      }
+    }
+
+    // Extract state changes for status updates
+    if (webhookType === 'notetaker.status_updated') {
+      previousState = webhookData?.data?.object?.previous_status;
+      newState = webhookData?.data?.object?.status;
+    }
+  }
 
   try {
     const { error } = await supabase
@@ -44,7 +53,11 @@ async function logWebhook(requestId: string, webhookData: any, status = 'success
         grant_id: grantId,
         raw_payload: webhookData,
         status,
-        error_message: errorMessage
+        error_message: errorMessage,
+        event_id: eventId,
+        recording_id: recordingId,
+        previous_state: previousState,
+        new_state: newState
       });
 
     if (error) {
@@ -58,8 +71,6 @@ async function logWebhook(requestId: string, webhookData: any, status = 'success
 serve(async (req) => {
   const requestId = crypto.randomUUID();
   console.log(`⚡ [${requestId}] Webhook handler started`);
-  
-  logWebhookRequest(req);
 
   try {
     // Handle challenge parameter (for both GET and POST)
@@ -82,7 +93,7 @@ serve(async (req) => {
     // Only process webhooks for POST requests
     if (req.method === 'POST') {
       const rawBody = await req.text();
-      logRawBody(rawBody);
+      console.log(`📝 [${requestId}] Raw webhook body:`, rawBody);
 
       // Verify webhook signature
       const signature = req.headers.get('x-nylas-signature');
@@ -91,61 +102,25 @@ serve(async (req) => {
       if (!webhookSecret) {
         const error = new Error('NYLAS_WEBHOOK_SECRET not configured');
         await logWebhook(requestId, JSON.parse(rawBody), 'error', error.message);
-        logWebhookError('configuration', error);
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: 'Webhook secret not configured',
-            status: 'acknowledged'
-          }),
-          { 
-            status: 200,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
+        throw error;
       }
 
       const isValid = await verifyWebhookSignature(rawBody, signature || '', webhookSecret);
       if (!isValid) {
         const error = new Error('Invalid webhook signature');
         await logWebhook(requestId, JSON.parse(rawBody), 'error', error.message);
-        logWebhookError('signature verification', error);
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: 'Invalid signature',
-            status: 'acknowledged'
-          }),
-          { 
-            status: 200,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
+        throw error;
       }
 
-      // Parse and process webhook
+      // Parse webhook data
       const webhookData = JSON.parse(rawBody);
-      logParsedWebhook(webhookData);
+      console.log(`📝 [${requestId}] Webhook type:`, webhookData.type);
 
       // Log the webhook before processing
       await logWebhook(requestId, webhookData);
 
-      // Extract grant ID from webhook data
-      const grantId = webhookData.data?.grant_id;
-      
-      // Handle webhook by type
-      const result = await handleWebhookType(webhookData, grantId, requestId);
-      
-      // Update log status if there was an error
-      if (!result.success) {
-        await logWebhook(requestId, webhookData, 'error', result.message);
-      }
-
       return new Response(
-        JSON.stringify({
-          ...result,
-          status: 'acknowledged'
-        }),
+        JSON.stringify({ success: true, status: 'acknowledged' }),
         { 
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -153,21 +128,18 @@ serve(async (req) => {
       );
     }
 
-    // Invalid method
     return new Response(
-      JSON.stringify({
-        success: false,
-        message: 'Method not allowed',
-        status: 'acknowledged'
-      }),
+      JSON.stringify({ success: false, message: 'Method not allowed' }),
       { 
-        status: 200,
+        status: 405,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
 
-  } catch (error) {
-    // Log the error in webhook_logs if we can parse the body
+  } catch (error: any) {
+    console.error(`❌ [${requestId}] Error processing webhook:`, error);
+    
+    // Try to log the error if we can parse the body
     try {
       const rawBody = await req.text();
       const webhookData = JSON.parse(rawBody);
@@ -176,17 +148,12 @@ serve(async (req) => {
       console.error('Failed to log webhook error:', logError);
     }
 
-    logWebhookError('webhook processing', error);
     return new Response(
-      JSON.stringify({
-        success: false,
-        message: error.message,
-        status: 'error'
-      }),
+      JSON.stringify({ success: false, message: error.message }),
       { 
-        status: 200,
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }
-})
+});
