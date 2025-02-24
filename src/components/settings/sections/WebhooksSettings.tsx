@@ -40,37 +40,27 @@ export function WebhooksSettings({ userId }: { userId: string }) {
   const { data: webhookLogs, isLoading } = useQuery({
     queryKey: ['webhook_logs', search, currentPage],
     queryFn: async () => {
+      // Calculate pagination range
+      const from = (currentPage - 1) * ITEMS_PER_PAGE;
+      
       let query = supabase
         .from('webhook_logs')
-        .select('*', { count: 'exact' });
-
-      // Base filters for user's logs
-      const filters = [
-        { column: 'notetaker_id', operator: 'eq', value: userId },
-        `raw_payload->data->object->user_id=eq.${userId}`
-      ];
-      query = query.or(filters.join(','));
-
-      // Search filters if search term exists
-      if (search) {
-        const searchPattern = `%${search}%`;
-        const searchFilters = [
-          { column: 'webhook_type', operator: 'ilike', value: searchPattern },
-          { column: 'notetaker_id', operator: 'ilike', value: searchPattern },
-          { column: 'request_id', operator: 'ilike', value: searchPattern },
-          { column: 'status', operator: 'ilike', value: searchPattern },
-          { column: 'error_message', operator: 'ilike', value: searchPattern },
-          { column: 'previous_state', operator: 'ilike', value: searchPattern },
-          { column: 'new_state', operator: 'ilike', value: searchPattern }
-        ];
-        query = query.or(searchFilters.map(f => `${f.column}.${f.operator}.${f.value}`).join(','));
-      }
-
-      // Apply sorting and pagination
-      const from = (currentPage - 1) * ITEMS_PER_PAGE;
-      query = query
+        .select('*', { count: 'exact' })
+        .or(`notetaker_id.eq.${userId},raw_payload->data->object->user_id.eq.${userId}`)
         .order('received_at', { ascending: false })
         .range(from, from + ITEMS_PER_PAGE - 1);
+
+      // Add search filters if search term exists
+      if (search) {
+        const searchPattern = `%${search}%`;
+        query = query.or(`webhook_type.ilike.${searchPattern},` +
+                        `notetaker_id.ilike.${searchPattern},` +
+                        `request_id.ilike.${searchPattern},` +
+                        `status.ilike.${searchPattern},` +
+                        `error_message.ilike.${searchPattern},` +
+                        `previous_state.ilike.${searchPattern},` +
+                        `new_state.ilike.${searchPattern}`);
+      }
 
       try {
         const { data, error, count } = await query;
