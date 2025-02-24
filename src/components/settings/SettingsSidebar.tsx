@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Settings, Video, RefreshCw, ListTodo, UserCheck } from "lucide-react";
+import { Settings, Video, RefreshCw, ListTodo, UserCheck, Webhook } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 const sections = [
@@ -36,6 +36,11 @@ const sections = [
         title: "Manual Sync",
         icon: RefreshCw,
         path: "/settings/sync",
+      },
+      {
+        title: "Webhooks",
+        icon: Webhook,
+        path: "/settings/webhooks",
       },
     ],
   },

@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate, Routes, Route, Navigate } from "react-router-dom";
 import { PageLayout } from "@/components/layout/PageLayout";
@@ -10,6 +11,7 @@ import { SharingSettings } from "@/components/settings/sections/SharingSettings"
 import { ManualSyncSettings } from "@/components/settings/sections/ManualSyncSettings";
 import { NotetakersSettings } from "@/components/settings/sections/NotetakersSettings";
 import { QueueSettings } from "@/components/settings/sections/QueueSettings";
+import { WebhooksSettings } from "@/components/settings/sections/WebhooksSettings";
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -62,6 +64,7 @@ export default function Settings() {
               <Route path="/sync" element={<ManualSyncSettings userId={userId} />} />
               <Route path="/queue" element={<QueueSettings userId={userId} />} />
               <Route path="/notetakers" element={<NotetakersSettings userId={userId} />} />
+              <Route path="/webhooks" element={<WebhooksSettings userId={userId} />} />
               <Route path="*" element={<Navigate to="/settings" replace />} />
             </Routes>
           </div>
