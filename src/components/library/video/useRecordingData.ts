@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -21,6 +22,7 @@ export function useRecordingData(recordingId: string | null) {
             email
           ),
           event:events (
+            id,
             title,
             description,
             start_time,
