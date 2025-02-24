@@ -18,32 +18,45 @@ async function logWebhook(requestId: string, webhookData: any, status = 'success
   let recordingId = null;
   let previousState = null;
   let newState = null;
+  let userId = null;
 
-  // Handle different webhook types
-  if (webhookType?.startsWith('event.')) {
-    eventId = webhookData?.data?.object?.id;
-  } else if (webhookType?.startsWith('notetaker.')) {
-    // For notetaker webhooks, try to find the associated recording
-    if (notetakerId) {
-      const { data: recording } = await supabase
-        .from('recordings')
-        .select('id')
-        .eq('notetaker_id', notetakerId)
-        .single();
-      
-      if (recording) {
-        recordingId = recording.id;
+  try {
+    // First, try to get the user_id from the grant_id if available
+    if (grantId) {
+      const { data: userData, error: userError } = await supabase
+        .rpc('get_user_id_from_grant', { grant_id_param: grantId });
+
+      if (userError) {
+        console.error(`Failed to get user_id for grant ${grantId}:`, userError);
+      } else {
+        userId = userData;
       }
     }
 
-    // Extract state changes for status updates
-    if (webhookType === 'notetaker.status_updated') {
-      previousState = webhookData?.data?.object?.previous_status;
-      newState = webhookData?.data?.object?.status;
-    }
-  }
+    // Handle different webhook types
+    if (webhookType?.startsWith('event.')) {
+      eventId = webhookData?.data?.object?.id;
+    } else if (webhookType?.startsWith('notetaker.')) {
+      // For notetaker webhooks, try to find the associated recording
+      if (notetakerId) {
+        const { data: recording } = await supabase
+          .from('recordings')
+          .select('id')
+          .eq('notetaker_id', notetakerId)
+          .single();
+        
+        if (recording) {
+          recordingId = recording.id;
+        }
+      }
 
-  try {
+      // Extract state changes for status updates
+      if (webhookType === 'notetaker.status_updated') {
+        previousState = webhookData?.data?.object?.previous_status;
+        newState = webhookData?.data?.object?.status;
+      }
+    }
+
     const { error } = await supabase
       .from('webhook_logs')
       .insert({
@@ -57,7 +70,8 @@ async function logWebhook(requestId: string, webhookData: any, status = 'success
         event_id: eventId,
         recording_id: recordingId,
         previous_state: previousState,
-        new_state: newState
+        new_state: newState,
+        user_id: userId // Set the user_id we obtained
       });
 
     if (error) {
@@ -157,3 +171,4 @@ serve(async (req) => {
     );
   }
 });
+
