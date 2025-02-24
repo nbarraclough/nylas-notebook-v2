@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -10,6 +9,8 @@ export async function handleWebhookType(webhookData: any, grantId: string, reque
 
   try {
     switch (webhookData.type) {
+      case 'notetaker.created':
+        return await handleNotetakerCreatedWebhook(webhookData, grantId, requestId);
       case 'event.created':
       case 'event.updated':
       case 'event.deleted':
@@ -26,6 +27,62 @@ export async function handleWebhookType(webhookData: any, grantId: string, reque
     }
   } catch (error) {
     console.error(`❌ [${requestId}] Error in handleWebhookType:`, error);
+    throw error;
+  }
+}
+
+async function handleNotetakerCreatedWebhook(webhookData: any, grantId: string, requestId: string) {
+  try {
+    const notetakerId = webhookData.data.object.id;
+    console.log(`📝 [${requestId}] Processing notetaker created webhook for notetaker: ${notetakerId}`);
+
+    // Get the existing recording that should have been created when we called POST /notetakers
+    const { data: recording, error: recordingError } = await supabase
+      .from('recordings')
+      .select('*')
+      .eq('notetaker_id', notetakerId)
+      .single();
+
+    if (recordingError) {
+      console.error(`❌ [${requestId}] Error finding recording for notetaker ${notetakerId}:`, recordingError);
+      throw recordingError;
+    }
+
+    // If we have a recording, update it with any additional metadata from the webhook
+    if (recording) {
+      const updates: any = {
+        updated_at: new Date().toISOString()
+      };
+
+      // Add meeting_settings if provided
+      if (webhookData.data.object.meeting_settings) {
+        updates.meeting_settings = webhookData.data.object.meeting_settings;
+      }
+
+      // Add join_time if provided
+      if (webhookData.data.object.join_time) {
+        updates.join_time = new Date(webhookData.data.object.join_time).toISOString();
+      }
+
+      // Update the recording with new metadata
+      const { error: updateError } = await supabase
+        .from('recordings')
+        .update(updates)
+        .eq('id', recording.id);
+
+      if (updateError) {
+        console.error(`❌ [${requestId}] Error updating recording with metadata:`, updateError);
+        throw updateError;
+      }
+
+      console.log(`✅ [${requestId}] Successfully processed notetaker.created webhook for recording ${recording.id}`);
+      return { recordingId: recording.id };
+    } else {
+      console.log(`⚠️ [${requestId}] No existing recording found for notetaker ${notetakerId}`);
+      return null;
+    }
+  } catch (error) {
+    console.error(`❌ [${requestId}] Error in handleNotetakerCreatedWebhook:`, error);
     throw error;
   }
 }
