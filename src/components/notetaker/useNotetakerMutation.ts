@@ -1,17 +1,35 @@
+
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 // Extract meeting URL from meeting info
 const extractMeetingUrl = (info: string) => {
+  console.log('Original meeting info:', info);
+  
+  // Handle all Zoom variations with any subdomain
+  const zoomPattern = /(?:https:\/\/)?([a-z0-9-]+\.)?zoom\.us\/j\/[\d]+(?:[?\/][^"\s<>]*)?/i;
+  const zoomGovPattern = /(?:https:\/\/)?([a-z0-9-]+\.)?zoomgov\.com\/j\/[\d]+(?:[?\/][^"\s<>]*)?/i;
+  
+  // Match against Zoom patterns first
+  const zoomMatch = info.match(zoomPattern) || info.match(zoomGovPattern);
+  if (zoomMatch) {
+    // Return the full matched URL to preserve all parameters
+    const extractedUrl = zoomMatch[0].startsWith('http') ? zoomMatch[0] : `https://${zoomMatch[0]}`;
+    console.log('Extracted Zoom URL:', extractedUrl);
+    return extractedUrl;
+  }
+
+  // Handle Google Meet URLs
   const googleMeetPattern = /https:\/\/meet\.google\.com\/[\w-]+/;
   const googleMeetMatch = info.match(googleMeetPattern);
   if (googleMeetMatch) {
+    console.log('Extracted Google Meet URL:', googleMeetMatch[0]);
     return googleMeetMatch[0];
   }
 
+  // Handle other platform patterns
   const patterns = [
-    /(?:https:\/\/)?[^\s]*(zoom\.us\/j\/[^\s]*)/i,
     /(?:https:\/\/)?[^\s]*(teams\.microsoft\.com\/l\/meetup-join\/[^\s]*)/i,
     /(?:https:\/\/)?[^\s]*(meet\.google\.com\/[^\s]*)/i,
   ];
@@ -19,16 +37,40 @@ const extractMeetingUrl = (info: string) => {
   for (const pattern of patterns) {
     const match = info.match(pattern);
     if (match && match[1]) {
-      return `https://${match[1]}`;
+      const extractedUrl = `https://${match[1]}`;
+      console.log('Extracted platform URL:', extractedUrl);
+      return extractedUrl;
     }
   }
 
+  // Handle generic URLs
   if (info.match(/^(?:https?:\/\/)?[\w.-]+\.[a-z]{2,}(?:\/\S*)?$/i)) {
     const cleanUrl = info.trim().replace(/\s+/g, '');
-    return cleanUrl.startsWith('http') ? cleanUrl : `https://${cleanUrl}`;
+    const extractedUrl = cleanUrl.startsWith('http') ? cleanUrl : `https://${cleanUrl}`;
+    console.log('Extracted generic URL:', extractedUrl);
+    return extractedUrl;
   }
 
+  console.log('No valid meeting URL found in:', info);
   return null;
+};
+
+// Validate if a URL is a valid meeting URL
+const validateMeetingUrl = (url: string | null): boolean => {
+  if (!url) return false;
+  
+  const zoomPattern = /(?:https:\/\/)?([a-z0-9-]+\.)?zoom\.us\/j\/[\d]+(?:[?\/][^"\s<>]*)?/i;
+  const zoomGovPattern = /(?:https:\/\/)?([a-z0-9-]+\.)?zoomgov\.com\/j\/[\d]+(?:[?\/][^"\s<>]*)?/i;
+  const googleMeetPattern = /https:\/\/meet\.google\.com\/[\w-]+/;
+  const teamsPattern = /(?:https:\/\/)?teams\.microsoft\.com\/l\/meetup-join\/[^\s]*/i;
+  
+  const isValid = zoomPattern.test(url) || 
+                  zoomGovPattern.test(url) || 
+                  googleMeetPattern.test(url) || 
+                  teamsPattern.test(url);
+  
+  console.log(`URL validation result for ${url}: ${isValid}`);
+  return isValid;
 };
 
 export function useNotetakerMutation(onSuccess: () => void) {
@@ -42,6 +84,10 @@ export function useNotetakerMutation(onSuccess: () => void) {
       const meetingUrl = extractMeetingUrl(meetingInfo);
       if (!meetingUrl) {
         throw new Error('No valid meeting URL found in the provided information');
+      }
+      
+      if (!validateMeetingUrl(meetingUrl)) {
+        console.warn('URL passed validation but may not be a recognized meeting platform:', meetingUrl);
       }
 
       const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -63,7 +109,7 @@ export function useNotetakerMutation(onSuccess: () => void) {
       const startTime = new Date();
       const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 1 hour duration
 
-      console.log('Creating manual meeting record...');
+      console.log('Creating manual meeting record with URL:', meetingUrl);
       const { data: meeting, error: meetingError } = await supabase
         .from('manual_meetings')
         .insert({
@@ -95,7 +141,7 @@ export function useNotetakerMutation(onSuccess: () => void) {
 
       if (eventError) throw eventError;
 
-      console.log('Sending notetaker to meeting...');
+      console.log('Sending notetaker to meeting with URL:', meetingUrl);
       const { data, error } = await supabase.functions.invoke('send-notetaker', {
         body: {
           meetingUrl,
