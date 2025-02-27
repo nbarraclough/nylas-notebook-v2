@@ -1,5 +1,6 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
+import { createMuxAsset } from './mux-utils.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -193,7 +194,11 @@ async function handleNotetakerStatusWebhook(webhookData: any, grantId: string, r
 
     const { data: recording, error: recordingError } = await supabase
       .from('recordings')
-      .update({ notetaker_status: newStatus })
+      .update({ 
+        notetaker_status: newStatus,
+        status: mapNotetakerStatusToRecordingStatus(newStatus),
+        updated_at: new Date().toISOString()
+      })
       .eq('notetaker_id', notetakerId)
       .select()
       .maybeSingle();
@@ -213,6 +218,26 @@ async function handleNotetakerStatusWebhook(webhookData: any, grantId: string, r
   } catch (error) {
     console.error(`❌ [${requestId}] Error in handleNotetakerStatusWebhook:`, error);
     throw error;
+  }
+}
+
+// Helper function to map notetaker status to recording status
+function mapNotetakerStatusToRecordingStatus(notetakerStatus: string): string {
+  switch (notetakerStatus) {
+    case 'attending':
+    case 'recording_active':
+      return 'recording_active';
+    case 'concluded':
+    case 'no_meeting_activity':
+    case 'no_participants':
+      return 'concluded';
+    case 'failed':
+    case 'internal_error':
+    case 'bad_meeting_code':
+    case 'api':
+      return 'failed';
+    default:
+      return notetakerStatus;
   }
 }
 
@@ -252,18 +277,26 @@ async function handleNotetakerMediaWebhook(webhookData: any, grantId: string, re
   try {
     const notetakerId = webhookData.data.object.id;
     const mediaStatus = webhookData.data.object.media_status;
+    const recordingUrl = webhookData.data.object.recording_url || null;
 
-    console.log(`📝 [${requestId}] Processing notetaker media update:`, { notetakerId, mediaStatus });
+    console.log(`📝 [${requestId}] Processing notetaker media update:`, { 
+      notetakerId, 
+      mediaStatus,
+      hasRecordingUrl: !!recordingUrl
+    });
 
+    // Log full webhook payload for debugging
+    console.log(`🔍 [${requestId}] Full notetaker.media webhook payload:`, JSON.stringify(webhookData));
+
+    // First retrieve the recording that matches this notetaker
     const { data: recording, error: recordingError } = await supabase
       .from('recordings')
-      .update({ media_status: mediaStatus })
+      .select('*')
       .eq('notetaker_id', notetakerId)
-      .select()
       .maybeSingle();
 
     if (recordingError) {
-      console.error(`❌ [${requestId}] Error updating recording media status:`, recordingError);
+      console.error(`❌ [${requestId}] Error finding recording for notetaker ${notetakerId}:`, recordingError);
       throw recordingError;
     }
 
@@ -272,10 +305,116 @@ async function handleNotetakerMediaWebhook(webhookData: any, grantId: string, re
       return null;
     }
 
-    console.log(`✅ [${requestId}] Updated recording ${recording.id} media status to ${mediaStatus}`);
+    // Prepare update payload
+    const updates: any = {
+      media_status: mediaStatus,
+      updated_at: new Date().toISOString()
+    };
+
+    // Add recording URL if available
+    if (recordingUrl) {
+      console.log(`🎥 [${requestId}] Recording URL found: ${recordingUrl}`);
+      updates.recording_url = recordingUrl;
+      
+      // Update status to reflect that we have the media
+      if (mediaStatus === 'ready') {
+        updates.status = 'media_ready';
+      }
+    }
+
+    // Update the recording
+    const { data: updatedRecording, error: updateError } = await supabase
+      .from('recordings')
+      .update(updates)
+      .eq('id', recording.id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error(`❌ [${requestId}] Error updating recording with media details:`, updateError);
+      throw updateError;
+    }
+
+    console.log(`✅ [${requestId}] Updated recording ${recording.id} with media status: ${mediaStatus}`);
+
+    // If we have a recording URL and status is ready, process the recording media (create Mux asset)
+    if (recordingUrl && mediaStatus === 'ready' && !recording.mux_asset_id) {
+      try {
+        // Process the recording (upload to Mux)
+        await processRecordingMedia(recording.id, recordingUrl, requestId);
+      } catch (processingError) {
+        console.error(`❌ [${requestId}] Error processing recording media:`, processingError);
+        
+        // Update recording status to reflect the processing error
+        await supabase
+          .from('recordings')
+          .update({ 
+            status: 'processing_failed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', recording.id);
+          
+        // We don't throw here to prevent the webhook from failing
+        // The recording will be in an error state that can be retried later
+      }
+    } else if (recordingUrl && mediaStatus === 'ready' && recording.mux_asset_id) {
+      console.log(`ℹ️ [${requestId}] Mux asset already exists for recording ${recording.id}. Skipping processing.`);
+    }
+
     return { recordingId: recording.id };
   } catch (error) {
     console.error(`❌ [${requestId}] Error in handleNotetakerMediaWebhook:`, error);
+    throw error;
+  }
+}
+
+// Helper function to process recording media (create Mux asset)
+async function processRecordingMedia(recordingId: string, recordingUrl: string, requestId: string) {
+  console.log(`🎬 [${requestId}] Processing media for recording ${recordingId}`);
+  
+  try {
+    // Update status to processing
+    const { error: updateError } = await supabase
+      .from('recordings')
+      .update({ 
+        status: 'processing',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', recordingId);
+
+    if (updateError) {
+      console.error(`❌ [${requestId}] Error updating recording status to processing:`, updateError);
+      throw updateError;
+    }
+
+    // Create Mux asset with the recording URL
+    const muxResult = await createMuxAsset(recordingUrl, requestId);
+    
+    if (!muxResult || !muxResult.id || !muxResult.playback_ids?.[0]?.id) {
+      throw new Error(`Invalid response from Mux: ${JSON.stringify(muxResult)}`);
+    }
+
+    console.log(`✅ [${requestId}] Created Mux asset for recording ${recordingId}: ${muxResult.id}`);
+
+    // Update recording with Mux asset ID and playback ID
+    const { error: muxUpdateError } = await supabase
+      .from('recordings')
+      .update({
+        mux_asset_id: muxResult.id,
+        mux_playback_id: muxResult.playback_ids[0].id,
+        status: 'processing', // Status will be updated by the Mux webhook when processing is complete
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', recordingId);
+
+    if (muxUpdateError) {
+      console.error(`❌ [${requestId}] Error updating recording with Mux details:`, muxUpdateError);
+      throw muxUpdateError;
+    }
+
+    return true;
+  } catch (error) {
+    console.error(`❌ [${requestId}] Error in processRecordingMedia:`, error);
     throw error;
   }
 }
