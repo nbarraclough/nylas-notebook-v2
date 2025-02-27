@@ -544,11 +544,14 @@ export type Database = {
         Row: {
           action_items: string[] | null
           ai_summary: string | null
+          calendar_id: string | null
           created_at: string
           duration: number | null
           event_id: string
           id: string
+          join_time: string | null
           media_status: string | null
+          meeting_settings: Json | null
           meeting_state: string | null
           meeting_topics: string[] | null
           mux_asset_id: string | null
@@ -568,11 +571,14 @@ export type Database = {
         Insert: {
           action_items?: string[] | null
           ai_summary?: string | null
+          calendar_id?: string | null
           created_at?: string
           duration?: number | null
           event_id: string
           id?: string
+          join_time?: string | null
           media_status?: string | null
+          meeting_settings?: Json | null
           meeting_state?: string | null
           meeting_topics?: string[] | null
           mux_asset_id?: string | null
@@ -592,11 +598,14 @@ export type Database = {
         Update: {
           action_items?: string[] | null
           ai_summary?: string | null
+          calendar_id?: string | null
           created_at?: string
           duration?: number | null
           event_id?: string
           id?: string
+          join_time?: string | null
           media_status?: string | null
+          meeting_settings?: Json | null
           meeting_state?: string | null
           meeting_topics?: string[] | null
           mux_asset_id?: string | null
