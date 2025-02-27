@@ -20,6 +20,16 @@ const extractMeetingUrl = (info: string) => {
     return extractedUrl;
   }
 
+  // Handle Microsoft Teams URLs with improved pattern
+  // This pattern handles the complex structure of Teams URLs including the thread ID and context parameters
+  const teamsPattern = /(?:https:\/\/)?teams\.microsoft\.com\/l\/meetup-join\/[^/]+\/[^?]+(?:\?context=(?:[^&\s"<>]+))?/i;
+  const teamsMatch = info.match(teamsPattern);
+  if (teamsMatch) {
+    const extractedUrl = teamsMatch[0].startsWith('http') ? teamsMatch[0] : `https://${teamsMatch[0]}`;
+    console.log('Extracted Teams URL:', extractedUrl);
+    return extractedUrl;
+  }
+
   // Handle Google Meet URLs
   const googleMeetPattern = /https:\/\/meet\.google\.com\/[\w-]+/;
   const googleMeetMatch = info.match(googleMeetPattern);
@@ -30,7 +40,7 @@ const extractMeetingUrl = (info: string) => {
 
   // Handle other platform patterns
   const patterns = [
-    /(?:https:\/\/)?[^\s]*(teams\.microsoft\.com\/l\/meetup-join\/[^\s]*)/i,
+    // Removed the old Teams pattern as we have a better one above
     /(?:https:\/\/)?[^\s]*(meet\.google\.com\/[^\s]*)/i,
   ];
 
@@ -62,7 +72,8 @@ const validateMeetingUrl = (url: string | null): boolean => {
   const zoomPattern = /(?:https:\/\/)?([a-z0-9-]+\.)?zoom\.us\/j\/[\d]+(?:[?\/][^"\s<>]*)?/i;
   const zoomGovPattern = /(?:https:\/\/)?([a-z0-9-]+\.)?zoomgov\.com\/j\/[\d]+(?:[?\/][^"\s<>]*)?/i;
   const googleMeetPattern = /https:\/\/meet\.google\.com\/[\w-]+/;
-  const teamsPattern = /(?:https:\/\/)?teams\.microsoft\.com\/l\/meetup-join\/[^\s]*/i;
+  // Updated Teams pattern for validation
+  const teamsPattern = /(?:https:\/\/)?teams\.microsoft\.com\/l\/meetup-join\/[^/]+\/[^?]+(?:\?context=(?:[^&\s"<>]+))?/i;
   
   const isValid = zoomPattern.test(url) || 
                   zoomGovPattern.test(url) || 
