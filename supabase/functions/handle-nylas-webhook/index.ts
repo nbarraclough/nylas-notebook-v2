@@ -106,8 +106,13 @@ serve(async (req) => {
       const rawBody = await req.text();
       console.log(`📝 [${requestId}] Raw webhook body:`, rawBody);
 
+      // Check for both lowercase and uppercase signature headers
+      const signature = req.headers.get('x-nylas-signature') || 
+                        req.headers.get('X-Nylas-Signature') || '';
+      
+      console.log(`📝 [${requestId}] Signature header:`, signature);
+      
       // Verify webhook signature
-      const signature = req.headers.get('x-nylas-signature') || '';
       const isValid = await verifyWebhookSignature(signature, rawBody);
       
       if (!isValid) {
@@ -140,7 +145,7 @@ serve(async (req) => {
       } catch (processError: any) {
         console.error(`❌ [${requestId}] Error processing webhook:`, processError);
         errorMessage = processError.message;
-        throw processError;
+        // Still return 200 to acknowledge receipt, but log the error
       } finally {
         // Log webhook after processing, including any error information
         await logWebhook(
@@ -152,6 +157,8 @@ serve(async (req) => {
         );
       }
 
+      // Always return 200 status to acknowledge receipt of the webhook
+      // This is critical for Nylas to mark the webhook as delivered
       return new Response(
         JSON.stringify({ success: true, status: 'acknowledged' }),
         { 
@@ -170,10 +177,12 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error(`❌ [${requestId}] Error processing request:`, error);
+    // Even in case of errors, we return 200 to acknowledge receipt
+    // This prevents Nylas from retrying the webhook
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ success: false, error: 'Processed with errors but acknowledged' }),
       { 
-        status: 500,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
