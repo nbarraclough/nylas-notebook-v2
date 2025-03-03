@@ -1,18 +1,42 @@
-export const validateWebhook = async (rawBody: string, signature: string | null) => {
-  const requestId = crypto.randomUUID();
+
+import { VerificationResult } from "../_shared/webhook-verification.ts";
+
+export interface ValidationResult {
+  isValid: boolean;
+  webhookData?: any;
+  error?: string;
+  details?: string;
+  status?: number;
+}
+
+export const validateWebhook = async (
+  rawBody: string, 
+  signature: string | null, 
+  requestId: string
+): Promise<ValidationResult> => {
   console.log(`🔐 [${requestId}] Starting webhook validation`);
 
   // Get and validate webhook secret
   const webhookSecret = Deno.env.get('NYLAS_WEBHOOK_SECRET');
   if (!webhookSecret) {
     console.error(`❌ [${requestId}] NYLAS_WEBHOOK_SECRET not configured`);
-    throw new Error('NYLAS_WEBHOOK_SECRET not configured');
+    return {
+      isValid: false,
+      error: 'no_secret',
+      details: 'NYLAS_WEBHOOK_SECRET not configured',
+      status: 500
+    };
   }
 
   // Validate signature presence
   if (!signature) {
     console.error(`❌ [${requestId}] No signature in webhook request`);
-    throw new Error('No signature in webhook request');
+    return {
+      isValid: false,
+      error: 'no_signature',
+      details: 'No signature in webhook request',
+      status: 400
+    };
   }
 
   try {
@@ -48,9 +72,35 @@ export const validateWebhook = async (rawBody: string, signature: string | null)
       calculated: calculatedSignature
     });
 
-    return { isValid };
+    if (!isValid) {
+      return {
+        isValid: false,
+        error: 'verification_failed',
+        details: 'Signature verification failed',
+        status: 401
+      };
+    }
+
+    // Parse webhook data
+    try {
+      const webhookData = JSON.parse(rawBody);
+      return { isValid: true, webhookData };
+    } catch (parseError) {
+      console.error(`❌ [${requestId}] Failed to parse webhook data:`, parseError);
+      return {
+        isValid: false,
+        error: 'invalid_json',
+        details: 'Failed to parse webhook JSON data',
+        status: 400
+      };
+    }
   } catch (error) {
     console.error(`❌ [${requestId}] Error validating webhook signature:`, error);
-    return { isValid: false };
+    return {
+      isValid: false,
+      error: 'processing_error',
+      details: error instanceof Error ? error.message : 'Unknown error during verification',
+      status: 500
+    };
   }
 };

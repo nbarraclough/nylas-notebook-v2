@@ -49,9 +49,23 @@ export async function logWebhook(
   requestId: string, 
   webhookData: any, 
   status = 'received',
-  errorMessage?: string
+  errorMessage?: string,
+  verificationResult?: {
+    error?: string;
+    details?: string;
+  }
 ) {
   try {
+    const errorDetails = errorMessage || (verificationResult?.details ? 
+      `Verification error: ${verificationResult.error} - ${verificationResult.details}` : 
+      undefined);
+
+    console.log(`[${requestId}] Logging webhook with status: ${status}, type: ${webhookData?.type || 'unknown'}`);
+    
+    if (errorDetails) {
+      console.error(`[${requestId}] Error details: ${errorDetails}`);
+    }
+
     const { data, error } = await supabase
       .from('webhook_logs')
       .insert({
@@ -60,17 +74,30 @@ export async function logWebhook(
         grant_id: webhookData?.data?.grant_id || webhookData?.data?.object?.grant_id,
         raw_payload: webhookData,
         status,
-        error_message: errorMessage
+        error_message: errorDetails
       });
 
     if (error) {
-      console.error('Error logging webhook:', error);
+      console.error(`[${requestId}] Error logging webhook:`, error);
       return null;
     }
 
+    console.log(`[${requestId}] Successfully logged webhook to database`);
     return data;
   } catch (error) {
-    console.error('Error in logWebhook:', error);
+    console.error(`[${requestId}] Error in logWebhook:`, error);
     return null;
   }
+}
+
+export function logWebhookProcessing(type: string, context: Record<string, any>) {
+  console.log(`🔄 Processing ${type} webhook:`, context);
+}
+
+export function logWebhookError(type: string, error: any) {
+  console.error(`❌ Error processing ${type} webhook:`, error);
+}
+
+export function logWebhookSuccess(type: string, result: Record<string, any>) {
+  console.log(`✅ Successfully processed ${type} webhook:`, result);
 }
