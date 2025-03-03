@@ -1,4 +1,5 @@
 
+// deno-lint-ignore-file no-explicit-any
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from '../_shared/cors.ts'
 import { verifyWebhookSignature } from '../_shared/webhook-verification.ts'
@@ -117,6 +118,7 @@ serve(async (req) => {
       
       if (!isValid) {
         console.error(`❌ [${requestId}] Invalid webhook signature`);
+        // Return 401 for invalid signatures - this is an authentication error
         return new Response(
           JSON.stringify({ error: 'Invalid signature' }), 
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -131,7 +133,12 @@ serve(async (req) => {
       let grantId = webhookData?.data?.grant_id || webhookData?.data?.object?.grant_id;
       
       if (!grantId || typeof grantId !== 'string') {
-        throw new Error(`Invalid grant ID: ${grantId}`);
+        // Return 400 for bad requests - invalid data that can't be processed
+        console.error(`❌ [${requestId}] Invalid grant ID: ${grantId}`);
+        return new Response(
+          JSON.stringify({ error: 'Invalid grant ID in webhook data' }), 
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       // First process the webhook data
@@ -145,22 +152,34 @@ serve(async (req) => {
       } catch (processError: any) {
         console.error(`❌ [${requestId}] Error processing webhook:`, processError);
         errorMessage = processError.message;
-        // Still return 200 to acknowledge receipt, but log the error
-      } finally {
-        // Log webhook after processing, including any error information
+        
+        // Log the webhook with error status
         await logWebhook(
           requestId,
           webhookData,
           processedData,
-          errorMessage ? 'error' : 'success',
+          'error',
           errorMessage
+        );
+        
+        // Return 500 for processing errors to trigger a retry
+        return new Response(
+          JSON.stringify({ error: 'Processing error', message: errorMessage }), 
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      // Always return 200 status to acknowledge receipt of the webhook
-      // This is critical for Nylas to mark the webhook as delivered
+      // Log successful webhook processing
+      await logWebhook(
+        requestId,
+        webhookData,
+        processedData,
+        'success'
+      );
+
+      // Return 200 only for successful processing
       return new Response(
-        JSON.stringify({ success: true, status: 'acknowledged' }),
+        JSON.stringify({ success: true, status: 'processed' }),
         { 
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -175,14 +194,14 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error(`❌ [${requestId}] Error processing request:`, error);
-    // Even in case of errors, we return 200 to acknowledge receipt
-    // This prevents Nylas from retrying the webhook
+    
+    // For unexpected/uncaught errors, return 500 to trigger retry
     return new Response(
-      JSON.stringify({ success: false, error: 'Processed with errors but acknowledged' }),
+      JSON.stringify({ error: 'Internal server error', message: error.message }),
       { 
-        status: 200,
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
