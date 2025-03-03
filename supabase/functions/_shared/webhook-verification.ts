@@ -1,9 +1,10 @@
 
 export const verifyWebhookSignature = async (signature: string, body: string) => {
-  const webhookSecret = Deno.env.get('NYLAS_WEBHOOK_SECRET');
+  // Check for both production and development webhook secrets
+  const webhookSecret = Deno.env.get('NYLAS_WEBHOOK_SECRET') || Deno.env.get('NYLAS_PROD_WEBHOOK_SECRET');
   
   if (!webhookSecret) {
-    console.error('NYLAS_WEBHOOK_SECRET not configured');
+    console.error('CRITICAL ERROR: No webhook secret configured! Set NYLAS_WEBHOOK_SECRET or NYLAS_PROD_WEBHOOK_SECRET');
     return false;
   }
 
@@ -21,7 +22,7 @@ export const verifyWebhookSignature = async (signature: string, body: string) =>
       encoder.encode(webhookSecret),
       { name: "HMAC", hash: "SHA-256" },
       false,
-      ["sign"] // Changed from "verify" to "sign" - we're generating our own signature
+      ["sign"]
     );
 
     // Generate our HMAC signature
@@ -31,24 +32,27 @@ export const verifyWebhookSignature = async (signature: string, body: string) =>
       encoder.encode(body)
     );
 
-    // Convert our signature to hex string to match Nylas's format
+    // Convert our signature to lowercase hex string
     const calculatedSignature = Array.from(new Uint8Array(hmacBuffer))
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
     
-    console.log('Calculated signature:', calculatedSignature);
-    console.log('Received signature:', signature);
+    // Convert received signature to lowercase for comparison
+    const receivedSignature = signature.toLowerCase();
+    
+    // Log portions of signatures for debugging (not full for security)
+    console.log(`Calculated signature prefix: ${calculatedSignature.substring(0, 8)}...`);
+    console.log(`Received signature prefix: ${receivedSignature.substring(0, 8)}...`);
 
     // Constant-time comparison of the signatures to prevent timing attacks
-    // Note: This is more secure than using a simple equality check
-    if (calculatedSignature.length !== signature.length) {
+    if (calculatedSignature.length !== receivedSignature.length) {
       console.error('Signature length mismatch');
       return false;
     }
     
     let result = 0;
     for (let i = 0; i < calculatedSignature.length; i++) {
-      result |= calculatedSignature.charCodeAt(i) ^ signature.charCodeAt(i);
+      result |= calculatedSignature.charCodeAt(i) ^ receivedSignature.charCodeAt(i);
     }
     
     const isValid = result === 0;
@@ -59,12 +63,4 @@ export const verifyWebhookSignature = async (signature: string, body: string) =>
     console.error('Error verifying webhook signature:', error);
     return false;
   }
-};
-
-// Helper function to convert hex string to Uint8Array
-const hexToUint8Array = (hexString: string) => {
-  const pairs = hexString.match(/[\dA-F]{2}/gi) || [];
-  return new Uint8Array(
-    pairs.map(s => parseInt(s, 16))
-  );
 };

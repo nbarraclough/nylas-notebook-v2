@@ -94,30 +94,58 @@ async function logWebhook(requestId: string, webhookData: any, processedData: an
 }
 
 serve(async (req) => {
+  // Generate a unique request ID for tracing this webhook through logs
+  const requestId = crypto.randomUUID();
+  
+  // Log basic request information immediately
+  const url = new URL(req.url);
+  console.log(`📥 [${requestId}] Received ${req.method} request to ${url.pathname}`);
+  console.log(`📤 [${requestId}] Headers: ${JSON.stringify(Object.fromEntries(req.headers))}`);
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log(`🔄 [${requestId}] Handling CORS preflight`);
     return new Response(null, { headers: corsHeaders });
   }
-
-  const requestId = crypto.randomUUID();
 
   try {
     // Only process webhooks for POST requests
     if (req.method === 'POST') {
       const rawBody = await req.text();
-      console.log(`📝 [${requestId}] Raw webhook body:`, rawBody);
+      console.log(`📝 [${requestId}] Received webhook payload length: ${rawBody.length}`);
+      
+      // Truncate the body for logging (prevent huge logs)
+      const truncatedBody = rawBody.length > 500 ? 
+        `${rawBody.substring(0, 500)}... [truncated, total length: ${rawBody.length}]` : 
+        rawBody;
+      console.log(`📝 [${requestId}] Raw webhook body: ${truncatedBody}`);
 
       // Check for both lowercase and uppercase signature headers
       const signature = req.headers.get('x-nylas-signature') || 
                         req.headers.get('X-Nylas-Signature') || '';
       
-      console.log(`📝 [${requestId}] Signature header:`, signature);
+      console.log(`📝 [${requestId}] Signature header: ${signature ? signature.substring(0, 8) + '...' : 'MISSING'}`);
       
       // Verify webhook signature
       const isValid = await verifyWebhookSignature(signature, rawBody);
       
       if (!isValid) {
         console.error(`❌ [${requestId}] Invalid webhook signature`);
+        
+        // Log the invalid webhook before returning 401
+        try {
+          const invalidWebhookData = JSON.parse(rawBody);
+          await logWebhook(
+            requestId,
+            invalidWebhookData,
+            null,
+            'invalid_signature',
+            'Signature verification failed'
+          );
+        } catch (parseError) {
+          console.error(`❌ [${requestId}] Failed to parse invalid webhook body: ${parseError}`);
+        }
+        
         // Return 401 for invalid signatures - this is an authentication error
         return new Response(
           JSON.stringify({ error: 'Invalid signature' }), 
@@ -126,15 +154,35 @@ serve(async (req) => {
       }
 
       // Parse webhook data
-      const webhookData = JSON.parse(rawBody);
-      console.log(`📝 [${requestId}] Processing webhook type:`, webhookData.type);
+      let webhookData;
+      try {
+        webhookData = JSON.parse(rawBody);
+      } catch (parseError) {
+        console.error(`❌ [${requestId}] Failed to parse webhook body: ${parseError}`);
+        return new Response(
+          JSON.stringify({ error: 'Invalid JSON in request body' }), 
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      console.log(`📝 [${requestId}] Processing webhook type: ${webhookData.type || 'UNKNOWN'}`);
 
       // Extract grant ID
-      let grantId = webhookData?.data?.grant_id || webhookData?.data?.object?.grant_id;
+      const grantId = webhookData?.data?.grant_id || webhookData?.data?.object?.grant_id;
       
       if (!grantId || typeof grantId !== 'string') {
-        // Return 400 for bad requests - invalid data that can't be processed
         console.error(`❌ [${requestId}] Invalid grant ID: ${grantId}`);
+        
+        // Log the invalid webhook before returning 400
+        await logWebhook(
+          requestId,
+          webhookData,
+          null,
+          'invalid_grant',
+          `Invalid grant ID: ${grantId}`
+        );
+        
+        // Return 400 for bad requests - invalid data that can't be processed
         return new Response(
           JSON.stringify({ error: 'Invalid grant ID in webhook data' }), 
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -148,7 +196,7 @@ serve(async (req) => {
       try {
         // Process webhook and get any created/updated record IDs
         processedData = await handleWebhookType(webhookData, grantId, requestId);
-        console.log(`✅ [${requestId}] Successfully processed webhook type:`, webhookData.type);
+        console.log(`✅ [${requestId}] Successfully processed webhook type: ${webhookData.type}`);
       } catch (processError: any) {
         console.error(`❌ [${requestId}] Error processing webhook:`, processError);
         errorMessage = processError.message;

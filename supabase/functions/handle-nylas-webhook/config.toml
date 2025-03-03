@@ -1,0 +1,3 @@
+
+# Webhook handler doesn't require JWT authentication
+verify_jwt = false 
