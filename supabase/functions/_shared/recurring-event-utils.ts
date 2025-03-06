@@ -55,7 +55,12 @@ export async function processRecurringEvent(
   supabaseServiceKey: string,
   requestId: string
 ): Promise<{ success: boolean; message?: string }> {
-  console.log(`🔄 [${requestId}] Processing recurring event:`, JSON.stringify(event, null, 2));
+  console.log(`🔄 [${requestId}] Processing recurring event:`, {
+    id: event.id,
+    title: event.title,
+    master_event_id: event.master_event_id,
+    recurrence: !!event.recurrence
+  });
 
   const supabase = createClient<Database>(
     supabaseUrl,
@@ -103,7 +108,7 @@ export async function processRecurringEvent(
     const eventData = {
       user_id: userId,
       nylas_event_id: event.id,
-      title: event.title,
+      title: event.title || 'Untitled Event',
       description: event.description,
       location: event.location,
       start_time: startTime,

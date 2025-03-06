@@ -55,7 +55,7 @@ async function fetchEventsFromNylas(grantId: string, startUnix: number, endUnix:
   let allEvents = [];
   let totalEventsFetched = 0;
   let hasMorePages = true;
-  let pageToken = null;
+  let nextCursor = null;
   
   while (hasMorePages) {
     const queryParams = new URLSearchParams({
@@ -64,7 +64,7 @@ async function fetchEventsFromNylas(grantId: string, startUnix: number, endUnix:
       end: endUnix.toString(),
       limit: '200',
       expand_recurring: 'true',
-      ...(pageToken && { page_token: pageToken })
+      ...(nextCursor && { next_cursor: nextCursor })
     });
 
     console.log(`📅 [${requestId}] Fetching events with params:`, queryParams.toString());
@@ -87,13 +87,20 @@ async function fetchEventsFromNylas(grantId: string, startUnix: number, endUnix:
     }
 
     const response = await eventsResponse.json();
-    const events = response.data || [];
-    allEvents = allEvents.concat(events);
-    pageToken = response.next_page_token;
-    totalEventsFetched += events.length;
-    hasMorePages = !!pageToken && events.length > 0;
     
-    console.log(`📊 [${requestId}] Fetched ${events.length} events, total: ${totalEventsFetched}`);
+    // Validate response structure
+    if (!response.data || !Array.isArray(response.data)) {
+      console.error(`❌ [${requestId}] Invalid response from Nylas API:`, response);
+      throw new Error('Invalid response structure from Nylas API');
+    }
+    
+    const events = response.data;
+    allEvents = allEvents.concat(events);
+    nextCursor = response.next_cursor;
+    totalEventsFetched += events.length;
+    hasMorePages = !!nextCursor && events.length > 0;
+    
+    console.log(`📊 [${requestId}] Fetched ${events.length} events, total: ${totalEventsFetched}, nextCursor: ${nextCursor || 'none'}`);
     
     if (hasMorePages) {
       await sleep(RATE_LIMIT_DELAY);
@@ -123,21 +130,39 @@ async function processEventsForUser(
   // Process master events first
   console.log(`🔄 [${requestId}] Processing ${masterEvents.length} master events for user ${userId}`);
   for (const master of masterEvents) {
-    await processRecurringEvent(master, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    await processRecurringEvent(
+      master, 
+      userId, 
+      SUPABASE_URL, 
+      SUPABASE_SERVICE_ROLE_KEY,
+      requestId
+    );
     await sleep(RATE_LIMIT_DELAY);
   }
 
   // Process modified instances
   console.log(`🔄 [${requestId}] Processing ${modifiedInstances.length} modified instances for user ${userId}`);
   for (const instance of modifiedInstances) {
-    await processRecurringEvent(instance, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    await processRecurringEvent(
+      instance, 
+      userId, 
+      SUPABASE_URL, 
+      SUPABASE_SERVICE_ROLE_KEY,
+      requestId
+    );
     await sleep(RATE_LIMIT_DELAY);
   }
 
   // Process regular instances
   console.log(`🔄 [${requestId}] Processing ${regularInstances.length} regular instances for user ${userId}`);
   for (const instance of regularInstances) {
-    await processRecurringEvent(instance, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    await processRecurringEvent(
+      instance, 
+      userId, 
+      SUPABASE_URL, 
+      SUPABASE_SERVICE_ROLE_KEY,
+      requestId
+    );
     await sleep(RATE_LIMIT_DELAY);
   }
 

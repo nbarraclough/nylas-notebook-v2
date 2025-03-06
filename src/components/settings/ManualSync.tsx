@@ -11,33 +11,53 @@ export const ManualSync = ({ userId }: { userId: string }) => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
+  const [syncStatus, setSyncStatus] = useState("");
 
   const syncEvents = async () => {
     if (!userId) return;
 
     try {
       setIsSyncing(true);
-      setSyncProgress(25);
+      setSyncProgress(10);
+      setSyncStatus("Initiating calendar sync...");
       console.log('Starting events sync...');
+      
+      setSyncProgress(25);
+      setSyncStatus("Fetching events from Nylas...");
       
       const { data, error } = await supabase.functions.invoke('sync-nylas-events', {
         body: { user_id: userId }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error response from function:', error);
+        throw new Error(`Sync failed: ${error.message || 'Unknown error'}`);
+      }
 
-      setSyncProgress(100);
+      // Handle case where function returns success: false
+      if (data && data.success === false) {
+        throw new Error(data.error || 'Sync operation failed');
+      }
+
+      setSyncProgress(90);
+      setSyncStatus("Processing complete, finalizing...");
+      
       console.log('Sync completed:', data);
+      
+      setSyncProgress(100);
+      setSyncStatus("Sync completed successfully!");
 
       toast({
         title: "Success",
-        description: "Calendar events synced successfully!",
+        description: data?.results?.totalUsers 
+          ? `Synced events for ${data.results.totalUsers} user(s) with ${data.results.grantsProcessed} grant(s).`
+          : "Calendar events synced successfully!",
       });
     } catch (error) {
       console.error('Error syncing events:', error);
       toast({
         title: "Error",
-        description: "Failed to sync calendar events. Please try again.",
+        description: error.message || "Failed to sync calendar events. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -45,14 +65,15 @@ export const ManualSync = ({ userId }: { userId: string }) => {
       setTimeout(() => {
         setIsSyncing(false);
         setSyncProgress(0);
-      }, 1000);
+        setSyncStatus("");
+      }, 2000);
     }
   };
 
   const processQueue = async () => {
     try {
       setIsProcessing(true);
-      const { error } = await supabase.functions.invoke('process-notetaker-queue');
+      const { data, error } = await supabase.functions.invoke('process-notetaker-queue');
       
       if (error) throw error;
       
@@ -95,7 +116,7 @@ export const ManualSync = ({ userId }: { userId: string }) => {
               <div className="space-y-2">
                 <Progress value={syncProgress} className="w-full" />
                 <p className="text-sm text-muted-foreground text-center">
-                  Syncing your calendar events...
+                  {syncStatus || "Syncing your calendar events..."}
                 </p>
               </div>
             )}

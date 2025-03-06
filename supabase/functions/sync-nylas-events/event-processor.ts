@@ -1,10 +1,7 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 import { NylasEvent } from '../_shared/recurring-event-utils.ts';
-
-function convertTimestampToISOString(timestamp: number): string {
-  // Nylas timestamps are in milliseconds
-  return new Date(timestamp).toISOString();
-}
+import { unixSecondsToISOString } from '../_shared/timestamp-utils.ts';
 
 export async function processEvent(event: NylasEvent, userId: string, supabaseUrl: string, supabaseKey: string) {
   try {
@@ -31,6 +28,21 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
       return;
     }
 
+    // Convert Unix timestamps (seconds) to ISO strings using our utility
+    const startTimeISO = unixSecondsToISOString(start_time);
+    const endTimeISO = unixSecondsToISOString(end_time);
+    const originalStartTimeISO = event.original_start_time 
+      ? unixSecondsToISOString(event.original_start_time)
+      : null;
+      
+    if (!startTimeISO || !endTimeISO) {
+      console.log('Unable to convert timestamps to ISO format:', {
+        id: event.id,
+        title: event.title
+      });
+      return;
+    }
+
     const eventData = {
       user_id: userId,
       nylas_event_id: event.id,
@@ -38,8 +50,8 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
       description: event.description,
       text_description: event.text_description,
       location: event.location,
-      start_time: convertTimestampToISOString(start_time),
-      end_time: convertTimestampToISOString(end_time),
+      start_time: startTimeISO,
+      end_time: endTimeISO,
       participants: event.participants || [],
       conference_url: event.conferencing?.details?.url || null,
       ical_uid: event.ical_uid,
@@ -53,9 +65,7 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
       recurrence: event.recurrence,
       status: event.status,
       visibility: event.visibility || 'default',
-      original_start_time: event.original_start_time 
-        ? convertTimestampToISOString(event.original_start_time)
-        : null,
+      original_start_time: originalStartTimeISO,
       last_updated_at: new Date().toISOString()
     };
 

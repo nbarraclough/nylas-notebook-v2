@@ -1,3 +1,4 @@
+
 import { format } from "https://deno.land/std@0.168.0/datetime/mod.ts";
 
 export function startOfToday(): Date {
@@ -12,7 +13,9 @@ export function addMonths(date: Date, months: number): Date {
   return result;
 }
 
+// Convert to Unix timestamp in seconds (not milliseconds)
 export function getUnixTime(date: Date): number {
+  // This returns seconds, which is what Nylas API expects
   return Math.floor(date.getTime() / 1000);
 }
 
