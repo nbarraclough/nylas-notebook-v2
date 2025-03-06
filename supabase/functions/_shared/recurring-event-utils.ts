@@ -236,13 +236,99 @@ export async function cleanupOrphanedInstances(
 
       if (checkError || !masterEvent) {
         console.log(`Master event ${masterId} not found, cleaning up instances`);
-        const { error: deleteError } = await supabase
-          .from('events')
-          .delete()
-          .eq('master_event_id', masterId);
+        
+        try {
+          // Step 1: Find all the events that need to be cleaned up
+          const { data: orphanedEvents, error: findError } = await supabase
+            .from('events')
+            .select('id')
+            .eq('master_event_id', masterId);
+            
+          if (findError) {
+            console.error(`Error finding orphaned events for master ${masterId}:`, findError);
+            continue;
+          }
+          
+          if (!orphanedEvents || orphanedEvents.length === 0) {
+            console.log(`No orphaned events found for master ${masterId}`);
+            continue;
+          }
+          
+          const orphanedEventIds = orphanedEvents.map(e => e.id);
+          console.log(`Found ${orphanedEventIds.length} orphaned events for master ${masterId}`);
+          
+          // Step 2: Find all recordings for these events
+          const { data: recordings, error: recordingsError } = await supabase
+            .from('recordings')
+            .select('id')
+            .in('event_id', orphanedEventIds);
+            
+          if (recordingsError) {
+            console.error(`Error finding recordings for orphaned events:`, recordingsError);
+          }
+          
+          if (recordings && recordings.length > 0) {
+            const recordingIds = recordings.map(r => r.id);
+            console.log(`Found ${recordingIds.length} recordings to clean up for master ${masterId}`);
+            
+            // Step 3: Delete webhook_relationships linked to these recordings
+            const { error: webhookRelError } = await supabase
+              .from('webhook_relationships')
+              .delete()
+              .in('recording_id', recordingIds);
+              
+            if (webhookRelError) {
+              console.error(`Error deleting webhook relationships:`, webhookRelError);
+              continue; // Skip this master if we can't clean up relationships
+            }
+            
+            // Step 4: Delete email_notifications linked to these recordings
+            const { error: emailNotifError } = await supabase
+              .from('email_notifications')
+              .delete()
+              .in('recording_id', recordingIds);
+              
+            if (emailNotifError) {
+              console.error(`Error deleting email notifications:`, emailNotifError);
+              continue; // Skip this master if we can't clean up notifications
+            }
+            
+            // Step 5: Delete video_shares linked to these recordings
+            const { error: videoSharesError } = await supabase
+              .from('video_shares')
+              .delete()
+              .in('recording_id', recordingIds);
+              
+            if (videoSharesError) {
+              console.error(`Error deleting video shares:`, videoSharesError);
+              continue; // Skip this master if we can't clean up shares
+            }
+            
+            // Step 6: Delete recordings
+            const { error: recordingsDeleteError } = await supabase
+              .from('recordings')
+              .delete()
+              .in('id', recordingIds);
+              
+            if (recordingsDeleteError) {
+              console.error(`Error deleting recordings:`, recordingsDeleteError);
+              continue; // Skip this master if we can't delete recordings
+            }
+          }
+          
+          // Step 7: Delete events
+          const { error: deleteError } = await supabase
+            .from('events')
+            .delete()
+            .eq('master_event_id', masterId);
 
-        if (deleteError) {
-          console.error(`Error cleaning up instances for master ${masterId}:`, deleteError);
+          if (deleteError) {
+            console.error(`Error cleaning up instances for master ${masterId}:`, deleteError);
+          } else {
+            console.log(`Successfully cleaned up orphaned instances for master ${masterId}`);
+          }
+        } catch (err) {
+          console.error(`Error during cleanup for master ${masterId}:`, err);
         }
       }
     }
