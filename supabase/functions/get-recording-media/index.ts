@@ -5,7 +5,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 import { corsHeaders } from '../_shared/cors.ts'
-import { createMuxAsset } from '../_shared/mux-utils.ts';
+import { createMuxAsset, getNylasRecordingMedia } from '../_shared/mux-utils.ts';
 
 console.log("Loading get-recording-media function")
 
@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
     // Find the recording
     let query = supabase
       .from('recordings')
-      .select('*');
+      .select('*, profiles:user_id (nylas_grant_id)');
 
     if (recordingId) {
       query = query.eq('id', recordingId);
@@ -89,62 +89,147 @@ Deno.serve(async (req) => {
     }
 
     // Check if we have recording URL
-    if (!recording.recording_url) {
-      // If media status is not ready yet, return error
-      if (recording.media_status !== 'ready') {
-        throw new Error('MEDIA_NOT_READY: Recording media is not ready yet');
+    if (!recording.recording_url || recording.recording_url === '') {
+      // Get the grant ID from the profiles relation
+      const grantId = recording.profiles?.nylas_grant_id;
+      if (!grantId) {
+        throw new Error('No Nylas grant ID found for user');
       }
+
+      console.log(`🔍 [${requestId}] No recording URL found, fetching from Nylas API`);
       
-      // If media status is ready but we don't have a URL, something is wrong
-      throw new Error('Recording URL not found even though media status is ready');
+      // If we don't have a recording URL, fetch it from Nylas
+      if (!recording.notetaker_id) {
+        throw new Error('No notetaker ID found for this recording');
+      }
+
+      try {
+        // Get the recording media URL from Nylas
+        const mediaUrl = await getNylasRecordingMedia(grantId, recording.notetaker_id, requestId);
+        
+        if (!mediaUrl) {
+          throw new Error('Failed to get media URL from Nylas');
+        }
+
+        // Update the recording with the URL
+        const { error: updateError } = await supabase
+          .from('recordings')
+          .update({
+            recording_url: mediaUrl,
+            status: 'retrieving',
+            media_status: 'ready',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', recording.id);
+
+        if (updateError) {
+          throw new Error(`Error updating recording with media URL: ${updateError.message}`);
+        }
+
+        console.log(`🎬 [${requestId}] Creating Mux asset for recording ${recording.id} with URL ${mediaUrl}`);
+        const muxAsset = await createMuxAsset(mediaUrl, requestId);
+
+        if (!muxAsset || !muxAsset.id || !muxAsset.playback_ids?.[0]?.id) {
+          throw new Error(`Failed to create Mux asset`);
+        }
+
+        // Update recording with Mux info
+        const { error: muxUpdateError } = await supabase
+          .from('recordings')
+          .update({
+            mux_asset_id: muxAsset.id,
+            mux_playback_id: muxAsset.playback_ids[0].id,
+            status: 'processing', // Will be updated by Mux webhook when ready
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', recording.id);
+
+        if (muxUpdateError) {
+          throw new Error(`Error updating recording with Mux info: ${muxUpdateError.message}`);
+        }
+
+        console.log(`✅ [${requestId}] Successfully created Mux asset ${muxAsset.id} for recording ${recording.id}`);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Processing started',
+            mux_asset_id: muxAsset.id,
+            mux_playback_id: muxAsset.playback_ids[0].id
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          },
+        )
+      } catch (error) {
+        if (error.message.includes('media not ready') || error.message.toLowerCase().includes('no recording available')) {
+          console.log(`⏳ [${requestId}] Media not ready yet from Nylas`);
+          return new Response(
+            JSON.stringify({ 
+              success: false,
+              error: 'MEDIA_NOT_READY',
+              message: 'The recording is still being processed by Nylas. Please try again in a few moments.' 
+            }),
+            {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              status: 400,
+            },
+          )
+        }
+        
+        throw error;
+      }
+    } else {
+      // We have a recording URL but no Mux asset yet
+      
+      // Update status to retrieving
+      await supabase
+        .from('recordings')
+        .update({
+          status: 'retrieving',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', recording.id);
+
+      // Create Mux asset
+      console.log(`🎬 [${requestId}] Creating Mux asset for recording ${recording.id} with existing URL ${recording.recording_url}`);
+      const muxAsset = await createMuxAsset(recording.recording_url, requestId);
+
+      if (!muxAsset || !muxAsset.id || !muxAsset.playback_ids?.[0]?.id) {
+        throw new Error(`Failed to create Mux asset`);
+      }
+
+      // Update recording with Mux info
+      const { error: updateError } = await supabase
+        .from('recordings')
+        .update({
+          mux_asset_id: muxAsset.id,
+          mux_playback_id: muxAsset.playback_ids[0].id,
+          status: 'processing', // Will be updated by Mux webhook when ready
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', recording.id);
+
+      if (updateError) {
+        throw new Error(`Error updating recording: ${updateError.message}`);
+      }
+
+      console.log(`✅ [${requestId}] Successfully created Mux asset ${muxAsset.id} for recording ${recording.id}`);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'Processing started',
+          mux_asset_id: muxAsset.id,
+          mux_playback_id: muxAsset.playback_ids[0].id
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        },
+      )
     }
-
-    // Update status to retrieving
-    await supabase
-      .from('recordings')
-      .update({
-        status: 'retrieving',
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', recording.id);
-
-    // Create Mux asset
-    console.log(`🎬 [${requestId}] Creating Mux asset for recording ${recording.id}`);
-    const muxAsset = await createMuxAsset(recording.recording_url, requestId);
-
-    if (!muxAsset || !muxAsset.id || !muxAsset.playback_ids?.[0]?.id) {
-      throw new Error(`Failed to create Mux asset`);
-    }
-
-    // Update recording with Mux info
-    const { error: updateError } = await supabase
-      .from('recordings')
-      .update({
-        mux_asset_id: muxAsset.id,
-        mux_playback_id: muxAsset.playback_ids[0].id,
-        status: 'processing', // Will be updated by Mux webhook when ready
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', recording.id);
-
-    if (updateError) {
-      throw new Error(`Error updating recording: ${updateError.message}`);
-    }
-
-    console.log(`✅ [${requestId}] Successfully created Mux asset ${muxAsset.id} for recording ${recording.id}`);
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'Processing started',
-        mux_asset_id: muxAsset.id,
-        mux_playback_id: muxAsset.playback_ids[0].id
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      },
-    )
   } catch (error) {
     console.error(`❌ [${requestId}] Error:`, error.message);
     
@@ -175,9 +260,3 @@ Deno.serve(async (req) => {
     )
   }
 })
-
-// To invoke:
-// curl -i --location --request POST 'http://localhost:54321/functions/v1/get-recording-media' \
-//   --header 'Authorization: Bearer SUPABASE_ANON_KEY' \
-//   --header 'Content-Type: application/json' \
-//   --data '{"recordingId":"RECORDING_ID"}'

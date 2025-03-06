@@ -1,4 +1,3 @@
-
 // Utility functions for interacting with Mux API
 
 export async function createMuxAsset(inputUrl: string, requestId: string) {
@@ -79,3 +78,50 @@ export async function getMuxAsset(assetId: string, requestId: string) {
     throw error;
   }
 }
+
+// Add a new function to retrieve media from Nylas
+export const getNylasRecordingMedia = async (
+  grantId: string, 
+  notetakerId: string,
+  requestId: string
+): Promise<string | null> => {
+  console.log(`🎬 [${requestId}] Getting recording media from Nylas for notetaker ${notetakerId}`);
+  
+  try {
+    const nylasApiKey = Deno.env.get('NYLAS_CLIENT_SECRET');
+    if (!nylasApiKey) {
+      throw new Error('NYLAS_CLIENT_SECRET not configured');
+    }
+
+    // Fetch media from Nylas
+    const response = await fetch(
+      `https://api.us.nylas.com/v3/grants/${grantId}/notetakers/${notetakerId}/media`,
+      {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json, application/gzip',
+          'Authorization': `Bearer ${nylasApiKey}`
+        }
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ [${requestId}] Failed to fetch media from Nylas: ${response.status} ${response.statusText} - ${errorText}`);
+      throw new Error(`Nylas API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log(`✅ [${requestId}] Successfully retrieved media from Nylas: ${JSON.stringify(data)}`);
+    
+    if (!data.media_url) {
+      console.error(`❌ [${requestId}] No media_url in Nylas response`);
+      throw new Error('No media_url in Nylas response');
+    }
+
+    return data.media_url;
+  } catch (error) {
+    console.error(`❌ [${requestId}] Error retrieving media from Nylas:`, error);
+    throw error;
+  }
+};
