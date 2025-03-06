@@ -23,6 +23,13 @@ function validateEventData(eventData: any, requestId: string): string[] {
       if (!eventData.when.date) {
         errors.push('Event date is required for date object');
       }
+    } else if (eventData.when.object === 'datespan') {
+      if (!eventData.when.start_date) {
+        errors.push('Event start date is required for datespan');
+      }
+      if (!eventData.when.end_date) {
+        errors.push('Event end date is required for datespan');
+      }
     } else {
       errors.push(`Unsupported when object type: ${eventData.when.object}`);
     }
@@ -71,6 +78,13 @@ export async function processEventData(eventData: any, userId: string, requestId
       startTime = `${dateStr}T00:00:00.000Z`;
       endTime = `${dateStr}T23:59:59.999Z`;
       console.log(`📅 [${requestId}] Processing all-day event for date:`, dateStr);
+    } else if (eventData.when?.object === 'datespan') {
+      // Handle date span events (multi-day all-day events)
+      const startDateStr = eventData.when.start_date;
+      const endDateStr = eventData.when.end_date;
+      startTime = `${startDateStr}T00:00:00.000Z`;
+      endTime = `${endDateStr}T23:59:59.999Z`;
+      console.log(`📅 [${requestId}] Processing datespan event:`, { startDateStr, endDateStr });
     } else {
       console.error(`❌ [${requestId}] Unsupported when object type:`, eventData.when?.object);
       return { success: false, message: 'Unsupported event type' };

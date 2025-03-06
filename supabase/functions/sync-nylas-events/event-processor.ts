@@ -7,33 +7,72 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // Validate timestamps before processing
-    if (event.when.object !== 'timespan') {
-      console.log('Skipping non-timespan event:', {
+    // Validate when object
+    if (!event.when) {
+      console.log('Skipping event without when object:', {
+        id: event.id,
+        title: event.title
+      });
+      return;
+    }
+
+    let startTimeISO: string | null = null;
+    let endTimeISO: string | null = null;
+
+    // Handle different when object types
+    if (event.when.object === 'timespan') {
+      const { start_time, end_time } = event.when;
+      if (!start_time || !end_time || isNaN(start_time) || isNaN(end_time)) {
+        console.log('Skipping event with invalid timestamps:', {
+          id: event.id,
+          title: event.title,
+          startTime: start_time,
+          endTime: end_time
+        });
+        return;
+      }
+      
+      // Convert Unix timestamps (seconds) to ISO strings using our utility
+      startTimeISO = unixSecondsToISOString(start_time);
+      endTimeISO = unixSecondsToISOString(end_time);
+    } 
+    else if (event.when.object === 'date') {
+      const dateStr = event.when.date;
+      if (!dateStr) {
+        console.log('Skipping all-day event with invalid date:', {
+          id: event.id,
+          title: event.title
+        });
+        return;
+      }
+      
+      startTimeISO = `${dateStr}T00:00:00.000Z`;
+      endTimeISO = `${dateStr}T23:59:59.999Z`;
+    }
+    else if (event.when.object === 'datespan') {
+      const startDate = event.when.start_date;
+      const endDate = event.when.end_date;
+      if (!startDate || !endDate) {
+        console.log('Skipping datespan event with invalid dates:', {
+          id: event.id,
+          title: event.title,
+          startDate,
+          endDate
+        });
+        return;
+      }
+      
+      startTimeISO = `${startDate}T00:00:00.000Z`;
+      endTimeISO = `${endDate}T23:59:59.999Z`;
+    }
+    else {
+      console.log('Skipping event with unsupported when object type:', {
         id: event.id,
         title: event.title,
         whenObject: event.when.object
       });
       return;
     }
-
-    const { start_time, end_time } = event.when;
-    if (!start_time || !end_time || isNaN(start_time) || isNaN(end_time)) {
-      console.log('Skipping event with invalid timestamps:', {
-        id: event.id,
-        title: event.title,
-        startTime: start_time,
-        endTime: end_time
-      });
-      return;
-    }
-
-    // Convert Unix timestamps (seconds) to ISO strings using our utility
-    const startTimeISO = unixSecondsToISOString(start_time);
-    const endTimeISO = unixSecondsToISOString(end_time);
-    const originalStartTimeISO = event.original_start_time 
-      ? unixSecondsToISOString(event.original_start_time)
-      : null;
       
     if (!startTimeISO || !endTimeISO) {
       console.log('Unable to convert timestamps to ISO format:', {
@@ -42,6 +81,10 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
       });
       return;
     }
+
+    const originalStartTimeISO = event.original_start_time 
+      ? unixSecondsToISOString(event.original_start_time)
+      : null;
 
     const eventData = {
       user_id: userId,
