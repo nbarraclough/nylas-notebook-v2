@@ -1,3 +1,4 @@
+
 // Utility functions for interacting with Mux API
 
 export async function createMuxAsset(inputUrl: string, requestId: string) {
@@ -79,12 +80,15 @@ export async function getMuxAsset(assetId: string, requestId: string) {
   }
 }
 
-// Add a new function to retrieve media from Nylas
+// Get recording media from Nylas
 export const getNylasRecordingMedia = async (
   grantId: string, 
   notetakerId: string,
   requestId: string
-): Promise<string | null> => {
+): Promise<{
+  recordingUrl: string | null;
+  transcriptUrl: string | null;
+}> => {
   console.log(`🎬 [${requestId}] Getting recording media from Nylas for notetaker ${notetakerId}`);
   
   try {
@@ -114,12 +118,19 @@ export const getNylasRecordingMedia = async (
     const data = await response.json();
     console.log(`✅ [${requestId}] Successfully retrieved media from Nylas: ${JSON.stringify(data)}`);
     
-    if (!data.media_url) {
-      console.error(`❌ [${requestId}] No media_url in Nylas response`);
-      throw new Error('No media_url in Nylas response');
+    // Extract recording and transcript URLs from the updated response format
+    const recordingUrl = data?.data?.recording?.url || null;
+    const transcriptUrl = data?.data?.transcript?.url || null;
+
+    if (!recordingUrl) {
+      console.error(`❌ [${requestId}] No recording URL in Nylas response`);
+      throw new Error('No recording URL in Nylas response');
     }
 
-    return data.media_url;
+    return {
+      recordingUrl,
+      transcriptUrl
+    };
   } catch (error) {
     console.error(`❌ [${requestId}] Error retrieving media from Nylas:`, error);
     throw error;

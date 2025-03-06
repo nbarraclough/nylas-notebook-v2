@@ -104,30 +104,38 @@ Deno.serve(async (req) => {
       }
 
       try {
-        // Get the recording media URL from Nylas
-        const mediaUrl = await getNylasRecordingMedia(grantId, recording.notetaker_id, requestId);
+        // Get the recording media URLs from Nylas
+        const { recordingUrl, transcriptUrl } = await getNylasRecordingMedia(grantId, recording.notetaker_id, requestId);
         
-        if (!mediaUrl) {
-          throw new Error('Failed to get media URL from Nylas');
+        if (!recordingUrl) {
+          throw new Error('Failed to get recording URL from Nylas');
         }
 
-        // Update the recording with the URL
+        // Prepare update object
+        const updateData: Record<string, any> = {
+          recording_url: recordingUrl,
+          status: 'retrieving',
+          media_status: 'ready',
+          updated_at: new Date().toISOString()
+        };
+
+        // Add transcript URL if available
+        if (transcriptUrl) {
+          updateData.transcript_url = transcriptUrl;
+        }
+
+        // Update the recording with the URLs
         const { error: updateError } = await supabase
           .from('recordings')
-          .update({
-            recording_url: mediaUrl,
-            status: 'retrieving',
-            media_status: 'ready',
-            updated_at: new Date().toISOString()
-          })
+          .update(updateData)
           .eq('id', recording.id);
 
         if (updateError) {
           throw new Error(`Error updating recording with media URL: ${updateError.message}`);
         }
 
-        console.log(`🎬 [${requestId}] Creating Mux asset for recording ${recording.id} with URL ${mediaUrl}`);
-        const muxAsset = await createMuxAsset(mediaUrl, requestId);
+        console.log(`🎬 [${requestId}] Creating Mux asset for recording ${recording.id} with URL ${recordingUrl}`);
+        const muxAsset = await createMuxAsset(recordingUrl, requestId);
 
         if (!muxAsset || !muxAsset.id || !muxAsset.playback_ids?.[0]?.id) {
           throw new Error(`Failed to create Mux asset`);
