@@ -196,8 +196,8 @@ serve(async (req) => {
   }
 
   try {
-    const { user_id, user_ids, force_recording_rules = false } = await req.json()
-    console.log(`📝 [${requestId}] Request payload:`, { user_id, user_ids, force_recording_rules })
+    const { user_id, user_ids, grant_id, force_recording_rules = false } = await req.json()
+    console.log(`📝 [${requestId}] Request payload:`, { user_id, user_ids, grant_id, force_recording_rules })
 
     const userIdsToProcess = user_ids || (user_id ? [user_id] : null)
 
@@ -221,6 +221,24 @@ serve(async (req) => {
     for (const userId of userIdsToProcess) {
       try {
         console.log(`👤 [${requestId}] Processing user:`, userId);
+        
+        // If grant_id is provided and we're processing the main user_id,
+        // use the provided grant_id instead of fetching it
+        if (grant_id && userId === user_id) {
+          const userInfo: UserGrantInfo = {
+            userId,
+            email: "user@example.com", // We don't need the email for processing
+            grantId: grant_id
+          };
+          
+          console.log(`📝 [${requestId}] Using provided grant ID:`, grant_id);
+          
+          if (!usersByGrantId.has(userInfo.grantId)) {
+            usersByGrantId.set(userInfo.grantId, []);
+          }
+          usersByGrantId.get(userInfo.grantId)!.push(userInfo);
+          continue;
+        }
         
         const profileResponse = await fetch(
           `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=nylas_grant_id,email`,

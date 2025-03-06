@@ -1,10 +1,12 @@
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { RefreshCw, Play } from "lucide-react";
+import { useProfileData } from "@/components/library/video/useProfileData";
 
 export const ManualSync = ({ userId }: { userId: string }) => {
   const { toast } = useToast();
@@ -12,21 +14,38 @@ export const ManualSync = ({ userId }: { userId: string }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncStatus, setSyncStatus] = useState("");
+  const { data: profileData, isLoading: isProfileLoading } = useProfileData();
 
   const syncEvents = async () => {
     if (!userId) return;
 
     try {
+      // Check if user has a Nylas grant ID first
+      if (!profileData?.nylas_grant_id) {
+        toast({
+          title: "Error",
+          description: "You need to connect your calendar first.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       setIsSyncing(true);
       setSyncProgress(10);
       setSyncStatus("Initiating calendar sync...");
-      console.log('Starting events sync...');
+      console.log('Starting events sync...', {
+        userId,
+        grantId: profileData.nylas_grant_id
+      });
       
       setSyncProgress(25);
       setSyncStatus("Fetching events from Nylas...");
       
       const { data, error } = await supabase.functions.invoke('sync-nylas-events', {
-        body: { user_id: userId }
+        body: { 
+          user_id: userId,
+          grant_id: profileData.nylas_grant_id  // Pass the grant ID explicitly
+        }
       });
 
       if (error) {
