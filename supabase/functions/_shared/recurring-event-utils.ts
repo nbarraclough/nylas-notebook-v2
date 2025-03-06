@@ -226,7 +226,7 @@ export async function cleanupOrphanedInstances(
     const uniqueMasterIds = [...new Set(masterIds?.map(e => e.master_event_id))];
     console.log(`Found ${uniqueMasterIds.length} unique master event IDs`);
 
-    // For each master ID, verify the master event exists
+    // For each master ID, verify the master event exists in our database
     for (const masterId of uniqueMasterIds) {
       const { data: masterEvent, error: checkError } = await supabase
         .from('events')
@@ -234,8 +234,36 @@ export async function cleanupOrphanedInstances(
         .eq('nylas_event_id', masterId)
         .single();
 
-      if (checkError || !masterEvent) {
-        console.log(`Master event ${masterId} not found, cleaning up instances`);
+      // Only consider it orphaned if we can't find the master event AND we've previously seen this master event ID
+      // This ensures we don't clean up events that might just be new instances where the master hasn't synced yet
+      if ((checkError || !masterEvent)) {
+        console.log(`Master event ${masterId} not found, checking if it's a true orphan`);
+        
+        // Get the oldest instance of this recurring event to see how long it's been in our system
+        const { data: oldestInstance, error: oldestError } = await supabase
+          .from('events')
+          .select('created_at')
+          .eq('master_event_id', masterId)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .single();
+          
+        if (oldestError) {
+          console.error(`Error finding oldest instance for master ${masterId}:`, oldestError);
+          continue;
+        }
+        
+        // If the oldest instance is recent (last 24 hours), don't consider it an orphan yet
+        // This gives time for the master to sync in future sync operations
+        const oldestCreatedAt = new Date(oldestInstance.created_at);
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        
+        if (oldestCreatedAt > oneDayAgo) {
+          console.log(`Master event ${masterId} instances are recent (${oldestCreatedAt.toISOString()}), skipping cleanup`);
+          continue;
+        }
+        
+        console.log(`Master event ${masterId} appears to be a true orphan, cleaning up instances`);
         
         try {
           // Step 1: Find all the events that need to be cleaned up
@@ -330,6 +358,8 @@ export async function cleanupOrphanedInstances(
         } catch (err) {
           console.error(`Error during cleanup for master ${masterId}:`, err);
         }
+      } else {
+        console.log(`Master event ${masterId} exists, no cleanup needed`);
       }
     }
   } catch (error) {
