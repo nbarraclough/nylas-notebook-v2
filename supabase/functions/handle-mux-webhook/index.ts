@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 import { logWebhookRequest, logRawBody, logWebhookError, logWebhookSuccess } from "../_shared/webhook-logger.ts";
@@ -97,6 +98,9 @@ serve(async (req) => {
   try {
     // Log incoming request
     logWebhookRequest(req);
+    
+    const requestId = crypto.randomUUID();
+    console.log(`Processing Mux webhook request: ${requestId}`);
 
     const webhookSecret = Deno.env.get("MUX_WEBHOOK_SECRET");
     if (!webhookSecret) {

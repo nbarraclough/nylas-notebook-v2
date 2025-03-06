@@ -98,6 +98,24 @@ export function logWebhookError(type: string, error: any) {
   console.error(`❌ Error processing ${type} webhook:`, error);
 }
 
-export function logWebhookSuccess(type: string, result: Record<string, any>) {
-  console.log(`✅ Successfully processed ${type} webhook:`, result);
+export function logWebhookSuccess(type: string, result?: Record<string, any>) {
+  if (result) {
+    console.log(`✅ Successfully processed ${type} webhook:`, result);
+  } else {
+    console.log(`✅ Successfully processed ${type} webhook`);
+  }
+}
+
+// Add the missing logWebhookRequest and logRawBody functions
+export function logWebhookRequest(req: Request) {
+  console.log('Received webhook request:', {
+    url: req.url,
+    method: req.method,
+    headers: Object.fromEntries(req.headers.entries())
+  });
+}
+
+export function logRawBody(body: string) {
+  // Only log the first part of potentially large payloads
+  console.log('Webhook raw body preview:', body.substring(0, 500) + (body.length > 500 ? '...[truncated]' : ''));
 }
