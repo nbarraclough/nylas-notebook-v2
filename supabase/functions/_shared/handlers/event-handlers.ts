@@ -15,6 +15,32 @@ const supabaseAdmin = createClient(
   }
 );
 
+// Helper to process event data without text_description field
+function processEventData(objectData: any) {
+  return {
+    title: objectData.title || 'Untitled Event',
+    description: objectData.description,
+    location: objectData.location,
+    start_time: objectData.when.start_time ? new Date(objectData.when.start_time * 1000).toISOString() : null,
+    end_time: objectData.when.end_time ? new Date(objectData.when.end_time * 1000).toISOString() : null,
+    participants: objectData.participants || [],
+    conference_url: objectData.conferencing?.details?.url,
+    ical_uid: objectData.ical_uid,
+    busy: objectData.busy !== false,
+    html_link: objectData.html_link,
+    master_event_id: objectData.master_event_id,
+    organizer: objectData.organizer || {},
+    resources: objectData.resources || [],
+    read_only: objectData.read_only || false,
+    reminders: objectData.reminders || {},
+    recurrence: objectData.recurrence,
+    status: objectData.status,
+    visibility: objectData.visibility || 'default',
+    original_start_time: objectData.original_start_time ? 
+      new Date(objectData.original_start_time * 1000).toISOString() : null
+  };
+}
+
 export const handleEventCreated = async (objectData: any, grantId: string) => {
   logWebhookProcessing('event.created', { eventId: objectData.id, grantId });
   

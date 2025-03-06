@@ -132,7 +132,7 @@ async function handleEventUpsert(eventData: any, userId: string, requestId: stri
       start_time: eventData.when.start_time ? new Date(eventData.when.start_time * 1000).toISOString() : null,
       end_time: eventData.when.end_time ? new Date(eventData.when.end_time * 1000).toISOString() : null,
       participants: eventData.participants || [],
-      conference_url: eventData.conferencing?.url || null,
+      conference_url: eventData.conferencing?.details?.url || null,
       busy: eventData.busy,
       status: eventData.status,
       html_link: eventData.html_link,
