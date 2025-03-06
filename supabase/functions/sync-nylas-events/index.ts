@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { processEvent } from './event-processor.ts'
 import { startOfToday, addMonths, getUnixTime, formatDate } from './timestamp-utils.ts'
@@ -55,7 +54,7 @@ async function fetchEventsFromNylas(grantId: string, startUnix: number, endUnix:
   let allEvents = [];
   let totalEventsFetched = 0;
   let hasMorePages = true;
-  let nextCursor = null;
+  let page_token = null;
   
   while (hasMorePages) {
     const queryParams = new URLSearchParams({
@@ -63,9 +62,12 @@ async function fetchEventsFromNylas(grantId: string, startUnix: number, endUnix:
       start: startUnix.toString(),
       end: endUnix.toString(),
       limit: '200',
-      expand_recurring: 'true',
-      ...(nextCursor && { next_cursor: nextCursor })
+      expand_recurring: 'true'
     });
+    
+    if (page_token) {
+      queryParams.append('page_token', page_token);
+    }
 
     console.log(`📅 [${requestId}] Fetching events with params:`, queryParams.toString());
 
@@ -88,7 +90,6 @@ async function fetchEventsFromNylas(grantId: string, startUnix: number, endUnix:
 
     const response = await eventsResponse.json();
     
-    // Validate response structure
     if (!response.data || !Array.isArray(response.data)) {
       console.error(`❌ [${requestId}] Invalid response from Nylas API:`, response);
       throw new Error('Invalid response structure from Nylas API');
@@ -96,11 +97,11 @@ async function fetchEventsFromNylas(grantId: string, startUnix: number, endUnix:
     
     const events = response.data;
     allEvents = allEvents.concat(events);
-    nextCursor = response.next_cursor;
+    page_token = response.page_token;
     totalEventsFetched += events.length;
-    hasMorePages = !!nextCursor && events.length > 0;
+    hasMorePages = !!page_token && events.length > 0;
     
-    console.log(`📊 [${requestId}] Fetched ${events.length} events, total: ${totalEventsFetched}, nextCursor: ${nextCursor || 'none'}`);
+    console.log(`📊 [${requestId}] Fetched ${events.length} events, total: ${totalEventsFetched}, page_token: ${page_token || 'none'}`);
     
     if (hasMorePages) {
       await sleep(RATE_LIMIT_DELAY);
@@ -127,7 +128,6 @@ async function processEventsForUser(
     !isRecurringInstance(event) && !isModifiedInstance(event)
   );
 
-  // Process master events first
   console.log(`🔄 [${requestId}] Processing ${masterEvents.length} master events for user ${userId}`);
   for (const master of masterEvents) {
     await processRecurringEvent(
@@ -140,7 +140,6 @@ async function processEventsForUser(
     await sleep(RATE_LIMIT_DELAY);
   }
 
-  // Process modified instances
   console.log(`🔄 [${requestId}] Processing ${modifiedInstances.length} modified instances for user ${userId}`);
   for (const instance of modifiedInstances) {
     await processRecurringEvent(
@@ -153,7 +152,6 @@ async function processEventsForUser(
     await sleep(RATE_LIMIT_DELAY);
   }
 
-  // Process regular instances
   console.log(`🔄 [${requestId}] Processing ${regularInstances.length} regular instances for user ${userId}`);
   for (const instance of regularInstances) {
     await processRecurringEvent(
@@ -166,7 +164,6 @@ async function processEventsForUser(
     await sleep(RATE_LIMIT_DELAY);
   }
 
-  // Process standalone events
   console.log(`🔄 [${requestId}] Processing ${standaloneEvents.length} standalone events for user ${userId}`);
   for (const event of standaloneEvents) {
     await processEvent(event, userId, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -183,11 +180,9 @@ async function processEventsForUser(
 }
 
 serve(async (req) => {
-  // Generate a unique request ID for tracking
   const requestId = crypto.randomUUID();
   console.log(`🚀 [${requestId}] Starting sync-nylas-events function`);
 
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { 
       headers: corsHeaders,
@@ -212,22 +207,18 @@ serve(async (req) => {
       throw new Error('Missing required environment variables')
     }
 
-    // Create a map to group users by grant ID
     const usersByGrantId = new Map<string, UserGrantInfo[]>();
     const errors: Array<{ userId: string; error: string }> = [];
     const grantResults = new Map<string, GrantResult>();
 
-    // Group users by grant ID
     for (const userId of userIdsToProcess) {
       try {
         console.log(`👤 [${requestId}] Processing user:`, userId);
         
-        // If grant_id is provided and we're processing the main user_id,
-        // use the provided grant_id instead of fetching it
         if (grant_id && userId === user_id) {
           const userInfo: UserGrantInfo = {
             userId,
-            email: "user@example.com", // We don't need the email for processing
+            email: "user@example.com",
             grantId: grant_id
           };
           
@@ -269,7 +260,6 @@ serve(async (req) => {
           grantId: profiles[0].nylas_grant_id
         };
 
-        // Add to users by grant ID map
         if (!usersByGrantId.has(userInfo.grantId)) {
           usersByGrantId.set(userInfo.grantId, []);
         }
@@ -293,17 +283,14 @@ serve(async (req) => {
       endUnix
     });
 
-    // Process events for each grant ID
     for (const [grantId, users] of usersByGrantId.entries()) {
       try {
-        // Log if multiple users share this grant
         if (users.length > 1) {
           console.log(`👥 [${requestId}] Processing shared grant ID ${grantId} for users:`, 
             users.map(u => u.email).join(', ')
           );
         }
 
-        // Fetch events once for this grant ID
         const events = await fetchEventsFromNylas(grantId, startUnix, endUnix, requestId);
         console.log(`📊 [${requestId}] Fetched ${events.length} events for grant ${grantId}`);
 
@@ -314,7 +301,6 @@ serve(async (req) => {
           users: []
         };
 
-        // Process events for each user sharing this grant
         for (const user of users) {
           try {
             const eventCounts = await processEventsForUser(
@@ -355,7 +341,6 @@ serve(async (req) => {
       }
     }
 
-    // Clean up orphaned instances
     try {
       console.log(`🧹 [${requestId}] Starting cleanup of orphaned instances`);
       const cleanup = await cleanupOrphanedInstances(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -364,7 +349,6 @@ serve(async (req) => {
       console.error(`❌ [${requestId}] Cleanup error:`, error);
     }
 
-    // Prepare final response
     const response = {
       success: true,
       results: {
