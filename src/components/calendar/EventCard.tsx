@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLocation } from "react-router-dom";
@@ -57,21 +58,21 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
     if (!userId) return;
 
     try {
-      console.log('Checking queue status for event:', event.id);
+      console.log('Checking recording status for event:', event.id);
       const { data, error } = await supabase
-        .from('notetaker_queue')
+        .from('recordings')
         .select('id')
         .eq('event_id', event.id)
         .eq('user_id', userId)
         .maybeSingle();
 
       if (error) {
-        console.error('Error checking queue status:', error);
+        console.error('Error checking recording status:', error);
         return;
       }
 
       const isCurrentlyQueued = !!data;
-      console.log('Queue status for event:', event.id, 'is:', isCurrentlyQueued);
+      console.log('Recording status for event:', event.id, 'is:', isCurrentlyQueued);
       setIsQueued(isCurrentlyQueued);
     } catch (err) {
       console.error('Error in checkQueueStatus:', err);
@@ -90,15 +91,15 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
     console.log('Setting up realtime subscription for event:', event.id);
     
     const channel = supabase
-      .channel(`queue-status-${event.id}`)
+      .channel(`recording-status-${event.id}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
-        table: 'notetaker_queue',
+        table: 'recordings',
         filter: `event_id=eq.${event.id}`,
       }, 
       (payload) => {
-        console.log('Received queue status update:', payload);
+        console.log('Received recording status update:', payload);
         if (payload.eventType === 'DELETE') {
           setIsQueued(false);
         } else if (payload.eventType === 'INSERT') {

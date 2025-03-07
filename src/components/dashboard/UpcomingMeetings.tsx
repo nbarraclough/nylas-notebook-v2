@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 import type { Database } from "@/integrations/supabase/types";
 
 type Event = Database['public']['Tables']['events']['Row'] & {
-  notetaker_queue?: {
+  recordings?: {
     id: string;
     status: string;
   }[];
@@ -27,7 +28,7 @@ export function UpcomingMeetings() {
         .from('events')
         .select(`
           *,
-          notetaker_queue (
+          recordings (
             id,
             status
           )
@@ -41,13 +42,13 @@ export function UpcomingMeetings() {
         throw error;
       }
 
-      // Filter to only show events that are queued for recording
-      const queuedEvents = data?.filter(event => 
-        event.notetaker_queue && event.notetaker_queue.length > 0
+      // Filter to only show events that are scheduled for recording
+      const recordingEvents = data?.filter(event => 
+        event.recordings && event.recordings.length > 0
       ) || [];
 
-      console.log('Fetched upcoming events:', queuedEvents);
-      return queuedEvents;
+      console.log('Fetched upcoming events:', recordingEvents);
+      return recordingEvents;
     }
   });
 
@@ -103,9 +104,9 @@ export function UpcomingMeetings() {
               </div>
             </div>
             <div className="flex justify-end gap-2">
-              {event.notetaker_queue && event.notetaker_queue.length > 0 && (
+              {event.recordings && event.recordings.length > 0 && (
                 <Badge variant="secondary">
-                  Recording {event.notetaker_queue[0].status}
+                  Recording {event.recordings[0].status}
                 </Badge>
               )}
               {event.conference_url && (

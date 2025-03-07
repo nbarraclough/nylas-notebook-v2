@@ -1,3 +1,4 @@
+
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -32,27 +33,6 @@ export const useRealtimeUpdates = (userId: string | null) => {
             toast({
               title: 'New Event',
               description: 'A new calendar event has been added.',
-            });
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notetaker_queue',
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload) => {
-          console.log('Notetaker queue change received:', payload);
-          // Invalidate queue status queries
-          queryClient.invalidateQueries({ queryKey: ['notetaker_queue'] });
-          
-          if (payload.eventType === 'INSERT') {
-            toast({
-              title: 'Recording Scheduled',
-              description: 'A new meeting has been queued for recording.',
             });
           }
         }

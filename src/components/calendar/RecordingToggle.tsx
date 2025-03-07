@@ -100,7 +100,7 @@ export const RecordingToggle = ({
         onToggle(false);
         toast({
           title: "Success",
-          description: "Meeting removed from recording queue.",
+          description: "Meeting recording cancelled.",
         });
       }
     } catch (error: any) {

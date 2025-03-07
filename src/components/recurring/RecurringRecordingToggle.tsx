@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
@@ -33,24 +34,24 @@ export function RecurringRecordingToggle({
 
         if (fetchError) throw fetchError;
         
-        // If we have a setting, use it. Otherwise, check if any events are queued
+        // If we have a setting, use it. Otherwise, check if any events have recordings
         if (existingSetting) {
           setIsEnabled(existingSetting.enabled);
           setSettingId(existingSetting.id);
         } else {
-          // Fall back to checking queue state
-          const hasQueuedEvents = events.some(event => 
-            event.notetaker_queue?.some((q: any) => q.status === 'pending')
+          // Fall back to checking recordings
+          const hasRecordings = events.some(event => 
+            event.recordings?.length > 0
           );
-          setIsEnabled(hasQueuedEvents);
+          setIsEnabled(hasRecordings);
         }
       } catch (error) {
         console.error('Error fetching recording settings:', error);
-        // Fall back to checking queue state
-        const hasQueuedEvents = events.some(event => 
-          event.notetaker_queue?.some((q: any) => q.status === 'pending')
+        // Fall back to checking recordings
+        const hasRecordings = events.some(event => 
+          event.recordings?.length > 0
         );
-        setIsEnabled(hasQueuedEvents);
+        setIsEnabled(hasRecordings);
       }
     };
 
@@ -63,15 +64,23 @@ export function RecurringRecordingToggle({
       console.log('Toggling recording for recurring series:', masterId, enabled);
 
       if (enabled) {
-        // Queue all events that have conference URLs
-        const eventsToQueue = events.filter(event => event.conference_url);
+        // Create notetakers for all events that have conference URLs
+        const eventsToRecord = events.filter(event => event.conference_url);
         
-        for (const event of eventsToQueue) {
-          const { error } = await supabase.functions.invoke('queue-event-recording', {
+        for (const event of eventsToRecord) {
+          // Calculate join time for each event
+          const startDate = new Date(event.start_time);
+          const joinTime = Math.floor(startDate.getTime() / 1000);
+          
+          const { error } = await supabase.functions.invoke('create-notetaker', {
             body: {
               event_id: event.id,
-              user_id: event.user_id,
-              scheduled_for: event.start_time
+              join_time: joinTime,
+              meeting_settings: {
+                video_recording: true,
+                audio_recording: true,
+                transcription: true
+              }
             }
           });
 
@@ -94,16 +103,23 @@ export function RecurringRecordingToggle({
 
         toast({
           title: "Success",
-          description: `${eventsToQueue.length} events scheduled for recording`,
+          description: `${eventsToRecord.length} events scheduled for recording`,
         });
       } else {
-        // Remove all events from queue
-        const { error } = await supabase
-          .from('notetaker_queue')
-          .delete()
-          .in('event_id', events.map(e => e.id));
-
-        if (error) throw error;
+        // For each event with a recording, cancel the notetaker
+        for (const event of events) {
+          if (event.recordings && event.recordings.length > 0) {
+            for (const recording of event.recordings) {
+              if (recording.notetaker_id) {
+                await supabase.functions.invoke('kick-notetaker', {
+                  body: {
+                    notetakerId: recording.notetaker_id
+                  }
+                });
+              }
+            }
+          }
+        }
 
         // Update recurring recording settings
         const { error: settingsError } = await supabase
@@ -121,7 +137,7 @@ export function RecurringRecordingToggle({
 
         toast({
           title: "Success",
-          description: "Events removed from recording queue",
+          description: "Recordings cancelled for all events in this series",
         });
       }
 

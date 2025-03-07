@@ -38,14 +38,6 @@ name = "kick-notetaker"
 verify_jwt = true
 
 [[functions]]
-name = "process-notetaker-queue"
-verify_jwt = false  # Explicitly disable JWT verification for cron job access
-
-[[functions]]
-name = "queue-event-recording"
-verify_jwt = true
-
-[[functions]]
 name = "send-notetaker"
 verify_jwt = true
 

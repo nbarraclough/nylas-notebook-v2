@@ -10,7 +10,6 @@ import { RecordingSettings } from "@/components/settings/sections/RecordingSetti
 import { SharingSettings } from "@/components/settings/sections/SharingSettings";
 import { ManualSyncSettings } from "@/components/settings/sections/ManualSyncSettings";
 import { NotetakersSettings } from "@/components/settings/sections/NotetakersSettings";
-import { QueueSettings } from "@/components/settings/sections/QueueSettings";
 import { WebhooksSettings } from "@/components/settings/sections/WebhooksSettings";
 
 export default function Settings() {
@@ -62,7 +61,6 @@ export default function Settings() {
               <Route path="/recording" element={<RecordingSettings userId={userId} />} />
               <Route path="/sharing" element={<SharingSettings userId={userId} />} />
               <Route path="/sync" element={<ManualSyncSettings userId={userId} />} />
-              <Route path="/queue" element={<QueueSettings userId={userId} />} />
               <Route path="/notetakers" element={<NotetakersSettings userId={userId} />} />
               <Route path="/webhooks" element={<WebhooksSettings userId={userId} />} />
               <Route path="*" element={<Navigate to="/settings" replace />} />
