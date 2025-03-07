@@ -6,7 +6,6 @@ import Calendar from "./pages/Calendar";
 import Settings from "./pages/Settings";
 import Library from "./pages/Library";
 import Shared from "./pages/Shared";
-import Queue from "./pages/Queue";
 import { AuthGuard } from "./components/auth/AuthGuard";
 import { NylasAuthGuard } from "./components/auth/NylasAuthGuard";
 import Recordings from "./pages/Recordings";
@@ -26,7 +25,6 @@ export default function App() {
         </Route>
         <Route path="/settings/*" element={<Settings />} />
         <Route path="/library" element={<Library />} />
-        <Route path="/queue" element={<Queue />} />
         <Route path="/recordings" element={<Recordings />} />
         <Route path="/recurring-events" element={<RecurringEvents />} />
         <Route path="/recurring-event-series/:masterId" element={<RecurringEventSeries />} />
