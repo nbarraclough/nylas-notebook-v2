@@ -250,6 +250,7 @@ Deno.serve(async (req) => {
           join_time: join_time ? new Date(join_time * 1000).toISOString() : null,
           meeting_settings: finalMeetingSettings,
           status: 'waiting',
+          manual_override: !!manual_override,
           updated_at: new Date().toISOString()
         })
         .eq('id', existingRecording.id);
@@ -269,6 +270,7 @@ Deno.serve(async (req) => {
           join_time: join_time ? new Date(join_time * 1000).toISOString() : null,
           meeting_settings: finalMeetingSettings,
           status: 'waiting',
+          manual_override: !!manual_override
         });
 
       if (recordingError) {

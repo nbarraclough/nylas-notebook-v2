@@ -550,6 +550,7 @@ export type Database = {
           event_id: string
           id: string
           join_time: string | null
+          manual_override: boolean | null
           media_status: string | null
           meeting_settings: Json | null
           meeting_state: string | null
@@ -580,6 +581,7 @@ export type Database = {
           event_id: string
           id?: string
           join_time?: string | null
+          manual_override?: boolean | null
           media_status?: string | null
           meeting_settings?: Json | null
           meeting_state?: string | null
@@ -610,6 +612,7 @@ export type Database = {
           event_id?: string
           id?: string
           join_time?: string | null
+          manual_override?: boolean | null
           media_status?: string | null
           meeting_settings?: Json | null
           meeting_state?: string | null

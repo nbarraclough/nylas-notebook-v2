@@ -16,6 +16,7 @@ export function useNotetakers(userId: string) {
           id,
           notetaker_id,
           status,
+          manual_override,
           event:events (
             title,
             start_time,
