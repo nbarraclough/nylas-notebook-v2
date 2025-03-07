@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
@@ -155,7 +156,10 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
               </p>
             )}
           </div>
-          <RecordingStatus status={recording.status} meetingState={recording.meeting_state} />
+          <RecordingStatus 
+            status={recording.status} 
+            meetingState={recording.meeting_state}
+          />
         </div>
 
         <VideoPlayer

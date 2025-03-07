@@ -105,12 +105,15 @@ export function RecordingGrid({
                     {Math.floor(recording.duration / 60)} min
                   </div>
                 )}
-                
-                <div className="absolute top-2 right-2">
-                  <RecordingStatus status={recording.status} meetingState={recording.meeting_state} />
-                </div>
               </div>
               <CardContent className="p-4">
+                <div className="mb-2">
+                  <RecordingStatus 
+                    status={recording.status} 
+                    meetingState={recording.meeting_state} 
+                    variant="inline"
+                  />
+                </div>
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <h3 className="font-medium line-clamp-1">
