@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +28,7 @@ export function RecentRecordings() {
           video_url,
           mux_playback_id
         `)
+        .not('status', 'eq', 'cancelled')
         .order('created_at', { ascending: false })
         .limit(3);
 

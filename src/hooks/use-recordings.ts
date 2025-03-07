@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -60,6 +61,9 @@ export function useRecordings({
           )
         `, { count: 'exact' })
         .order('created_at', { ascending: false });
+
+      // Always filter out cancelled recordings
+      query = query.not('status', 'eq', 'cancelled');
 
       // Filter out error recordings unless showErrors is true
       if (!showErrors) {

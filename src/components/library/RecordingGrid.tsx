@@ -54,7 +54,10 @@ export function RecordingGrid({
     );
   }
 
-  if (recordings.length === 0) {
+  // Filter out cancelled recordings
+  const filteredRecordings = recordings.filter(recording => recording.status !== 'cancelled');
+
+  if (filteredRecordings.length === 0) {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">No recordings found</p>
@@ -65,7 +68,7 @@ export function RecordingGrid({
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {recordings.map((recording) => {
+        {filteredRecordings.map((recording) => {
           const internal = isInternalMeeting(recording);
           const isError = ['error', 'failed_entry', 'failed'].includes(recording.status);
           const isProcessing = ["waiting", "retrieving", "processing"].includes(recording.status);
