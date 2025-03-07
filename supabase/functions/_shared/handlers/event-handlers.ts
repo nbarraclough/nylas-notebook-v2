@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 import { findUserByGrant } from './user-handlers.ts';
 import { logWebhookProcessing, logWebhookError, logWebhookSuccess } from '../webhook-logger.ts';
@@ -434,6 +433,11 @@ export const handleEventUpdated = async (objectData: any, grantId: string) => {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
         crypto.randomUUID()
       );
+
+      if (!result) {
+        logWebhookError('event.updated', new Error('Failed to process recurring event (undefined result)'));
+        return { success: false, message: 'Failed to process recurring event' };
+      }
 
       if (!result.success) {
         logWebhookError('event.updated', new Error(result.message));
