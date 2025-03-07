@@ -1,6 +1,5 @@
 import type { Json } from './json';
 import type { ManualMeeting, ManualMeetingInsert, ManualMeetingUpdate } from './manual-meetings';
-import type { NotetakerQueue, NotetakerQueueInsert, NotetakerQueueUpdate } from './notetaker-queue';
 
 export type Database = {
   public: {
@@ -101,27 +100,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "manual_meetings_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      notetaker_queue: {
-        Row: NotetakerQueue;
-        Insert: NotetakerQueueInsert;
-        Update: NotetakerQueueUpdate;
-        Relationships: [
-          {
-            foreignKeyName: "notetaker_queue_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "notetaker_queue_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
