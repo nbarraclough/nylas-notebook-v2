@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 
 export interface NylasEvent {
@@ -40,6 +41,13 @@ export interface NylasEvent {
   original_start_time?: number;
 }
 
+export interface ProcessRecurringEventResult {
+  success: boolean;
+  eventId?: string;
+  message?: string;
+  error?: any;
+}
+
 export function isRecurringInstance(event: NylasEvent): boolean {
   return !!event.master_event_id;
 }
@@ -54,7 +62,7 @@ export async function processRecurringEvent(
   supabaseUrl: string, 
   supabaseKey: string,
   requestId: string
-) {
+): Promise<ProcessRecurringEventResult> {
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -112,11 +120,18 @@ export async function processRecurringEvent(
 
     if (upsertError) {
       console.error(`❌ [${requestId}] Error upserting event:`, event.id, upsertError);
+      return { 
+        success: false, 
+        eventId: event.id, 
+        message: `Error upserting event: ${upsertError.message}`,
+        error: upsertError
+      };
     } else {
       console.log(`✅ [${requestId}] Successfully processed recurring event:`, {
         eventId: event.id,
         title: event.title
       });
+      return { success: true, eventId: event.id };
     }
   } catch (error: any) {
     console.error(`❌ [${requestId}] Error processing recurring event:`, {
@@ -125,6 +140,12 @@ export async function processRecurringEvent(
       error: error.message,
       stack: error.stack
     });
+    return { 
+      success: false, 
+      eventId: event.id, 
+      message: `Error processing recurring event: ${error.message}`,
+      error: error
+    };
   }
 }
 

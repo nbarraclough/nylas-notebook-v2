@@ -434,14 +434,17 @@ export const handleEventUpdated = async (objectData: any, grantId: string) => {
         crypto.randomUUID()
       );
 
+      // The critical fix - handle the result properly, ensuring it's always a valid object
       if (!result) {
-        logWebhookError('event.updated', new Error('Failed to process recurring event (undefined result)'));
-        return { success: false, message: 'Failed to process recurring event' };
+        const error = new Error('Failed to process recurring event (undefined result)');
+        logWebhookError('event.updated', error);
+        return { success: false, message: error.message };
       }
 
       if (!result.success) {
-        logWebhookError('event.updated', new Error(result.message));
-        return result;
+        const error = new Error(result.message || 'Unknown error processing recurring event');
+        logWebhookError('event.updated', error);
+        return { success: false, message: error.message };
       }
     } else {
       // Process regular event update
