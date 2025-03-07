@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,13 +10,13 @@ import type { NotetakerQueue } from "@/integrations/supabase/types/notetaker-que
 export function QueueSettings({ userId }: { userId: string }) {
   const { toast } = useToast();
 
-  const { data: queueItems, isLoading, error } = useQuery({
-    queryKey: ['queue', userId],
+  const { data: recordings, isLoading, error } = useQuery({
+    queryKey: ['recordings', userId],
     queryFn: async () => {
       if (!userId) return [];
       
       const { data, error } = await supabase
-        .from('notetaker_queue')
+        .from('recordings')
         .select(`
           *,
           event:events (
@@ -29,10 +30,11 @@ export function QueueSettings({ userId }: { userId: string }) {
           )
         `)
         .eq('user_id', userId)
-        .order('scheduled_for', { ascending: true });
+        .eq('status', 'waiting')
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as (NotetakerQueue & { event: any })[];
+      return data;
     },
     enabled: !!userId,
   });
@@ -50,17 +52,21 @@ export function QueueSettings({ userId }: { userId: string }) {
   if (error) {
     return (
       <div className="text-red-500">
-        Error loading queue items. Please try again later.
+        Error loading recordings. Please try again later.
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {queueItems && queueItems.length > 0 ? (
+      {recordings && recordings.length > 0 ? (
         <div className="grid gap-4">
-          {queueItems.map((item) => (
-            <QueueCard key={item.id} queueItem={item} />
+          {recordings.map((recording) => (
+            <QueueCard 
+              key={recording.id} 
+              recording={recording} 
+              event={recording.event}
+            />
           ))}
         </div>
       ) : (
