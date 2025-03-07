@@ -107,7 +107,13 @@ async function shouldRecordEvent(userId: string, event: any): Promise<boolean> {
 }
 
 // Function to create a notetaker for an event
-async function createNotetakerForEvent(userId: string, eventId: string, grantId: string, meetingUrl: string): Promise<any> {
+async function createNotetakerForEvent(
+  userId: string, 
+  eventId: string, 
+  grantId: string, 
+  meetingUrl: string, 
+  joinTimeUnix?: number
+): Promise<any> {
   if (!meetingUrl) {
     console.log(`⚠️ No meeting URL found for event ${eventId}, cannot create notetaker`);
     return null;
@@ -115,6 +121,11 @@ async function createNotetakerForEvent(userId: string, eventId: string, grantId:
 
   try {
     console.log(`🔄 Creating notetaker for event ${eventId} with URL ${meetingUrl}`);
+    if (joinTimeUnix) {
+      console.log(`⏰ Notetaker scheduled to join at timestamp: ${joinTimeUnix} (${new Date(joinTimeUnix * 1000).toISOString()})`);
+    } else {
+      console.log(`⏰ No join time specified, notetaker will join immediately`);
+    }
     
     // Get user's notetaker name preference
     const { data: profile, error: profileError } = await supabaseAdmin
@@ -130,6 +141,19 @@ async function createNotetakerForEvent(userId: string, eventId: string, grantId:
     
     const notetakerName = profile.notetaker_name || 'Nylas Notetaker';
     
+    // Prepare request payload - now including join_time if provided
+    const requestPayload: Record<string, any> = {
+      meeting_link: meetingUrl,
+      notetaker_name: notetakerName
+    };
+    
+    // Add join_time to payload if provided
+    if (joinTimeUnix) {
+      requestPayload.join_time = joinTimeUnix;
+    }
+    
+    console.log(`📝 Nylas API request payload:`, requestPayload);
+    
     // Call Nylas API to create notetaker
     const response = await fetch(
       `https://api.us.nylas.com/v3/grants/${grantId}/notetakers`,
@@ -140,10 +164,7 @@ async function createNotetakerForEvent(userId: string, eventId: string, grantId:
           'Content-Type': 'application/json',
           'Accept': 'application/json, application/gzip'
         },
-        body: JSON.stringify({
-          meeting_link: meetingUrl,
-          notetaker_name: notetakerName
-        })
+        body: JSON.stringify(requestPayload)
       }
     );
     
@@ -157,17 +178,28 @@ async function createNotetakerForEvent(userId: string, eventId: string, grantId:
     const notetakerId = nylasResponse.data.id;
     console.log(`✅ Successfully created notetaker ${notetakerId} for event ${eventId}`);
     
-    // Create recording entry
+    // Convert Unix timestamp to ISO string for database storage if provided
+    const joinTimeIso = joinTimeUnix ? new Date(joinTimeUnix * 1000).toISOString() : null;
+    
+    // Create recording entry with join_time if available
+    const recordingData = {
+      user_id: userId,
+      event_id: eventId,
+      notetaker_id: notetakerId,
+      recording_url: '',
+      status: 'waiting',
+      updated_at: new Date().toISOString()
+    };
+    
+    // Add join_time to recording data if available
+    if (joinTimeIso) {
+      Object.assign(recordingData, { join_time: joinTimeIso });
+      console.log(`⏰ Storing join time in recording: ${joinTimeIso}`);
+    }
+    
     const { error: recordingError } = await supabaseAdmin
       .from('recordings')
-      .upsert({
-        user_id: userId,
-        event_id: eventId,
-        notetaker_id: notetakerId,
-        recording_url: '',
-        status: 'waiting',
-        updated_at: new Date().toISOString()
-      }, {
+      .upsert(recordingData, {
         onConflict: 'notetaker_id',
         ignoreDuplicates: false
       });
@@ -321,11 +353,23 @@ export const handleEventCreated = async (objectData: any, grantId: string) => {
       
       if (shouldRecord && processedData.conference_url) {
         console.log(`🔄 Event ${objectData.id} meets recording criteria, creating notetaker`);
+        
+        // Extract the start time from the event data if available
+        // objectData.when.start_time is already in Unix timestamp format (seconds)
+        const joinTimeUnix = objectData.when.start_time || null;
+        
+        if (joinTimeUnix) {
+          console.log(`⏰ Event start time found: ${joinTimeUnix} (${new Date(joinTimeUnix * 1000).toISOString()})`);
+        } else {
+          console.log(`⚠️ No event start time found, notetaker will join immediately`);
+        }
+        
         const notetakerId = await createNotetakerForEvent(
           profile.id, 
           eventRecord.id, 
           grantId, 
-          processedData.conference_url
+          processedData.conference_url,
+          joinTimeUnix
         );
         
         if (notetakerId) {
