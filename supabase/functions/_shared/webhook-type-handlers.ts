@@ -1,7 +1,7 @@
 
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
-import { createMuxAsset } from './mux-utils.ts';
+import { createMuxAsset, fetchTranscriptContent } from './mux-utils.ts';
 import { handleEventCreated, handleEventUpdated, handleEventDeleted } from './handlers/event-handlers.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -246,6 +246,24 @@ async function handleNotetakerMediaWebhook(webhookData: any, grantId: string, re
       const expirationTime = new Date();
       expirationTime.setHours(expirationTime.getHours() + 24);
       updates.transcript_url_expires_at = expirationTime.toISOString();
+      
+      // Try to immediately fetch and process the transcript content
+      try {
+        console.log(`📝 [${requestId}] Attempting to fetch transcript content immediately`);
+        const transcriptContent = await fetchTranscriptContent(transcriptUrl, requestId);
+        
+        if (transcriptContent && Array.isArray(transcriptContent) && transcriptContent.length > 0) {
+          console.log(`✅ [${requestId}] Successfully fetched transcript with ${transcriptContent.length} entries`);
+          updates.transcript_content = transcriptContent;
+          updates.transcript_status = 'ready';
+          updates.transcript_fetch_attempts = 0;
+        } else {
+          console.log(`⚠️ [${requestId}] Transcript URL available but content fetch failed. Will try again later.`);
+        }
+      } catch (transcriptError) {
+        console.error(`❌ [${requestId}] Error fetching transcript content immediately:`, transcriptError);
+        // We'll try again later through the normal process
+      }
     }
 
     // Update the recording

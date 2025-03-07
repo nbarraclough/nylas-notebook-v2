@@ -155,7 +155,12 @@ export const fetchTranscriptContent = async (
   
   while (retries < maxRetries) {
     try {
-      const response = await fetch(transcriptUrl);
+      const response = await fetch(transcriptUrl, {
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
+      });
       
       if (!response.ok) {
         const errorText = await logFetchError(requestId, transcriptUrl, response);
@@ -184,13 +189,28 @@ export const fetchTranscriptContent = async (
       }
       
       // Parse the JSON data
-      const transcriptData = await response.json();
-      console.log(`✅ [${requestId}] Successfully fetched transcript content`);
+      const transcriptText = await response.text();
+      console.log(`✅ [${requestId}] Successfully fetched transcript content. Size: ${transcriptText.length} bytes`);
       
-      // Process the transcript data into a usable format
-      const processedTranscript = processRawTranscript(transcriptData, requestId);
+      // Log a small sample of the transcript for debugging
+      const sampleText = transcriptText.substring(0, 200) + (transcriptText.length > 200 ? "..." : "");
+      console.log(`🔍 [${requestId}] Transcript sample: ${sampleText}`);
       
-      return processedTranscript;
+      try {
+        const transcriptData = JSON.parse(transcriptText);
+        
+        // Process the transcript data into a usable format
+        const processedTranscript = processRawTranscript(transcriptData, requestId);
+        
+        // Log processed data size
+        console.log(`✅ [${requestId}] Processed transcript has ${processedTranscript ? processedTranscript.length : 0} entries`);
+        
+        return processedTranscript;
+      } catch (parseError) {
+        console.error(`❌ [${requestId}] Error parsing transcript JSON:`, parseError);
+        console.log(`🔍 [${requestId}] Failed JSON content sample: ${sampleText}`);
+        return null;
+      }
     } catch (error) {
       console.error(`❌ [${requestId}] Error fetching transcript content (attempt ${retries + 1}/${maxRetries}):`, error);
       
@@ -217,24 +237,42 @@ const processRawTranscript = (rawData: any, requestId: string): any => {
   try {
     // Check if the data is already in our expected format
     if (Array.isArray(rawData) && rawData.length > 0 && 'text' in rawData[0]) {
-      console.log(`✅ [${requestId}] Transcript data is already in expected format`);
+      console.log(`✅ [${requestId}] Transcript data is already in expected format with ${rawData.length} entries`);
       return rawData;
     }
     
     // If the transcript is in a different format, we need to transform it
-    // This will depend on Nylas's format, which could change
-    // Here's a general approach:
+    let entries;
     
-    // Extract entries - the exact access path may need to be adjusted
-    const entries = rawData.entries || rawData.segments || rawData.transcript || rawData;
-    
-    if (!entries || !Array.isArray(entries)) {
-      console.error(`❌ [${requestId}] Unexpected transcript format:`, rawData);
+    // Check for various transcript format structures
+    if (rawData.transcript && Array.isArray(rawData.transcript)) {
+      console.log(`🔍 [${requestId}] Found transcript array in 'transcript' field with ${rawData.transcript.length} items`);
+      entries = rawData.transcript;
+    } else if (rawData.entries && Array.isArray(rawData.entries)) {
+      console.log(`🔍 [${requestId}] Found transcript array in 'entries' field with ${rawData.entries.length} items`);
+      entries = rawData.entries;
+    } else if (rawData.segments && Array.isArray(rawData.segments)) {
+      console.log(`🔍 [${requestId}] Found transcript array in 'segments' field with ${rawData.segments.length} items`);
+      entries = rawData.segments;
+    } else if (Array.isArray(rawData)) {
+      console.log(`🔍 [${requestId}] Raw data is already an array with ${rawData.length} items`);
+      entries = rawData;
+    } else {
+      // Log the structure of the raw data to help debug format issues
+      console.error(`❌ [${requestId}] Unexpected transcript format. Keys:`, Object.keys(rawData));
       return null;
     }
     
+    if (!entries || !Array.isArray(entries) || entries.length === 0) {
+      console.error(`❌ [${requestId}] No valid transcript entries found`);
+      return null;
+    }
+    
+    // Log sample entry to help with debugging format issues
+    console.log(`🔍 [${requestId}] Sample entry:`, JSON.stringify(entries[0]).substring(0, 200));
+    
     // Map to our standard format
-    const standardizedEntries = entries.map((entry: any) => {
+    const standardizedEntries = entries.map((entry: any, index: number) => {
       // Default values
       const result: any = {
         start: 0,

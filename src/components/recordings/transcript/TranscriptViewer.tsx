@@ -1,3 +1,4 @@
+
 import { useState, useMemo, useRef, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TranscriptSearch } from "./TranscriptSearch";
@@ -22,15 +23,20 @@ export function TranscriptViewer({ content, videoRef }: TranscriptViewerProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const userScrollRef = useRef(false);
 
+  // Make sure content is properly sorted by start time
+  const sortedContent = useMemo(() => {
+    return [...content].sort((a, b) => a.start - b.start);
+  }, [content]);
+
   const filteredContent = useMemo(() => {
-    if (!searchQuery) return content;
+    if (!searchQuery) return sortedContent;
     const query = searchQuery.toLowerCase();
-    return content.filter(
+    return sortedContent.filter(
       entry => 
         entry.text.toLowerCase().includes(query) ||
         entry.speaker.toLowerCase().includes(query)
     );
-  }, [content, searchQuery]);
+  }, [sortedContent, searchQuery]);
 
   const formatTimestamp = (milliseconds: number) => {
     const totalSeconds = Math.floor(milliseconds / 1000);
@@ -63,6 +69,9 @@ export function TranscriptViewer({ content, videoRef }: TranscriptViewerProps) {
     const videoElement = videoRef.current.getVideoElement();
     if (videoElement) {
       videoElement.currentTime = timestamp / 1000; // Convert to seconds
+      if (videoElement.paused) {
+        videoElement.play().catch(err => console.error("Error playing video:", err));
+      }
     }
   };
 
@@ -122,35 +131,40 @@ export function TranscriptViewer({ content, videoRef }: TranscriptViewerProps) {
         }}
       >
         <div ref={scrollContainerRef} className="space-y-4 p-4">
-          {filteredContent.map((entry, index) => {
-            const isCurrentSegment = currentTime >= entry.start && currentTime <= entry.end;
-            
-            return (
-              <div 
-                key={index}
-                id={`transcript-${entry.start}`}
-                className={`group rounded-lg p-2 transition-colors cursor-pointer hover:bg-muted/50 ${
-                  isCurrentSegment ? 'bg-muted/50 border-l-2 border-primary' : ''
-                }`}
-                onClick={() => handleEntryClick(entry.start)}
-              >
-                <div className="flex items-center gap-3 mb-1">
-                  <span className="text-sm font-medium text-muted-foreground min-w-[50px]">
-                    {formatTimestamp(entry.start)}
-                  </span>
-                  <span className="text-sm font-semibold text-primary">
-                    {entry.speaker}
-                  </span>
+          {filteredContent.length > 0 ? (
+            filteredContent.map((entry, index) => {
+              const isCurrentSegment = currentTime >= entry.start && currentTime <= entry.end;
+              
+              return (
+                <div 
+                  key={index}
+                  id={`transcript-${entry.start}`}
+                  className={`group rounded-lg p-2 transition-colors cursor-pointer hover:bg-muted/50 ${
+                    isCurrentSegment ? 'bg-muted/50 border-l-2 border-primary' : ''
+                  }`}
+                  onClick={() => handleEntryClick(entry.start)}
+                >
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="text-sm font-medium text-muted-foreground min-w-[50px]">
+                      {formatTimestamp(entry.start)}
+                    </span>
+                    <span className="text-sm font-semibold text-primary">
+                      {entry.speaker}
+                    </span>
+                  </div>
+                  <p className="text-sm text-foreground pl-[66px]">
+                    {highlightText(entry.text)}
+                  </p>
                 </div>
-                <p className="text-sm text-foreground pl-[66px]">
-                  {highlightText(entry.text)}
-                </p>
-              </div>
-            );
-          })}
-          {filteredContent.length === 0 && (
+              );
+            })
+          ) : searchQuery ? (
             <div className="text-center text-muted-foreground py-8">
               No results found for "{searchQuery}"
+            </div>
+          ) : (
+            <div className="text-center text-muted-foreground py-8">
+              No transcript segments found
             </div>
           )}
         </div>

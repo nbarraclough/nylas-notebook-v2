@@ -1,4 +1,5 @@
-import React from "react";
+
+import React, { useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { SharedEventHeader } from "./SharedEventHeader";
 import { SharedVideoPlayer } from "./SharedVideoPlayer";
@@ -7,9 +8,11 @@ import { TranscriptSection } from "@/components/recordings/transcript/Transcript
 import { useSharedVideo } from "./video/useSharedVideo";
 import { LoadingState } from "./video/LoadingState";
 import { ErrorState } from "./video/ErrorState";
+import type { BaseVideoPlayerRef } from "@/components/recordings/player/BaseVideoPlayer";
 
 export function SharedVideoView() {
   const { recording, isLoading, eventData } = useSharedVideo();
+  const videoRef = useRef<BaseVideoPlayerRef>(null);
 
   console.log('SharedVideoView data:', { recording, eventData });
 
@@ -36,6 +39,7 @@ export function SharedVideoView() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="aspect-video relative">
                 <SharedVideoPlayer
+                  ref={videoRef}
                   videoUrl={null}
                   recordingUrl={null}
                   recordingId={recording?.id || ''}
@@ -45,7 +49,7 @@ export function SharedVideoView() {
               </div>
               
               {recording?.transcript_content && (
-                <TranscriptSection content={recording.transcript_content} />
+                <TranscriptSection content={recording.transcript_content} videoRef={videoRef} />
               )}
             </div>
 

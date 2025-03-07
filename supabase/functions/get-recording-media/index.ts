@@ -209,15 +209,51 @@ Deno.serve(async (req) => {
         .eq('id', recording.id);
     }
 
-    // Process transcript content if URL is available but content isn't or we're forcing a refresh
-    if (transcriptUrl && (!recording.transcript_content || forceRefresh)) {
-      console.log(`📝 [${requestId}] ${forceRefresh ? 'Force refresh requested' : 'Found transcript URL but no content'}, fetching from: ${transcriptUrl}`);
+    // Enhanced transcript handling logic
+    const shouldFetchTranscript = (
+      // We have a transcript URL but:
+      transcriptUrl && (
+        // Either we're forcing a refresh OR
+        forceRefresh || 
+        // We don't have transcript content OR
+        !recording.transcript_content ||
+        // The transcript fetch previously failed but we want to retry
+        recording.transcript_status === 'fetch_failed' ||
+        // The transcript URL might have expired
+        (recording.transcript_url_expires_at && 
+         new Date(recording.transcript_url_expires_at) < new Date())
+      )
+    );
+
+    // Process transcript content if needed
+    if (shouldFetchTranscript) {
+      console.log(`📝 [${requestId}] ${forceRefresh ? 'Force refresh requested' : 'Need to fetch transcript'}, fetching from: ${transcriptUrl}`);
       
       try {
+        // Update status to show we're working on it
+        await supabase
+          .from('recordings')
+          .update({
+            transcript_status: 'fetching',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', recording.id);
+          
         const transcriptContent = await fetchTranscriptContent(transcriptUrl, requestId);
         
-        if (transcriptContent) {
+        if (transcriptContent && Array.isArray(transcriptContent) && transcriptContent.length > 0) {
           console.log(`📝 [${requestId}] Successfully processed transcript content with ${transcriptContent.length} entries`);
+          
+          // Get the first few entries to show in logs
+          const firstFewEntries = transcriptContent.slice(0, 2).map(entry => ({
+            start: entry.start,
+            end: entry.end,
+            speaker: entry.speaker,
+            text: entry.text.substring(0, 50) + (entry.text.length > 50 ? '...' : '')
+          }));
+          
+          console.log(`📝 [${requestId}] Sample entries:`, JSON.stringify(firstFewEntries));
+          
           await supabase
             .from('recordings')
             .update({
@@ -229,6 +265,8 @@ Deno.serve(async (req) => {
             .eq('id', recording.id);
         } else {
           // If we couldn't fetch transcript content, increment the attempt counter
+          console.error(`❌ [${requestId}] Failed to fetch transcript content`);
+          
           await supabase
             .from('recordings')
             .update({
@@ -237,8 +275,6 @@ Deno.serve(async (req) => {
               updated_at: new Date().toISOString()
             })
             .eq('id', recording.id);
-            
-          console.error(`❌ [${requestId}] Failed to fetch transcript content`);
         }
       } catch (error) {
         console.error(`❌ [${requestId}] Error fetching transcript: ${error.message}`);
