@@ -1,4 +1,5 @@
 
+// deno-lint-ignore-file no-explicit-any
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 import { createMuxAsset } from './mux-utils.ts';
 import { handleEventCreated, handleEventUpdated, handleEventDeleted } from './handlers/event-handlers.ts';
@@ -183,9 +184,13 @@ async function handleNotetakerMeetingStateWebhook(webhookData: any, grantId: str
 async function handleNotetakerMediaWebhook(webhookData: any, grantId: string, requestId: string) {
   try {
     const notetakerId = webhookData.data.object.id;
-    const mediaStatus = webhookData.data.object.media_status;
-    const recordingUrl = webhookData.data.object.recording_url || null;
-    const transcriptUrl = webhookData.data.object.transcript_url || null;
+    
+    // Extract media URLs using the correct path based on the new webhook format
+    // The structure is now different with a 'media' object containing the URLs
+    const mediaObject = webhookData.data.object.media || {};
+    const recordingUrl = mediaObject.recording || null;
+    const transcriptUrl = mediaObject.transcript || null;
+    const mediaStatus = webhookData.data.object.status || 'ready';
 
     console.log(`📝 [${requestId}] Processing notetaker media update:`, { 
       notetakerId, 
@@ -226,7 +231,7 @@ async function handleNotetakerMediaWebhook(webhookData: any, grantId: string, re
       updates.recording_url = recordingUrl;
       
       // Update status to reflect that we have the media
-      if (mediaStatus === 'ready') {
+      if (mediaStatus === 'available' || mediaStatus === 'ready') {
         updates.status = 'media_ready';
       }
     }
@@ -258,8 +263,8 @@ async function handleNotetakerMediaWebhook(webhookData: any, grantId: string, re
 
     console.log(`✅ [${requestId}] Updated recording ${recording.id} with media status: ${mediaStatus}`);
 
-    // If we have a recording URL and status is ready, process the recording media (create Mux asset)
-    if (recordingUrl && mediaStatus === 'ready' && !recording.mux_asset_id) {
+    // If we have a recording URL and status is ready/available, process the recording media (create Mux asset)
+    if (recordingUrl && (mediaStatus === 'ready' || mediaStatus === 'available') && !recording.mux_asset_id) {
       try {
         // Process the recording (upload to Mux)
         await processRecordingMedia(recording.id, recordingUrl, requestId);
@@ -278,7 +283,7 @@ async function handleNotetakerMediaWebhook(webhookData: any, grantId: string, re
         // We don't throw here to prevent the webhook from failing
         // The recording will be in an error state that can be retried later
       }
-    } else if (recordingUrl && mediaStatus === 'ready' && recording.mux_asset_id) {
+    } else if (recordingUrl && (mediaStatus === 'ready' || mediaStatus === 'available') && recording.mux_asset_id) {
       console.log(`ℹ️ [${requestId}] Mux asset already exists for recording ${recording.id}. Skipping processing.`);
     }
 
