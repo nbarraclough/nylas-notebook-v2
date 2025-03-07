@@ -7,6 +7,7 @@ import { Play, ArrowRight, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { VideoPlayerDialog } from "@/components/recordings/VideoPlayerDialog";
 import { Badge } from "@/components/ui/badge";
+import { RecordingStatus } from "@/components/recordings/RecordingStatus";
 
 export function RecentRecordings() {
   const navigate = useNavigate();
@@ -33,19 +34,6 @@ export function RecentRecordings() {
       return data;
     }
   });
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'processing':
-        return 'bg-blue-100 text-blue-800';
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'failed':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
 
   const getMuxPlaybackUrl = (playbackId: string): string => {
     return `https://stream.mux.com/${playbackId}.m3u8`;
@@ -89,12 +77,9 @@ export function RecentRecordings() {
                     <p className="text-sm font-medium line-clamp-1">
                       {recording.event?.title || 'Untitled Recording'}
                     </p>
-                    <Badge 
-                      variant="secondary" 
-                      className={`${getStatusColor(recording.status)} border-0`}
-                    >
-                      {recording.status}
-                    </Badge>
+                    <div className="flex items-center">
+                      <RecordingStatus status={recording.status} meetingState={recording.meeting_state} />
+                    </div>
                   </div>
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground whitespace-nowrap">
                     <Calendar className="h-4 w-4 text-gray-500" />

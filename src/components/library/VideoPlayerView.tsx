@@ -1,4 +1,3 @@
-
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -15,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { RecordingStatus } from "@/components/recordings/RecordingStatus";
 
 interface VideoPlayerViewProps {
   recordingId: string;
@@ -100,7 +100,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
     "bg-gradient-to-br from-white to-gray-50/80",
     "backdrop-blur-sm border border-gray-100",
     "dark:from-gray-900 dark:to-gray-900/80 dark:border-gray-800",
-    "[&_.close-button]:hidden" // Hide the default close button
+    "[&_.close-button]:hidden"
   );
 
   if (isRecordingLoading) {
@@ -158,21 +158,24 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
     <Dialog open={true} onOpenChange={handleDialogClose}>
       <DialogContent className={dialogContentClass}>
         <div className="p-6 space-y-6">
-          <VideoHeader
-            title={recording.event?.title || ''}
-            isInternal={internal}
-            shareUrl={shareUrl}
-            participants={participants}
-            grantId={profile?.nylas_grant_id}
-            recordingId={recordingId}
-            onClose={() => handleDialogClose(false)}
-            startTime={recording.event?.start_time}
-            endTime={recording.event?.end_time}
-            onShareUpdate={() => queryClient.invalidateQueries({ queryKey: ['recording', recordingId] })}
-            ownerEmail={recording.owner_email}
-            userId={recording.user_id}
-            manualMeetingId={recording.event?.manual_meeting?.id}
-          />
+          <div className="flex items-center justify-between">
+            <VideoHeader
+              title={recording.event?.title || ''}
+              isInternal={internal}
+              shareUrl={shareUrl}
+              participants={participants}
+              grantId={profile?.nylas_grant_id}
+              recordingId={recordingId}
+              onClose={() => handleDialogClose(false)}
+              startTime={recording.event?.start_time}
+              endTime={recording.event?.end_time}
+              onShareUpdate={() => queryClient.invalidateQueries({ queryKey: ['recording', recordingId] })}
+              ownerEmail={recording.owner_email}
+              userId={recording.user_id}
+              manualMeetingId={recording.event?.manual_meeting?.id}
+            />
+            <RecordingStatus status={recording.status} meetingState={recording.meeting_state} />
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="aspect-video bg-black rounded-lg overflow-hidden shadow-lg">
@@ -199,7 +202,6 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
             )}
           </div>
 
-          {/* Debug Information */}
           <div className="mt-4 space-y-2 border-t pt-4">
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span>Notetaker ID:</span>
@@ -246,4 +248,3 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
     </Dialog>
   );
 }
-

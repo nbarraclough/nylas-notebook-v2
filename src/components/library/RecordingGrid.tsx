@@ -1,8 +1,10 @@
+
 import { Card, CardContent } from "@/components/ui/card";
 import { format } from "date-fns";
 import { VideoPlayerView } from "./VideoPlayerView";
 import { Badge } from "@/components/ui/badge";
 import { Shield, Globe } from "lucide-react";
+import { RecordingStatus } from "@/components/recordings/RecordingStatus";
 
 interface RecordingGridProps {
   recordings: any[];
@@ -100,13 +102,10 @@ export function RecordingGrid({
                     {Math.floor(recording.duration / 60)} min
                   </div>
                 )}
-                {recording.status && recording.status !== "ready" && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-gray-500 bg-white/90 px-3 py-1 rounded-full text-sm">
-                      {recording.status.charAt(0).toUpperCase() + recording.status.slice(1)}
-                    </span>
-                  </div>
-                )}
+                
+                <div className="absolute top-2 right-2">
+                  <RecordingStatus status={recording.status} meetingState={recording.meeting_state} />
+                </div>
               </div>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-2">
