@@ -563,7 +563,10 @@ export type Database = {
           status: string
           transcript_content: Json | null
           transcript_embedding: string | null
+          transcript_fetch_attempts: number | null
+          transcript_status: string | null
           transcript_url: string | null
+          transcript_url_expires_at: string | null
           updated_at: string
           user_id: string
           video_url: string | null
@@ -590,7 +593,10 @@ export type Database = {
           status?: string
           transcript_content?: Json | null
           transcript_embedding?: string | null
+          transcript_fetch_attempts?: number | null
+          transcript_status?: string | null
           transcript_url?: string | null
+          transcript_url_expires_at?: string | null
           updated_at?: string
           user_id: string
           video_url?: string | null
@@ -617,7 +623,10 @@ export type Database = {
           status?: string
           transcript_content?: Json | null
           transcript_embedding?: string | null
+          transcript_fetch_attempts?: number | null
+          transcript_status?: string | null
           transcript_url?: string | null
+          transcript_url_expires_at?: string | null
           updated_at?: string
           user_id?: string
           video_url?: string | null
