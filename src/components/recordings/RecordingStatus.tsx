@@ -2,7 +2,8 @@
 import { 
   Clock, LogIn, LogOut, Video, CheckCircle, XCircle, Loader, 
   Play, UserMinus, UserPlus, Users, AlertTriangle, 
-  Headphones, CirclePause, FileCog, CircleSlash, Ban, Wifi
+  Headphones, CirclePause, FileCog, CircleSlash, Ban, Wifi,
+  FileVideo, FileText
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
@@ -11,13 +12,16 @@ import { cn } from "@/lib/utils";
 interface RecordingStatusProps {
   status: string;
   meetingState?: string | null;
+  hasVideo?: boolean;
+  hasTranscript?: boolean;
   variant?: "default" | "compact" | "inline";
   showLabels?: boolean;
 }
 
 export const RecordingStatus = ({ 
   status, 
-  meetingState, 
+  hasVideo = false,
+  hasTranscript = false,
   variant = "default",
   showLabels = true
 }: RecordingStatusProps) => {
@@ -139,99 +143,28 @@ export const RecordingStatus = ({
     }
   };
 
-  const getMeetingStateInfo = () => {
-    if (!meetingState) return null;
-    
-    switch (meetingState) {
-      case 'api':
-        return {
-          icon: <CircleSlash className="h-4 w-4" />,
-          text: "API Error",
-          description: "The Notetaker left due to an API error",
-          color: "bg-red-50 text-red-700 border-red-100"
-        };
-      case 'bad_meeting_code':
-        return {
-          icon: <CircleSlash className="h-4 w-4" />,
-          text: "Invalid Meeting",
-          description: "The meeting isn't active and can't be joined",
-          color: "bg-red-50 text-red-700 border-red-100"
-        };
-      case 'dispatched':
-        return {
-          icon: <Wifi className="h-4 w-4" />,
-          text: "Connecting",
-          description: "The Notetaker has loaded the meeting page",
-          color: "bg-blue-50 text-blue-700 border-blue-100"
-        };
-      case 'entry_denied':
-        return {
-          icon: <Ban className="h-4 w-4" />,
-          text: "Entry Denied",
-          description: "The Notetaker's admission request was rejected",
-          color: "bg-red-50 text-red-700 border-red-100"
-        };
-      case 'internal_error':
-        return {
-          icon: <AlertTriangle className="h-4 w-4" />,
-          text: "Error",
-          description: "The Notetaker encountered an internal error",
-          color: "bg-red-50 text-red-700 border-red-100"
-        };
-      case 'kicked':
-        return {
-          icon: <UserMinus className="h-4 w-4" />,
-          text: "Kicked",
-          description: "The Notetaker was removed from the meeting",
-          color: "bg-red-50 text-red-700 border-red-100"
-        };
-      case 'no_meeting_activity':
-        return {
-          icon: <CirclePause className="h-4 w-4" />,
-          text: "No Activity",
-          description: "The Notetaker left due to no participant activity",
-          color: "bg-blue-50 text-blue-700 border-blue-100"
-        };
-      case 'no_participants':
-        return {
-          icon: <Users className="h-4 w-4" />,
-          text: "No Participants",
-          description: "The Notetaker was the last participant in the meeting",
-          color: "bg-blue-50 text-blue-700 border-blue-100"
-        };
-      case 'no_response':
-        return {
-          icon: <Clock className="h-4 w-4" />,
-          text: "Timed Out",
-          description: "The Notetaker's admission request timed out",
-          color: "bg-yellow-50 text-yellow-700 border-yellow-100"
-        };
-      case 'recording_active':
-        return {
-          icon: <Video className="h-4 w-4" />,
-          text: "Recording",
-          description: "The Notetaker is attending and recording the meeting",
-          color: "bg-green-50 text-green-700 border-green-100"
-        };
-      case 'waiting_for_entry':
-        return {
-          icon: <Clock className="h-4 w-4" />,
-          text: "Waiting",
-          description: "The Notetaker is waiting to be admitted",
-          color: "bg-yellow-50 text-yellow-700 border-yellow-100"
-        };
-      default:
-        return {
-          icon: <Clock className="h-4 w-4" />,
-          text: meetingState,
-          description: "Current state of the meeting",
-          color: "bg-gray-50 text-gray-700 border-gray-100"
-        };
-    }
+  // New helper functions for video and transcript badges
+  const getVideoBadge = () => {
+    return {
+      icon: <FileVideo className="h-4 w-4" />,
+      text: "Video",
+      description: "Video recording is available",
+      color: "bg-purple-100 text-purple-800 border-purple-200"
+    };
+  };
+
+  const getTranscriptBadge = () => {
+    return {
+      icon: <FileText className="h-4 w-4" />,
+      text: "Transcript",
+      description: "Transcript is available",
+      color: "bg-emerald-100 text-emerald-800 border-emerald-200"
+    };
   };
 
   const { icon, text, description, color } = getStatusInfo();
-  const meetingStateInfo = getMeetingStateInfo();
+  const videoBadge = getVideoBadge();
+  const transcriptBadge = getTranscriptBadge();
 
   if (variant === "compact") {
     return (
@@ -248,13 +181,36 @@ export const RecordingStatus = ({
             </TooltipTrigger>
             <TooltipContent>
               <p>{description}</p>
-              {meetingStateInfo && (
-                <p className="text-xs mt-1 text-muted-foreground">
-                  Meeting state: {meetingStateInfo.text}
-                </p>
-              )}
             </TooltipContent>
           </Tooltip>
+          
+          {/* Show video badge if available */}
+          {hasVideo && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className={cn("px-1.5 py-0.5", videoBadge.color)}>
+                  {videoBadge.icon}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{videoBadge.description}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          
+          {/* Show transcript badge if available */}
+          {hasTranscript && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className={cn("px-1.5 py-0.5", transcriptBadge.color)}>
+                  {transcriptBadge.icon}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{transcriptBadge.description}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </TooltipProvider>
     );
@@ -278,16 +234,32 @@ export const RecordingStatus = ({
             </TooltipContent>
           </Tooltip>
           
-          {meetingStateInfo && (
+          {/* Show video badge if available */}
+          {hasVideo && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Badge variant="outline" className={cn("px-2 py-0.5", meetingStateInfo.color)}>
-                  {meetingStateInfo.icon}
-                  <span className="ml-1 text-xs">{meetingStateInfo.text}</span>
+                <Badge variant="outline" className={cn("px-2 py-0.5", videoBadge.color)}>
+                  {videoBadge.icon}
+                  <span className="ml-1 text-xs">{videoBadge.text}</span>
                 </Badge>
               </TooltipTrigger>
               <TooltipContent>
-                <p>{meetingStateInfo.description}</p>
+                <p>{videoBadge.description}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          
+          {/* Show transcript badge if available */}
+          {hasTranscript && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className={cn("px-2 py-0.5", transcriptBadge.color)}>
+                  {transcriptBadge.icon}
+                  <span className="ml-1 text-xs">{transcriptBadge.text}</span>
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{transcriptBadge.description}</p>
               </TooltipContent>
             </Tooltip>
           )}
@@ -314,21 +286,41 @@ export const RecordingStatus = ({
           </TooltipContent>
         </Tooltip>
         
-        {meetingStateInfo && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge variant="outline" className={cn("px-2 py-1", meetingStateInfo.color)}>
-                <div className="flex items-center">
-                  {meetingStateInfo.icon}
-                  <span className="ml-1.5 text-xs font-medium">{meetingStateInfo.text}</span>
-                </div>
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{meetingStateInfo.description}</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
+        <div className="flex items-center gap-1.5">
+          {/* Show video badge if available */}
+          {hasVideo && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className={cn("px-2 py-1", videoBadge.color)}>
+                  <div className="flex items-center">
+                    {videoBadge.icon}
+                    <span className="ml-1.5 text-xs font-medium">{videoBadge.text}</span>
+                  </div>
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{videoBadge.description}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          
+          {/* Show transcript badge if available */}
+          {hasTranscript && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className={cn("px-2 py-1", transcriptBadge.color)}>
+                  <div className="flex items-center">
+                    {transcriptBadge.icon}
+                    <span className="ml-1.5 text-xs font-medium">{transcriptBadge.text}</span>
+                  </div>
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{transcriptBadge.description}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
       </div>
     </TooltipProvider>
   );

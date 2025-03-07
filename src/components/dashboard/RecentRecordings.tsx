@@ -26,7 +26,8 @@ export function RecentRecordings() {
             start_time
           ),
           video_url,
-          mux_playback_id
+          mux_playback_id,
+          transcript_content
         `)
         .not('status', 'eq', 'cancelled')
         .order('created_at', { ascending: false })
@@ -69,54 +70,61 @@ export function RecentRecordings() {
           </div>
         ) : (
           <div className="space-y-4">
-            {recordings?.map((recording) => (
-              <div
-                key={recording.id}
-                className="p-4 rounded-lg border border-gray-100 bg-white/50 backdrop-blur-sm card-hover-effect"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div className="space-y-1 flex-1">
-                    <p className="text-sm font-medium line-clamp-1">
-                      {recording.event?.title || 'Untitled Recording'}
-                    </p>
-                    <div className="flex items-center gap-1.5">
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Calendar className="h-3.5 w-3.5 text-gray-500 mr-1" />
-                        <span>
-                          {recording.event?.start_time ? 
-                            format(new Date(recording.event.start_time), 'MMM d, h:mm a') : 
-                            'No date'
-                          }
-                        </span>
+            {recordings?.map((recording) => {
+              // Check for video and transcript availability
+              const hasVideo = !!recording.video_url || !!recording.recording_url || !!recording.mux_playback_id;
+              const hasTranscript = !!recording.transcript_content;
+              
+              return (
+                <div
+                  key={recording.id}
+                  className="p-4 rounded-lg border border-gray-100 bg-white/50 backdrop-blur-sm card-hover-effect"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div className="space-y-1 flex-1">
+                      <p className="text-sm font-medium line-clamp-1">
+                        {recording.event?.title || 'Untitled Recording'}
+                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex items-center text-sm text-muted-foreground">
+                          <Calendar className="h-3.5 w-3.5 text-gray-500 mr-1" />
+                          <span>
+                            {recording.event?.start_time ? 
+                              format(new Date(recording.event.start_time), 'MMM d, h:mm a') : 
+                              'No date'
+                            }
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between mt-1 sm:mt-0">
-                    <RecordingStatus 
-                      status={recording.status} 
-                      meetingState={recording.meeting_state}
-                      variant="compact"
-                    />
                     
-                    {recording.mux_playback_id ? (
-                      <VideoPlayerDialog
-                        videoUrl={getMuxPlaybackUrl(recording.mux_playback_id)}
-                        title={recording.event?.title || ''}
-                      >
-                        <Button size="sm" variant="ghost" className="hover:bg-blue-50 ml-2">
+                    <div className="flex items-center justify-between mt-1 sm:mt-0">
+                      <RecordingStatus 
+                        status={recording.status}
+                        hasVideo={hasVideo}
+                        hasTranscript={hasTranscript}
+                        variant="compact"
+                      />
+                      
+                      {recording.mux_playback_id ? (
+                        <VideoPlayerDialog
+                          videoUrl={getMuxPlaybackUrl(recording.mux_playback_id)}
+                          title={recording.event?.title || ''}
+                        >
+                          <Button size="sm" variant="ghost" className="hover:bg-blue-50 ml-2">
+                            <Play className="h-4 w-4" />
+                          </Button>
+                        </VideoPlayerDialog>
+                      ) : (
+                        <Button size="sm" variant="ghost" disabled className="ml-2">
                           <Play className="h-4 w-4" />
                         </Button>
-                      </VideoPlayerDialog>
-                    ) : (
-                      <Button size="sm" variant="ghost" disabled className="ml-2">
-                        <Play className="h-4 w-4" />
-                      </Button>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

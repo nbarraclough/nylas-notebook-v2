@@ -31,6 +31,7 @@ export function useRecordingData(recordingId: string | null) {
             organizer,
             manual_meeting:manual_meetings (*)
           ),
+          transcript_content,
           video_shares (
             share_type,
             organization_id,
@@ -54,7 +55,9 @@ export function useRecordingData(recordingId: string | null) {
       return {
         ...data,
         owner_email: data.owner?.email,
-        mux_playback_url: getMuxPlaybackUrl(data.mux_playback_id)
+        mux_playback_url: getMuxPlaybackUrl(data.mux_playback_id),
+        has_video: !!data.video_url || !!data.recording_url || !!data.mux_playback_id,
+        has_transcript: !!data.transcript_content
       };
     },
   });

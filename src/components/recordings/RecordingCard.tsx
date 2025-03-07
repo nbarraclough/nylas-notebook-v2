@@ -142,6 +142,10 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
       }
     : { name: '', email: '' };
 
+  // Check for video and transcript availability
+  const hasVideo = !!recording.video_url || !!recording.recording_url || !!recording.mux_playback_id;
+  const hasTranscript = !!recording.transcript_content;
+
   return (
     <Card>
       <CardContent className="p-6 space-y-4">
@@ -157,8 +161,9 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
             )}
           </div>
           <RecordingStatus 
-            status={recording.status} 
-            meetingState={recording.meeting_state}
+            status={recording.status}
+            hasVideo={hasVideo}
+            hasTranscript={hasTranscript}
           />
         </div>
 

@@ -74,6 +74,10 @@ export function RecordingGrid({
           const isProcessing = ["waiting", "retrieving", "processing"].includes(recording.status);
           const thumbnailUrl = getThumbnailUrl(recording);
           
+          // Check for video and transcript availability
+          const hasVideo = !!recording.video_url || !!recording.recording_url || !!recording.mux_playback_id;
+          const hasTranscript = !!recording.transcript_content;
+          
           return (
             <Card
               key={recording.id}
@@ -110,7 +114,8 @@ export function RecordingGrid({
                 <div className="mb-2">
                   <RecordingStatus 
                     status={recording.status} 
-                    meetingState={recording.meeting_state} 
+                    hasVideo={hasVideo}
+                    hasTranscript={hasTranscript}
                     variant="inline"
                   />
                 </div>
