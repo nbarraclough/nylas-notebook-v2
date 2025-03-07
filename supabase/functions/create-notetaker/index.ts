@@ -72,13 +72,13 @@ Deno.serve(async (req) => {
 
   try {
     // Parse request body
-    const { event_id, join_time, meeting_settings } = await req.json();
+    const { event_id, join_time, meeting_settings, manual_override } = await req.json();
     
     if (!event_id) {
       throw new Error('Missing required parameter: event_id');
     }
     
-    logInfo(requestId, `Processing request`, { event_id, join_time }, 'PROCESS');
+    logInfo(requestId, `Processing request`, { event_id, join_time, manual_override }, 'PROCESS');
 
     // Get event details
     const { data: event, error: eventError } = await supabase
@@ -124,8 +124,8 @@ Deno.serve(async (req) => {
       throw new Error('No conference URL found for event');
     }
 
-    // Check recording rules (unless it's a manual meeting)
-    if (!event.manual_meeting_id) {
+    // Check recording rules (unless it's a manual meeting or manual override is true)
+    if (!event.manual_meeting_id && !manual_override) {
       // Extract organizer domain
       const organizerEmail = event.organizer?.email || '';
       const organizerDomain = organizerEmail.split('@')[1] || '';
@@ -153,11 +153,17 @@ Deno.serve(async (req) => {
         logWarn(requestId, `Recording rules do not allow recording this event`, {
           isInternalMeeting,
           record_internal: event.profiles.record_internal_meetings,
-          record_external: event.profiles.record_external_meetings
+          record_external: event.profiles.record_external_meetings,
+          manual_override
         }, 'SKIP');
         
         throw new Error('Recording rules do not allow recording this event');
       }
+    } else {
+      logInfo(requestId, `Skipping recording rules check`, { 
+        manual_meeting_id: event.manual_meeting_id, 
+        manual_override 
+      }, 'SKIP');
     }
 
     const notetakerName = event.profiles.notetaker_name || 'Nylas Notetaker';

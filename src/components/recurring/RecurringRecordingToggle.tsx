@@ -80,7 +80,8 @@ export function RecurringRecordingToggle({
                 video_recording: true,
                 audio_recording: true,
                 transcription: true
-              }
+              },
+              manual_override: true // Add manual override parameter
             }
           });
 

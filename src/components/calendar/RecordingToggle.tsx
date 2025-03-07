@@ -53,7 +53,7 @@ export const RecordingToggle = ({
         const startDate = new Date(scheduledFor);
         const joinTime = Math.floor(startDate.getTime() / 1000);
         
-        // Use the create-notetaker function
+        // Use the create-notetaker function with manual_override set to true
         const { data, error } = await supabase.functions.invoke('create-notetaker', {
           body: {
             event_id: eventId,
@@ -62,7 +62,8 @@ export const RecordingToggle = ({
               video_recording: true,
               audio_recording: true,
               transcription: true
-            }
+            },
+            manual_override: true  // Add this parameter to bypass recording rules check
           }
         });
 
