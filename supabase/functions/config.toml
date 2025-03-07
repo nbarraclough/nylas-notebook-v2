@@ -72,3 +72,7 @@ verify_jwt = true
 [[functions]]
 name = "send-grant-expired-email"
 verify_jwt = true
+
+[[functions]]
+name = "create-notetaker"
+verify_jwt = true

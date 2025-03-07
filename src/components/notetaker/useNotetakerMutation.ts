@@ -118,6 +118,8 @@ export function useNotetakerMutation(onSuccess: () => void) {
       }
 
       const startTime = new Date();
+      // Calculate join time (epoch seconds) for now
+      const joinTime = Math.floor(startTime.getTime() / 1000);
       const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 1 hour duration
 
       console.log('Creating manual meeting record with URL:', meetingUrl);
@@ -152,12 +154,17 @@ export function useNotetakerMutation(onSuccess: () => void) {
 
       if (eventError) throw eventError;
 
+      // Use the new create-notetaker function
       console.log('Sending notetaker to meeting with URL:', meetingUrl);
-      const { data, error } = await supabase.functions.invoke('send-notetaker', {
+      const { data, error } = await supabase.functions.invoke('create-notetaker', {
         body: {
-          meetingUrl,
-          grantId: profile.nylas_grant_id,
-          meetingId: event.id,
+          event_id: event.id,
+          join_time: joinTime,
+          meeting_settings: {
+            video_recording: true,
+            audio_recording: true,
+            transcription: true
+          }
         }
       });
 
@@ -172,42 +179,12 @@ export function useNotetakerMutation(onSuccess: () => void) {
       }
 
       console.log('Notetaker sent successfully');
-
-      let recordingExists = false;
-
-      try {
-        const { error: recordingError } = await supabase
-          .from('recordings')
-          .insert({
-            user_id: user.id,
-            event_id: event.id,
-            notetaker_id: data.notetaker_id,
-            recording_url: '',
-            status: 'pending'
-          });
-
-        // If we get a duplicate key error, it means the recording already exists
-        if (recordingError?.message.includes('duplicate key value')) {
-          recordingExists = true;
-        } else if (recordingError) {
-          throw recordingError;
-        }
-      } catch (error: any) {
-        // Only throw if it's not a duplicate key error
-        if (!error.message.includes('duplicate key value')) {
-          throw error;
-        }
-        recordingExists = true;
-      }
-
-      return { success: true, recordingExists };
+      return { success: true, notetakerId: data.notetaker_id };
     },
     onSuccess: (data) => {
       toast({
         title: "Success",
-        description: data.recordingExists 
-          ? "Notetaker was already sent to this meeting"
-          : "Notetaker has been sent to the meeting",
+        description: "Notetaker has been sent to the meeting",
       });
       queryClient.invalidateQueries({ queryKey: ['recordings'] });
       queryClient.invalidateQueries({ queryKey: ['events'] });

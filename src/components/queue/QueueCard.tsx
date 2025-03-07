@@ -1,116 +1,71 @@
+
 import { Card, CardContent } from "@/components/ui/card";
-import { format, formatDistanceToNow } from "date-fns";
-import { Clock, AlertCircle, Check, Loader } from "lucide-react";
-import type { NotetakerQueue } from "@/integrations/supabase/types/notetaker-queue";
-import type { EventParticipant, EventOrganizer } from "@/types/calendar";
-import { useState, useEffect } from "react";
+import { Badge } from "@/components/ui/badge";
+import { formatDistanceToNow } from "date-fns";
 
 interface QueueCardProps {
-  queueItem: NotetakerQueue & {
-    event: {
-      title: string;
-      description: string | null;
-      start_time: string;
-      end_time: string;
-      conference_url: string | null;
-      participants: any[];
-      organizer: any;
-    };
-  };
+  recording: any;
+  event: any;
 }
 
-export const QueueCard = ({ queueItem }: QueueCardProps) => {
-  const [timeUntilStart, setTimeUntilStart] = useState<string>("");
+export const QueueCard = ({ recording, event }: QueueCardProps) => {
+  if (!event) return null;
 
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      const startTime = new Date(queueItem.scheduled_for);
-      if (startTime > now) {
-        setTimeUntilStart(formatDistanceToNow(startTime, { addSuffix: true }));
-      } else {
-        setTimeUntilStart("Processing soon...");
-      }
-    };
+  // Format the scheduled time
+  const startTime = new Date(event.start_time);
+  const formattedTime = formatDistanceToNow(startTime, { addSuffix: true });
+  const isScheduledForFuture = startTime > new Date();
 
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, [queueItem.scheduled_for]);
-
-  const participants = (queueItem.event.participants || []).map(p => ({
-    name: p.name || '',
-    email: p.email || ''
-  })) as EventParticipant[];
-
-  const organizer = queueItem.event.organizer ? {
-    name: (queueItem.event.organizer as any).name || '',
-    email: (queueItem.event.organizer as any).email || ''
-  } as EventOrganizer : null;
-
-  const getStatusIcon = () => {
-    switch (queueItem.status) {
-      case 'pending':
-        return <Clock className="h-5 w-5 text-yellow-500" />;
-      case 'processing':
-        return <Loader className="h-5 w-5 text-blue-500 animate-spin" />;
-      case 'completed':
-        return <Check className="h-5 w-5 text-green-500" />;
-      case 'failed':
-        return <AlertCircle className="h-5 w-5 text-red-500" />;
-      default:
-        return null;
-    }
-  };
-
-  const formatTimeRange = (start: string, end: string) => {
-    return `${format(new Date(start), 'MMM d, yyyy, h:mm a')} - ${format(new Date(end), 'h:mm a')}`;
-  };
+  // Format join time if available
+  const joinTime = recording.join_time ? new Date(recording.join_time) : null;
+  const formattedJoinTime = joinTime 
+    ? formatDistanceToNow(joinTime, { addSuffix: true })
+    : null;
 
   return (
-    <Card className="card-hover-effect">
-      <CardContent className="p-3 sm:p-4">
-        <div className="flex flex-col space-y-3 sm:space-y-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1 flex-1">
-              <h3 className="font-medium line-clamp-2">{queueItem.event.title}</h3>
-              <p className="text-sm text-muted-foreground">
-                {formatTimeRange(queueItem.event.start_time, queueItem.event.end_time)}
-              </p>
-              <p className="text-sm font-medium text-blue-600">
-                Notetaker will join {timeUntilStart}
-              </p>
-            </div>
-            <div className="flex items-center space-x-2 shrink-0">
-              {getStatusIcon()}
-              <span className="text-sm capitalize hidden sm:inline">{queueItem.status}</span>
-            </div>
+    <Card className="overflow-hidden">
+      <CardContent className="p-4">
+        <div className="grid gap-2">
+          <div className="flex justify-between items-start">
+            <h3 className="font-semibold text-base">{event.title}</h3>
+            <Badge 
+              variant="outline" 
+              className={`${isScheduledForFuture ? "bg-blue-50" : "bg-green-50"}`}
+            >
+              {isScheduledForFuture ? "Scheduled" : "Ready to join"}
+            </Badge>
           </div>
-
-          {queueItem.event.description && (
-            <p className="text-sm text-muted-foreground line-clamp-2">
-              {queueItem.event.description}
-            </p>
+          
+          <div className="text-sm text-muted-foreground">
+            Starts {formattedTime}
+          </div>
+          
+          {joinTime && (
+            <div className="text-sm text-muted-foreground">
+              Notetaker will join {formattedJoinTime}
+            </div>
           )}
-
-          <div className="space-y-2">
-            <div className="text-sm">
-              <span className="font-medium">Organizer:</span>{' '}
-              <span className="text-muted-foreground break-all">
-                {organizer?.name || organizer?.email || 'Unknown'}
-              </span>
+          
+          {recording.notetaker_id && (
+            <div className="text-xs text-muted-foreground mt-1">
+              Notetaker ID: {recording.notetaker_id.substring(0, 8)}...
             </div>
-            <div className="text-sm">
-              <span className="font-medium">Participants:</span>{' '}
-              <span className="text-muted-foreground line-clamp-2 break-all">
-                {participants.length > 0
-                  ? participants.map(p => p.name || p.email).join(', ')
-                  : 'No participants'}
-              </span>
+          )}
+          
+          {event.conference_url && (
+            <div className="mt-2">
+              <a 
+                href={event.conference_url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-sm text-blue-600 hover:underline"
+              >
+                Join meeting
+              </a>
             </div>
-          </div>
+          )}
         </div>
       </CardContent>
     </Card>
   );
-};
+}

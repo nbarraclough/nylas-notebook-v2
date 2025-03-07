@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -5,7 +6,7 @@ import { PageLayout } from "@/components/layout/PageLayout";
 import { QueueCard } from "@/components/queue/QueueCard";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import type { NotetakerQueue } from "@/integrations/supabase/types/notetaker-queue";
+import { Badge } from "@/components/ui/badge";
 
 export default function Queue() {
   const navigate = useNavigate();
@@ -25,13 +26,13 @@ export default function Queue() {
     checkAuth();
   }, [navigate]);
 
-  const { data: queueItems, isLoading, error } = useQuery({
-    queryKey: ['queue', userId],
+  const { data: recordings, isLoading, error } = useQuery({
+    queryKey: ['recordings', userId],
     queryFn: async () => {
       if (!userId) return [];
       
       const { data, error } = await supabase
-        .from('notetaker_queue')
+        .from('recordings')
         .select(`
           *,
           event:events (
@@ -45,10 +46,11 @@ export default function Queue() {
           )
         `)
         .eq('user_id', userId)
-        .order('scheduled_for', { ascending: true });
+        .eq('status', 'waiting')
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as (NotetakerQueue & { event: any })[];
+      return data;
     },
     enabled: !!userId,
   });
@@ -78,7 +80,7 @@ export default function Queue() {
             <h1 className="text-2xl font-bold">Recording Queue</h1>
           </div>
           <div className="text-red-500">
-            Error loading queue items. Please try again later.
+            Error loading recordings. Please try again later.
           </div>
         </div>
       </PageLayout>
@@ -90,11 +92,20 @@ export default function Queue() {
       <div className="space-y-4 px-4 sm:px-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h1 className="text-2xl font-bold">Recording Queue</h1>
+          <div className="flex items-center">
+            <Badge variant="outline" className="bg-blue-50">
+              {recordings?.length || 0} recordings waiting
+            </Badge>
+          </div>
         </div>
-        {queueItems && queueItems.length > 0 ? (
+        {recordings && recordings.length > 0 ? (
           <div className="grid gap-4">
-            {queueItems.map((item) => (
-              <QueueCard key={item.id} queueItem={item} />
+            {recordings.map((recording) => (
+              <QueueCard 
+                key={recording.id} 
+                recording={recording} 
+                event={recording.event}
+              />
             ))}
           </div>
         ) : (

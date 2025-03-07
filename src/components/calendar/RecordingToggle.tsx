@@ -1,3 +1,4 @@
+
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,11 +49,20 @@ export const RecordingToggle = ({
       setIsLoading(true);
 
       if (!isQueued) {
-        const { error } = await supabase.functions.invoke('queue-event-recording', {
+        // Calculate join time (epoch seconds) for the meeting start time
+        const startDate = new Date(scheduledFor);
+        const joinTime = Math.floor(startDate.getTime() / 1000);
+        
+        // Use the new create-notetaker function instead of queue-event-recording
+        const { data, error } = await supabase.functions.invoke('create-notetaker', {
           body: {
             event_id: eventId,
-            user_id: userId,
-            scheduled_for: scheduledFor
+            join_time: joinTime,
+            meeting_settings: {
+              video_recording: true,
+              audio_recording: true,
+              transcription: true
+            }
           }
         });
 
@@ -64,6 +74,8 @@ export const RecordingToggle = ({
           description: "Meeting scheduled for recording!",
         });
       } else {
+        // For now, we'll still remove from the queue table
+        // In the future, we could add a "cancel" endpoint
         const { error } = await supabase
           .from('notetaker_queue')
           .delete()
