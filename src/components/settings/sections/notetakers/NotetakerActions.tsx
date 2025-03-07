@@ -8,8 +8,8 @@ interface NotetakerActionsProps {
   status: string;
   isKicking: boolean;
   isRetrieving: boolean;
-  onKick: (notetakerId: string, recordingId: string) => Promise<void>;
-  onRetrieve: (recordingId: string, notetakerId: string, forceRefresh?: boolean) => Promise<void>;
+  onKick: () => Promise<void>;
+  onRetrieve: (forceRefresh?: boolean) => Promise<void>;
 }
 
 export function NotetakerActions({
@@ -26,7 +26,7 @@ export function NotetakerActions({
       <Button 
         variant="outline" 
         size="sm"
-        onClick={() => onKick(notetakerId, recordingId)}
+        onClick={onKick}
         disabled={isKicking}
       >
         {isKicking ? (
@@ -41,7 +41,7 @@ export function NotetakerActions({
       <Button 
         variant="outline" 
         size="sm"
-        onClick={() => onRetrieve(recordingId, notetakerId)}
+        onClick={() => onRetrieve(false)}
         disabled={isRetrieving}
       >
         {isRetrieving ? (
@@ -59,7 +59,7 @@ export function NotetakerActions({
       <Button 
         variant="outline" 
         size="sm"
-        onClick={() => onRetrieve(recordingId, notetakerId, true)}
+        onClick={() => onRetrieve(true)}
         disabled={isRetrieving}
       >
         {isRetrieving ? (

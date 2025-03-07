@@ -1,3 +1,4 @@
+
 import { format } from "date-fns";
 import {
   Table,
@@ -14,8 +15,8 @@ interface NotetakersTableProps {
   recordings: NotetakerRecord[];
   isKicking: { [key: string]: boolean };
   isRetrieving: { [key: string]: boolean };
-  onKick: (notetakerId: string, recordingId: string) => void;
-  onRetrieve: (recordingId: string, notetakerId: string) => void;
+  onKick: (notetakerId: string, recordingId: string) => Promise<void>;
+  onRetrieve: (recordingId: string, notetakerId: string, forceRefresh?: boolean) => Promise<void>;
 }
 
 export function NotetakersTable({
@@ -65,10 +66,11 @@ export function NotetakersTable({
                 <NotetakerActions
                   notetakerId={record.notetaker_id}
                   recordingId={record.id}
+                  status=""
                   isKicking={isKicking[record.id]}
                   isRetrieving={isRetrieving[record.id]}
                   onKick={() => onKick(record.notetaker_id, record.id)}
-                  onRetrieve={() => onRetrieve(record.id, record.notetaker_id)}
+                  onRetrieve={(forceRefresh) => onRetrieve(record.id, record.notetaker_id, forceRefresh)}
                 />
               </TableCell>
             </TableRow>

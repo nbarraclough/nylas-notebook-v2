@@ -1,3 +1,4 @@
+
 export type NotetakerRecord = {
   id: string;
   notetaker_id: string;
@@ -16,8 +17,9 @@ export type NotetakerRecord = {
 export interface NotetakerActionsProps {
   notetakerId: string;
   recordingId: string;
+  status: string;
   isKicking: boolean;
   isRetrieving: boolean;
-  onKick: () => void;
-  onRetrieve: () => void;
+  onKick: () => Promise<void>;
+  onRetrieve: (forceRefresh?: boolean) => Promise<void>;
 }
