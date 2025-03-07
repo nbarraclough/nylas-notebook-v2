@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 import { findUserByGrant } from './user-handlers.ts';
 import { logWebhookProcessing, logWebhookError, logWebhookSuccess } from '../webhook-logger.ts';
@@ -75,6 +76,46 @@ async function updateNotetakerJoinTime(grantId: string, notetakerId: string, new
   } catch (error) {
     console.error(`❌ Error updating notetaker join time:`, error);
     throw error;
+  }
+}
+
+// New function to cancel a notetaker via Nylas API
+async function cancelNotetaker(grantId: string, notetakerId: string) {
+  try {
+    console.log(`🔄 Cancelling notetaker ${notetakerId} for grant ${grantId}`);
+    
+    const nylasApiKey = Deno.env.get('NYLAS_CLIENT_SECRET') ?? '';
+    if (!nylasApiKey) {
+      throw new Error('NYLAS_CLIENT_SECRET not set');
+    }
+    
+    const response = await fetch(
+      `https://api.us.nylas.com/v3/grants/${grantId}/notetakers/${notetakerId}/cancel`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${nylasApiKey}`,
+          'Accept': 'application/json, application/gzip'
+        }
+      }
+    );
+    
+    // Log the response status for debugging
+    console.log(`📥 Nylas API Response Status for cancel: ${response.status}`);
+    
+    // Even if the response is not OK, we want to log and continue
+    // This could happen if the notetaker was already cancelled
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.warn(`⚠️ Non-OK response from Nylas API (${response.status}): ${errorText}`);
+      // Not throwing an error here as we want to continue with deletion
+    }
+    
+    return response.status;
+  } catch (error) {
+    console.error(`❌ Error cancelling notetaker:`, error);
+    // Log but don't throw, we still want to continue with deletion
+    return null;
   }
 }
 
@@ -275,6 +316,59 @@ export const handleEventDeleted = async (objectData: any, grantId: string) => {
       const error = new Error(`No user found for grant: ${grantId}`);
       logWebhookError('event.deleted', error);
       return { success: false, message: 'Profile not found' };
+    }
+
+    // Check for active recordings with notetakers for this event
+    console.log(`🔍 Finding recordings with notetakers for event ${objectData.id}`);
+    const { data: recordings, error: recordingsError } = await supabaseAdmin
+      .from('events')
+      .select(`
+        id,
+        recordings (
+          id,
+          notetaker_id,
+          status
+        )
+      `)
+      .eq('nylas_event_id', objectData.id)
+      .eq('user_id', profile.id)
+      .single();
+
+    if (recordingsError) {
+      logWebhookError('event.deleted', recordingsError);
+      console.error(`❌ Error fetching recordings for event ${objectData.id}:`, recordingsError);
+    } else if (recordings && recordings.recordings && recordings.recordings.length > 0) {
+      // Process each recording with a notetaker
+      for (const recording of recordings.recordings) {
+        if (recording.notetaker_id) {
+          console.log(`📝 Found recording ${recording.id} with notetaker ${recording.notetaker_id} to cancel`);
+          
+          try {
+            // Cancel the notetaker via Nylas API
+            await cancelNotetaker(grantId, recording.notetaker_id);
+            
+            // Update recording status to cancelled
+            const { error: updateError } = await supabaseAdmin
+              .from('recordings')
+              .update({ 
+                status: 'cancelled',
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', recording.id);
+              
+            if (updateError) {
+              console.error(`❌ Error updating recording ${recording.id} status:`, updateError);
+            } else {
+              console.log(`✅ Successfully updated recording ${recording.id} status to cancelled`);
+            }
+          } catch (cancelError) {
+            console.error(`❌ Error in cancel process for notetaker ${recording.notetaker_id}:`, cancelError);
+            // Continue with deletion even if cancellation fails
+          }
+        }
+      }
+    } else {
+      console.log(`ℹ️ No active recordings with notetakers found for event ${objectData.id}`);
     }
 
     // If this is a recurring master event, delete all instances too
