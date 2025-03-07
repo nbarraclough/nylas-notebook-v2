@@ -42,6 +42,148 @@ function processEventData(objectData: any) {
   };
 }
 
+// Function to check if an event should be recorded based on recording rules
+async function shouldRecordEvent(userId: string, event: any): Promise<boolean> {
+  try {
+    // Get user's recording preferences
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('record_internal_meetings, record_external_meetings')
+      .eq('id', userId)
+      .single();
+    
+    if (profileError) {
+      console.error(`❌ Error fetching user profile:`, profileError);
+      return false;
+    }
+    
+    // Check if this is a recurring event with specific settings
+    if (event.master_event_id) {
+      const { data: recurringSettings, error: recurringError } = await supabaseAdmin
+        .from('recurring_recording_settings')
+        .select('enabled')
+        .eq('user_id', userId)
+        .eq('master_event_id', event.master_event_id)
+        .maybeSingle();
+      
+      if (!recurringError && recurringSettings?.enabled) {
+        console.log(`📅 Recurring event has explicit recording enabled`);
+        return true;
+      }
+    }
+    
+    // Get organizer domain
+    const organizer = event.organizer ? event.organizer : {};
+    const organizerDomain = organizer.email ? organizer.email.split('@')[1] : '';
+    
+    if (!organizerDomain) {
+      console.log(`⚠️ No organizer domain found, defaulting to record`);
+      return true;
+    }
+    
+    // Determine if this is an internal meeting
+    const participants = Array.isArray(event.participants) ? event.participants : [];
+    const isInternal = participants.every(participant => {
+      const participantEmail = participant.email || '';
+      const participantDomain = participantEmail.split('@')[1] || '';
+      return participantDomain === organizerDomain;
+    });
+    
+    // Apply recording rules
+    if (isInternal && profile.record_internal_meetings) {
+      console.log(`📅 Internal meeting matches recording rules`);
+      return true;
+    } else if (!isInternal && profile.record_external_meetings) {
+      console.log(`📅 External meeting matches recording rules`);
+      return true;
+    }
+    
+    console.log(`📅 Event does not match recording rules (internal: ${isInternal})`);
+    return false;
+  } catch (error) {
+    console.error(`❌ Error in shouldRecordEvent:`, error);
+    return false;
+  }
+}
+
+// Function to create a notetaker for an event
+async function createNotetakerForEvent(userId: string, eventId: string, grantId: string, meetingUrl: string): Promise<any> {
+  if (!meetingUrl) {
+    console.log(`⚠️ No meeting URL found for event ${eventId}, cannot create notetaker`);
+    return null;
+  }
+
+  try {
+    console.log(`🔄 Creating notetaker for event ${eventId} with URL ${meetingUrl}`);
+    
+    // Get user's notetaker name preference
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('notetaker_name')
+      .eq('id', userId)
+      .single();
+    
+    if (profileError) {
+      console.error(`❌ Error fetching user profile:`, profileError);
+      return null;
+    }
+    
+    const notetakerName = profile.notetaker_name || 'Nylas Notetaker';
+    
+    // Call Nylas API to create notetaker
+    const response = await fetch(
+      `https://api.us.nylas.com/v3/grants/${grantId}/notetakers`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json, application/gzip'
+        },
+        body: JSON.stringify({
+          meeting_link: meetingUrl,
+          notetaker_name: notetakerName
+        })
+      }
+    );
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ Nylas API error (${response.status}):`, errorText);
+      return null;
+    }
+    
+    const nylasResponse = await response.json();
+    const notetakerId = nylasResponse.data.id;
+    console.log(`✅ Successfully created notetaker ${notetakerId} for event ${eventId}`);
+    
+    // Create recording entry
+    const { error: recordingError } = await supabaseAdmin
+      .from('recordings')
+      .upsert({
+        user_id: userId,
+        event_id: eventId,
+        notetaker_id: notetakerId,
+        recording_url: '',
+        status: 'waiting',
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'notetaker_id',
+        ignoreDuplicates: false
+      });
+      
+    if (recordingError) {
+      console.error(`❌ Error creating recording entry:`, recordingError);
+      return null;
+    }
+    
+    return notetakerId;
+  } catch (error) {
+    console.error(`❌ Error in createNotetakerForEvent:`, error);
+    return null;
+  }
+}
+
 // New function to update notetaker join time
 async function updateNotetakerJoinTime(grantId: string, notetakerId: string, newJoinTime: number) {
   try {
@@ -146,6 +288,8 @@ export const handleEventCreated = async (objectData: any, grantId: string) => {
         logWebhookError('event.created', new Error(result.message));
         return result;
       }
+      
+      // For recurring events, we'll let the recurring event processor handle recording logic
     } else {
       // Process regular event
       console.log('Processing regular event:', objectData.id);
@@ -158,16 +302,37 @@ export const handleEventCreated = async (objectData: any, grantId: string) => {
       };
 
       // Insert or update the event in our database using the constraint
-      const { error: eventError } = await supabaseAdmin
+      const { data: eventRecord, error: eventError } = await supabaseAdmin
         .from('events')
         .upsert(eventData, {
           onConflict: 'nylas_event_id,user_id',
           ignoreDuplicates: false
-        });
+        })
+        .select()
+        .single();
 
       if (eventError) {
         logWebhookError('event.created', eventError);
         return { success: false, error: eventError };
+      }
+      
+      // Now check if this event should have a notetaker based on recording rules
+      const shouldRecord = await shouldRecordEvent(profile.id, processedData);
+      
+      if (shouldRecord && processedData.conference_url) {
+        console.log(`🔄 Event ${objectData.id} meets recording criteria, creating notetaker`);
+        const notetakerId = await createNotetakerForEvent(
+          profile.id, 
+          eventRecord.id, 
+          grantId, 
+          processedData.conference_url
+        );
+        
+        if (notetakerId) {
+          console.log(`✅ Successfully scheduled notetaker ${notetakerId} for event ${objectData.id}`);
+        }
+      } else {
+        console.log(`ℹ️ Event ${objectData.id} does not need a notetaker (shouldRecord: ${shouldRecord}, has URL: ${!!processedData.conference_url})`);
       }
     }
 

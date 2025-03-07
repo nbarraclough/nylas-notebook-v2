@@ -41,7 +41,7 @@ async function processWebhookAsync(requestId: string, webhookData: any, rawBody:
     try {
       // Process webhook and get any created/updated record IDs
       processedData = await handleWebhookType(webhookData, grantId, requestId);
-      console.log(`✅ [${requestId}] Successfully processed webhook type: ${webhookData.type}`);
+      console.log(`✅ [${requestId}] Successfully processed webhook type: ${webhookData.type}`, processedData);
     } catch (processError: any) {
       console.error(`❌ [${requestId}] Error processing webhook:`, processError);
       errorMessage = processError.message;
