@@ -1,5 +1,6 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+import { addMonths } from '../sync-nylas-events/timestamp-utils.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -143,25 +144,25 @@ Deno.serve(async (req) => {
     // If we get here, at least one recording rule is enabled
     console.log('🟢 Recording rules are enabled, checking for eligible events')
 
-    // Get all future events with conference URLs
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    tomorrow.setHours(23, 59, 59, 999)
+    // Get all future events with conference URLs for the next 3 months
+    const now = new Date();
+    const threeMonthsFromNow = addMonths(now, 3);
+    console.log(`🔍 Looking for events between now (${now.toISOString()}) and 3 months from now (${threeMonthsFromNow.toISOString()})`)
 
     const { data: eligibleEvents, error: eventsError } = await supabaseClient
       .from('events')
       .select('id, title, start_time, organizer, participants, conference_url')
       .eq('user_id', userId)
       .not('conference_url', 'is', null)
-      .lt('start_time', tomorrow.toISOString())
-      .gt('start_time', new Date().toISOString())
+      .lt('start_time', threeMonthsFromNow.toISOString())
+      .gt('start_time', now.toISOString())
 
     if (eventsError) {
       console.error('❌ Error fetching eligible events:', eventsError)
       throw new Error('Failed to fetch eligible events')
     }
 
-    console.log(`📋 Found ${eligibleEvents?.length || 0} future events to evaluate`)
+    console.log(`📋 Found ${eligibleEvents?.length || 0} future events to evaluate in the next 3 months`)
 
     // Filter events that should be recorded based on rules
     const eventsToRecord = eligibleEvents?.filter(event => event.conference_url && shouldRecordEvent(event)) || []
