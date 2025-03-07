@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -106,7 +105,6 @@ export function logWebhookSuccess(type: string, result?: Record<string, any>) {
   }
 }
 
-// Add the missing logWebhookRequest and logRawBody functions
 export function logWebhookRequest(req: Request) {
   console.log('Received webhook request:', {
     url: req.url,
