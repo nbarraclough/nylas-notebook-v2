@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Download, Loader } from "lucide-react";
 import { ShareVideoDialog } from "./ShareVideoDialog";
@@ -10,7 +11,7 @@ interface RecordingActionsProps {
   status: string;
   title: string;
   isRetrievingMedia: boolean;
-  onRetrieveMedia: () => Promise<void>;
+  onRetrieveMedia: (forceRefresh?: boolean) => Promise<void>;
 }
 
 export const RecordingActions = ({
@@ -32,24 +33,45 @@ export const RecordingActions = ({
           />
         )}
         {notetakerId && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onRetrieveMedia}
-            disabled={isRetrievingMedia || !notetakerId}
-          >
-            {isRetrievingMedia ? (
-              <>
-                <Loader className="h-4 w-4 animate-spin mr-2" />
-                Retrieving...
-              </>
-            ) : (
-              <>
-                <Download className="h-4 w-4 mr-2" />
-                Retrieve Media
-              </>
-            )}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onRetrieveMedia(false)}
+              disabled={isRetrievingMedia || !notetakerId}
+            >
+              {isRetrievingMedia ? (
+                <>
+                  <Loader className="h-4 w-4 animate-spin mr-2" />
+                  Retrieving...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  Retrieve Media
+                </>
+              )}
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onRetrieveMedia(true)}
+              disabled={isRetrievingMedia || !notetakerId}
+            >
+              {isRetrievingMedia ? (
+                <>
+                  <Loader className="h-4 w-4 animate-spin mr-2" />
+                  Retrieving...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  Force Refresh
+                </>
+              )}
+            </Button>
+          </div>
         )}
       </div>
       {videoUrl && (

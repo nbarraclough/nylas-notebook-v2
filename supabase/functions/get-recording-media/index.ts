@@ -6,6 +6,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 import { corsHeaders } from '../_shared/cors.ts'
 import { createMuxAsset, getNylasRecordingMedia, fetchTranscriptContent } from '../_shared/mux-utils.ts';
+import { logFetchError, analyzeErrorType } from '../_shared/webhook-logger.ts';
 
 console.log("Loading get-recording-media function")
 
@@ -38,13 +39,13 @@ Deno.serve(async (req) => {
     }
 
     // Get request body
-    const { recordingId, notetakerId } = await req.json();
+    const { recordingId, notetakerId, forceRefresh = false } = await req.json();
     
     if (!recordingId && !notetakerId) {
       throw new Error('Either recordingId or notetakerId is required');
     }
 
-    console.log(`🔍 [${requestId}] Looking up recording with ${recordingId ? 'recordingId' : 'notetakerId'}: ${recordingId || notetakerId}`);
+    console.log(`🔍 [${requestId}] Looking up recording with ${recordingId ? 'recordingId' : 'notetakerId'}: ${recordingId || notetakerId}, forceRefresh: ${forceRefresh}`);
 
     // Find the recording
     let query = supabase
@@ -71,8 +72,24 @@ Deno.serve(async (req) => {
       throw new Error('You do not have permission to access this recording');
     }
 
-    // If recording already has a Mux asset ID, return it
-    if (recording.mux_asset_id && recording.mux_playback_id) {
+    // Check if recording is marked as unavailable
+    if (recording.status === 'unavailable' && !forceRefresh) {
+      console.log(`⚠️ [${requestId}] Recording is marked as unavailable and force refresh is not enabled`);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'RECORDING_UNAVAILABLE',
+          message: 'The recording is not available. Please try a different meeting.' 
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        },
+      )
+    }
+
+    // If recording already has a Mux asset ID and we're not forcing a refresh, return it
+    if (recording.mux_asset_id && recording.mux_playback_id && !forceRefresh) {
       console.log(`✅ [${requestId}] Recording already has Mux asset: ${recording.mux_asset_id}`);
       return new Response(
         JSON.stringify({
@@ -88,15 +105,19 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Check if we have recording URL
-    if (!recording.recording_url || recording.recording_url === '') {
-      // Get the grant ID from the profiles relation
-      const grantId = recording.profiles?.nylas_grant_id;
-      if (!grantId) {
-        throw new Error('No Nylas grant ID found for user');
-      }
+    // Get the grant ID from the profiles relation
+    const grantId = recording.profiles?.nylas_grant_id;
+    if (!grantId) {
+      throw new Error('No Nylas grant ID found for user');
+    }
 
-      console.log(`🔍 [${requestId}] No recording URL found, fetching from Nylas API`);
+    // If we need to force refresh or don't have a recording URL, fetch it from Nylas
+    let recordingUrl = recording.recording_url;
+    let transcriptUrl = recording.transcript_url;
+    let needToFetchFromNylas = forceRefresh || !recordingUrl || recordingUrl === '';
+    
+    if (needToFetchFromNylas) {
+      console.log(`🔍 [${requestId}] ${forceRefresh ? 'Force refresh requested' : 'No recording URL found'}, fetching from Nylas API`);
       
       // If we don't have a recording URL, fetch it from Nylas
       if (!recording.notetaker_id) {
@@ -105,32 +126,36 @@ Deno.serve(async (req) => {
 
       try {
         // Get the recording media URLs from Nylas
-        const { recordingUrl, transcriptUrl } = await getNylasRecordingMedia(grantId, recording.notetaker_id, requestId);
+        const { recordingUrl: newRecordingUrl, transcriptUrl: newTranscriptUrl } = 
+          await getNylasRecordingMedia(grantId, recording.notetaker_id, requestId);
         
-        if (!recordingUrl) {
+        if (!newRecordingUrl) {
           throw new Error('Failed to get recording URL from Nylas');
         }
 
+        // Update our local variables
+        recordingUrl = newRecordingUrl;
+        transcriptUrl = newTranscriptUrl;
+
         // Prepare update object
         const updateData: Record<string, any> = {
-          recording_url: recordingUrl,
+          recording_url: newRecordingUrl,
           status: 'retrieving',
           media_status: 'ready',
           updated_at: new Date().toISOString()
         };
 
         // Add transcript URL if available
-        if (transcriptUrl) {
-          updateData.transcript_url = transcriptUrl;
+        if (newTranscriptUrl) {
+          updateData.transcript_url = newTranscriptUrl;
           
-          // Fetch and process transcript content if URL is available
-          console.log(`📝 [${requestId}] Fetching transcript content from URL`);
-          const transcriptContent = await fetchTranscriptContent(transcriptUrl, requestId);
+          // Set expiration timestamp for the URL (typically 1 hour for Nylas signed URLs)
+          const expirationTime = new Date();
+          expirationTime.setHours(expirationTime.getHours() + 1);
+          updateData.transcript_url_expires_at = expirationTime.toISOString();
           
-          if (transcriptContent) {
-            console.log(`📝 [${requestId}] Successfully processed transcript content with ${transcriptContent.length} entries`);
-            updateData.transcript_content = transcriptContent;
-          }
+          // Reset fetch attempts
+          updateData.transcript_fetch_attempts = 0;
         }
 
         // Update the recording with the URLs
@@ -142,46 +167,19 @@ Deno.serve(async (req) => {
         if (updateError) {
           throw new Error(`Error updating recording with media URL: ${updateError.message}`);
         }
-
-        console.log(`🎬 [${requestId}] Creating Mux asset for recording ${recording.id} with URL ${recordingUrl}`);
-        const muxAsset = await createMuxAsset(recordingUrl, requestId);
-
-        if (!muxAsset || !muxAsset.id || !muxAsset.playback_ids?.[0]?.id) {
-          throw new Error(`Failed to create Mux asset`);
-        }
-
-        // Update recording with Mux info
-        const { error: muxUpdateError } = await supabase
-          .from('recordings')
-          .update({
-            mux_asset_id: muxAsset.id,
-            mux_playback_id: muxAsset.playback_ids[0].id,
-            status: 'processing', // Will be updated by Mux webhook when ready
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', recording.id);
-
-        if (muxUpdateError) {
-          throw new Error(`Error updating recording with Mux info: ${muxUpdateError.message}`);
-        }
-
-        console.log(`✅ [${requestId}] Successfully created Mux asset ${muxAsset.id} for recording ${recording.id}`);
-
-        return new Response(
-          JSON.stringify({
-            success: true,
-            message: 'Processing started',
-            mux_asset_id: muxAsset.id,
-            mux_playback_id: muxAsset.playback_ids[0].id
-          }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200,
-          },
-        )
       } catch (error) {
         if (error.message.includes('media not ready') || error.message.toLowerCase().includes('no recording available')) {
           console.log(`⏳ [${requestId}] Media not ready yet from Nylas`);
+          
+          // Update recording status
+          await supabase
+            .from('recordings')
+            .update({
+              status: 'media_not_ready',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', recording.id);
+            
           return new Response(
             JSON.stringify({ 
               success: false,
@@ -197,13 +195,26 @@ Deno.serve(async (req) => {
         
         throw error;
       }
-    } else {
-      // We have a recording URL but no Mux asset yet
+    }
+
+    // If we've previously determined the recording is unavailable, update the status
+    if (recording.status === 'unavailable' && forceRefresh) {
+      // Reset the status since we're forcing a refresh
+      await supabase
+        .from('recordings')
+        .update({
+          status: 'retrieving', 
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', recording.id);
+    }
+
+    // Process transcript content if URL is available but content isn't or we're forcing a refresh
+    if (transcriptUrl && (!recording.transcript_content || forceRefresh)) {
+      console.log(`📝 [${requestId}] ${forceRefresh ? 'Force refresh requested' : 'Found transcript URL but no content'}, fetching from: ${transcriptUrl}`);
       
-      // If we have a transcript URL but no content, try to fetch and process it
-      if (recording.transcript_url && !recording.transcript_content) {
-        console.log(`📝 [${requestId}] Found transcript URL but no content, fetching from: ${recording.transcript_url}`);
-        const transcriptContent = await fetchTranscriptContent(recording.transcript_url, requestId);
+      try {
+        const transcriptContent = await fetchTranscriptContent(transcriptUrl, requestId);
         
         if (transcriptContent) {
           console.log(`📝 [${requestId}] Successfully processed transcript content with ${transcriptContent.length} entries`);
@@ -211,59 +222,90 @@ Deno.serve(async (req) => {
             .from('recordings')
             .update({
               transcript_content: transcriptContent,
+              transcript_status: 'ready',
+              transcript_fetch_attempts: 0,
               updated_at: new Date().toISOString()
             })
             .eq('id', recording.id);
+        } else {
+          // If we couldn't fetch transcript content, increment the attempt counter
+          await supabase
+            .from('recordings')
+            .update({
+              transcript_status: 'fetch_failed',
+              transcript_fetch_attempts: (recording.transcript_fetch_attempts || 0) + 1,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', recording.id);
+            
+          console.error(`❌ [${requestId}] Failed to fetch transcript content`);
         }
+      } catch (error) {
+        console.error(`❌ [${requestId}] Error fetching transcript: ${error.message}`);
+        
+        // Update the transcript fetch attempts
+        await supabase
+          .from('recordings')
+          .update({
+            transcript_status: 'fetch_error',
+            transcript_fetch_attempts: (recording.transcript_fetch_attempts || 0) + 1,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', recording.id);
       }
-      
-      // Update status to retrieving
-      await supabase
-        .from('recordings')
-        .update({
-          status: 'retrieving',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', recording.id);
-
-      // Create Mux asset
-      console.log(`🎬 [${requestId}] Creating Mux asset for recording ${recording.id} with existing URL ${recording.recording_url}`);
-      const muxAsset = await createMuxAsset(recording.recording_url, requestId);
-
-      if (!muxAsset || !muxAsset.id || !muxAsset.playback_ids?.[0]?.id) {
-        throw new Error(`Failed to create Mux asset`);
-      }
-
-      // Update recording with Mux info
-      const { error: updateError } = await supabase
-        .from('recordings')
-        .update({
-          mux_asset_id: muxAsset.id,
-          mux_playback_id: muxAsset.playback_ids[0].id,
-          status: 'processing', // Will be updated by Mux webhook when ready
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', recording.id);
-
-      if (updateError) {
-        throw new Error(`Error updating recording: ${updateError.message}`);
-      }
-
-      console.log(`✅ [${requestId}] Successfully created Mux asset ${muxAsset.id} for recording ${recording.id}`);
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Processing started',
-          mux_asset_id: muxAsset.id,
-          mux_playback_id: muxAsset.playback_ids[0].id
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        },
-      )
     }
+    
+    // Update status to retrieving
+    await supabase
+      .from('recordings')
+      .update({
+        status: 'retrieving',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', recording.id);
+
+    // If we're forcing a refresh and already have a Mux asset, we need to create a new one
+    if (forceRefresh && recording.mux_asset_id) {
+      console.log(`🎬 [${requestId}] Force refresh requested. Creating new Mux asset for recording ${recording.id}`);
+    } else {
+      console.log(`🎬 [${requestId}] Creating Mux asset for recording ${recording.id} with URL ${recordingUrl}`);
+    }
+    
+    const muxAsset = await createMuxAsset(recordingUrl, requestId);
+
+    if (!muxAsset || !muxAsset.id || !muxAsset.playback_ids?.[0]?.id) {
+      throw new Error(`Failed to create Mux asset`);
+    }
+
+    // Update recording with Mux info
+    const { error: updateError } = await supabase
+      .from('recordings')
+      .update({
+        mux_asset_id: muxAsset.id,
+        mux_playback_id: muxAsset.playback_ids[0].id,
+        status: 'processing', // Will be updated by Mux webhook when ready
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', recording.id);
+
+    if (updateError) {
+      throw new Error(`Error updating recording: ${updateError.message}`);
+    }
+
+    console.log(`✅ [${requestId}] Successfully created Mux asset ${muxAsset.id} for recording ${recording.id}`);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: 'Processing started',
+        mux_asset_id: muxAsset.id,
+        mux_playback_id: muxAsset.playback_ids[0].id
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      },
+    )
   } catch (error) {
     console.error(`❌ [${requestId}] Error:`, error.message);
     

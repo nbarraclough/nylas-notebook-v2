@@ -118,3 +118,70 @@ export function logRawBody(body: string) {
   // Only log the first part of potentially large payloads
   console.log('Webhook raw body preview:', body.substring(0, 500) + (body.length > 500 ? '...[truncated]' : ''));
 }
+
+/**
+ * Logs detailed fetch errors, extracting as much information as possible
+ */
+export async function logFetchError(requestId: string, url: string, response: Response) {
+  console.error(`❌ [${requestId}] Fetch error for URL: ${url}`);
+  console.error(`❌ [${requestId}] Status: ${response.status} ${response.statusText}`);
+  
+  try {
+    // Try to get response as text for better error logging
+    const errorText = await response.text();
+    console.error(`❌ [${requestId}] Response body: ${errorText}`);
+    
+    // Analyze common error patterns
+    if (response.status === 404) {
+      if (errorText.includes('NoSuchKey')) {
+        console.error(`❌ [${requestId}] File not found in storage. The signed URL may have expired or the resource may not exist.`);
+      } else {
+        console.error(`❌ [${requestId}] Resource not found at the given URL.`);
+      }
+    } else if (response.status === 403) {
+      console.error(`❌ [${requestId}] Access denied. Check authentication credentials or permission to access the resource.`);
+    } else if (response.status >= 500) {
+      console.error(`❌ [${requestId}] Server error. This is likely temporary and should be retried.`);
+    }
+    
+    return errorText;
+  } catch (textError) {
+    console.error(`❌ [${requestId}] Could not read error response as text: ${textError}`);
+    return `Status ${response.status} ${response.statusText}`;
+  }
+}
+
+/**
+ * Analyzes error text to determine if it indicates a temporary failure or permanent error
+ */
+export function analyzeErrorType(errorText: string): 'temporary' | 'permanent' | 'expired' | 'unavailable' {
+  const lowerErrorText = errorText.toLowerCase();
+  
+  // Handle Google Storage specific errors
+  if (lowerErrorText.includes('nosuchkey') || lowerErrorText.includes('not found')) {
+    if (lowerErrorText.includes('no recording available') || 
+        lowerErrorText.includes('recording is not available') ||
+        lowerErrorText.includes('no recording found')) {
+      return 'unavailable'; // Recording truly doesn't exist
+    }
+    return 'expired'; // URL likely expired
+  }
+  
+  if (lowerErrorText.includes('access denied') || 
+      lowerErrorText.includes('forbidden') || 
+      lowerErrorText.includes('unauthorized')) {
+    return 'expired'; // Authentication/authorization issue, likely expired URL
+  }
+  
+  if (lowerErrorText.includes('timeout') || 
+      lowerErrorText.includes('internal server error') ||
+      lowerErrorText.includes('service unavailable') ||
+      lowerErrorText.includes('too many requests') ||
+      lowerErrorText.includes('gateway timeout') ||
+      lowerErrorText.includes('bad gateway')) {
+    return 'temporary'; // Temporary server-side issue
+  }
+  
+  // Default to permanent for other errors
+  return 'permanent';
+}

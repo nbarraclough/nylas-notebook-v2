@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,14 +51,15 @@ export function NotetakersSettings({ userId }: { userId: string }) {
     }
   };
 
-  const handleRetrieveMedia = async (recordingId: string, notetakerId: string) => {
+  const handleRetrieveMedia = async (recordingId: string, notetakerId: string, forceRefresh: boolean = false) => {
     try {
       setIsRetrieving(prev => ({ ...prev, [recordingId]: true }));
 
       const { data, error } = await supabase.functions.invoke('get-recording-media', {
         body: { 
           recordingId,
-          notetakerId
+          notetakerId,
+          forceRefresh
         },
       });
 
@@ -70,12 +72,22 @@ export function NotetakersSettings({ userId }: { userId: string }) {
           });
           return Promise.reject(new Error('Media not ready'));
         }
+        if (errorBody?.error === 'RECORDING_UNAVAILABLE') {
+          toast({
+            title: "Recording Unavailable",
+            description: "This recording is not available. Please try a different meeting.",
+            variant: "destructive"
+          });
+          return Promise.reject(new Error('Recording unavailable'));
+        }
         throw error;
       }
 
       toast({
         title: "Success",
-        description: "Media retrieved successfully",
+        description: forceRefresh ? 
+          "Media refresh initiated successfully" : 
+          "Media retrieved successfully",
       });
 
       return Promise.resolve();

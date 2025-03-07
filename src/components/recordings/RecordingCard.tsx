@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
@@ -75,15 +76,16 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
     }
   };
 
-  const handleRetrieveMedia = async () => {
+  const handleRetrieveMedia = async (forceRefresh: boolean = false) => {
     try {
       setIsRetrievingMedia(true);
-      console.log('Retrieving media for recording:', recording.id);
+      console.log(`Retrieving media for recording: ${recording.id}, forceRefresh: ${forceRefresh}`);
 
       const { data, error } = await supabase.functions.invoke('get-recording-media', {
         body: { 
           recordingId: recording.id,
-          notetakerId: recording.notetaker_id
+          notetakerId: recording.notetaker_id,
+          forceRefresh
         },
       });
 
@@ -96,12 +98,22 @@ export const RecordingCard = ({ recording }: RecordingCardProps) => {
           });
           return;
         }
+        if (errorBody?.error === 'RECORDING_UNAVAILABLE') {
+          toast({
+            title: "Recording Unavailable",
+            description: "This recording is not available. Please try a different meeting.",
+            variant: "destructive"
+          });
+          return;
+        }
         throw error;
       }
 
       toast({
         title: "Success",
-        description: "Media retrieved successfully",
+        description: forceRefresh ? 
+          "Media refresh initiated successfully" : 
+          "Media retrieved successfully",
       });
     } catch (error: any) {
       console.error('Error retrieving media:', error);
