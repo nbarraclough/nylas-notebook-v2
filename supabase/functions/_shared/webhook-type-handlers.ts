@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 import { createMuxAsset } from './mux-utils.ts';
 import { handleEventCreated, handleEventUpdated, handleEventDeleted } from './handlers/event-handlers.ts';
@@ -184,11 +185,13 @@ async function handleNotetakerMediaWebhook(webhookData: any, grantId: string, re
     const notetakerId = webhookData.data.object.id;
     const mediaStatus = webhookData.data.object.media_status;
     const recordingUrl = webhookData.data.object.recording_url || null;
+    const transcriptUrl = webhookData.data.object.transcript_url || null;
 
     console.log(`📝 [${requestId}] Processing notetaker media update:`, { 
       notetakerId, 
       mediaStatus,
-      hasRecordingUrl: !!recordingUrl
+      hasRecordingUrl: !!recordingUrl,
+      hasTranscriptUrl: !!transcriptUrl
     });
 
     // Log full webhook payload for debugging
@@ -226,6 +229,18 @@ async function handleNotetakerMediaWebhook(webhookData: any, grantId: string, re
       if (mediaStatus === 'ready') {
         updates.status = 'media_ready';
       }
+    }
+
+    // Add transcript URL if available
+    if (transcriptUrl) {
+      console.log(`📄 [${requestId}] Transcript URL found: ${transcriptUrl}`);
+      updates.transcript_url = transcriptUrl;
+      updates.transcript_status = 'available';
+      
+      // Set expiration time for transcript URL (24 hours from now)
+      const expirationTime = new Date();
+      expirationTime.setHours(expirationTime.getHours() + 24);
+      updates.transcript_url_expires_at = expirationTime.toISOString();
     }
 
     // Update the recording
