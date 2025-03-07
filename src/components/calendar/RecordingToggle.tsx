@@ -53,7 +53,7 @@ export const RecordingToggle = ({
         const startDate = new Date(scheduledFor);
         const joinTime = Math.floor(startDate.getTime() / 1000);
         
-        // Use the new create-notetaker function instead of queue-event-recording
+        // Use the create-notetaker function
         const { data, error } = await supabase.functions.invoke('create-notetaker', {
           body: {
             event_id: eventId,
@@ -74,13 +74,26 @@ export const RecordingToggle = ({
           description: "Meeting scheduled for recording!",
         });
       } else {
-        // For now, we'll still remove from the queue table
-        // In the future, we could add a "cancel" endpoint
-        const { error } = await supabase
-          .from('notetaker_queue')
-          .delete()
+        // First, get the notetaker_id for this event
+        const { data: recordingData, error: recordingError } = await supabase
+          .from('recordings')
+          .select('notetaker_id')
           .eq('event_id', eventId)
-          .eq('user_id', userId);
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (recordingError) throw recordingError;
+        
+        if (!recordingData || !recordingData.notetaker_id) {
+          throw new Error("No notetaker found for this event");
+        }
+        
+        // Use the kick-notetaker function to send a DELETE request to Nylas
+        const { data, error } = await supabase.functions.invoke('kick-notetaker', {
+          body: {
+            notetakerId: recordingData.notetaker_id
+          }
+        });
 
         if (error) throw error;
 

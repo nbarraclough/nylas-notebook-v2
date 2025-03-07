@@ -154,7 +154,7 @@ export function useNotetakerMutation(onSuccess: () => void) {
 
       if (eventError) throw eventError;
 
-      // Use the new create-notetaker function
+      // Use the create-notetaker function with the current time as join time
       console.log('Sending notetaker to meeting with URL:', meetingUrl);
       const { data, error } = await supabase.functions.invoke('create-notetaker', {
         body: {

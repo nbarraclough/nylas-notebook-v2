@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 const corsHeaders = {
@@ -63,15 +64,15 @@ Deno.serve(async (req) => {
       throw new Error('No Nylas grant ID found for user')
     }
 
-    console.log('📡 Sending leave request to Nylas API...')
+    console.log('📡 Sending cancel request to Nylas API...')
     console.log('Grant ID:', profileData.nylas_grant_id)
     console.log('Notetaker ID:', notetakerId)
 
-    // Send leave request to Nylas using the correct /leave endpoint
+    // Send cancel request to Nylas using the /cancel endpoint
     const response = await fetch(
-      `https://api.us.nylas.com/v3/grants/${profileData.nylas_grant_id}/notetakers/${notetakerId}/leave`,
+      `https://api.us.nylas.com/v3/grants/${profileData.nylas_grant_id}/notetakers/${notetakerId}/cancel`,
       {
-        method: 'POST',
+        method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
           'Accept': 'application/json, application/gzip'
@@ -85,8 +86,8 @@ Deno.serve(async (req) => {
     console.log('📥 Nylas API Response Body:', responseText)
 
     if (!response.ok) {
-      console.error('❌ Failed to kick notetaker. Status:', response.status, 'Response:', responseText)
-      throw new Error(`Failed to kick notetaker: ${responseText}`)
+      console.error('❌ Failed to cancel notetaker. Status:', response.status, 'Response:', responseText)
+      throw new Error(`Failed to cancel notetaker: ${responseText}`)
     }
 
     // Try to parse as JSON if possible, otherwise use text response
@@ -100,12 +101,12 @@ Deno.serve(async (req) => {
       responseData = { message: responseText };
     }
 
-    console.log('🔄 Updating recording status to waiting...')
-    // Update recording status to waiting
+    console.log('🔄 Updating recording status to cancelled...')
+    // Update recording status to cancelled
     const { error: updateError } = await supabaseClient
       .from('recordings')
       .update({ 
-        status: 'waiting',
+        status: 'cancelled',
         updated_at: new Date().toISOString()
       })
       .eq('id', recordingData.id)
@@ -120,7 +121,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true,
-        message: 'Notetaker kicked successfully',
+        message: 'Notetaker cancelled successfully',
         response: responseData
       }),
       { 
