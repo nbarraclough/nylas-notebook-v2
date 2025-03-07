@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 import { findUserByGrant } from './user-handlers.ts';
 import { logWebhookProcessing, logWebhookError, logWebhookSuccess } from '../webhook-logger.ts';
@@ -222,7 +221,6 @@ export const handleEventUpdated = async (objectData: any, grantId: string) => {
         .select('id, notetaker_id, status')
         .eq('event_id', existingEvent.id)
         .eq('user_id', profile.id)
-        .in('status', ['waiting', 'joining'])
         .not('notetaker_id', 'is', null)
         .maybeSingle();
       
