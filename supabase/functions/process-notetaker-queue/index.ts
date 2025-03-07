@@ -77,6 +77,19 @@ Deno.serve(async (req) => {
   
   logInfo(requestId, `Starting notetaker queue processing`, undefined, 'START');
 
+  // Log headers for debugging (but obscure any sensitive values)
+  logDebug(requestId, `Request headers`, Object.fromEntries(
+    [...req.headers.entries()].map(([key, value]) => 
+      key.toLowerCase().includes('auth') ? [key, '***REDACTED***'] : [key, value]
+    )
+  ));
+
+  // Special handling for cron job invocations
+  const isCronJob = req.headers.get('user-agent')?.includes('Deno/');
+  if (isCronJob) {
+    logInfo(requestId, `Detected cron job invocation`, undefined, 'START');
+  }
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
