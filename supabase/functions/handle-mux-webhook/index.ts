@@ -1,6 +1,7 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
-import { logWebhookRequest, logRawBody, logWebhookError, logWebhookSuccess } from "../_shared/webhook-logger.ts";
+import { logWebhook, logWebhookRequest, logRawBody, logWebhookError, logWebhookSuccess, logWebhookProcessing } from "../_shared/webhook-logger.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -95,12 +96,13 @@ serve(async (req) => {
   }
 
   try {
+    // Generate a unique request ID for tracing
+    const requestId = crypto.randomUUID();
+    console.log(`[${requestId}] Processing Mux webhook request`);
+    
     // Log incoming request
     logWebhookRequest(req);
     
-    const requestId = crypto.randomUUID();
-    console.log(`Processing Mux webhook request: ${requestId}`);
-
     const webhookSecret = Deno.env.get("MUX_WEBHOOK_SECRET");
     if (!webhookSecret) {
       throw new Error("MUX_WEBHOOK_SECRET is not set");
@@ -109,7 +111,7 @@ serve(async (req) => {
     // Get the signature from the headers
     const signature = req.headers.get("mux-signature");
     if (!signature) {
-      console.error('No Mux signature found in request headers:', 
+      console.error(`[${requestId}] No Mux signature found in request headers:`, 
         Object.fromEntries(req.headers.entries())
       );
       throw new Error("No signature found in request headers");
@@ -122,17 +124,23 @@ serve(async (req) => {
     // Verify the signature
     const isValid = await verifyMuxSignature(body, signature, webhookSecret);
     if (!isValid) {
-      console.error('Invalid Mux signature:', {
+      console.error(`[${requestId}] Invalid Mux signature:`, {
         signature,
         bodyPreview: body.substring(0, 100)
       });
+      
+      // Log invalid webhook
+      await logWebhook(requestId, JSON.parse(body), 'invalid_signature', 'Signature verification failed');
       throw new Error("Invalid signature");
     }
 
     // Parse the webhook payload
     const payload = JSON.parse(body);
     const { type, data } = payload;
-    console.log("Received Mux webhook:", { type, assetId: data?.id });
+    console.log(`[${requestId}] Received Mux webhook:`, { type, assetId: data?.id });
+    
+    // Log the received webhook
+    await logWebhook(requestId, payload, 'received');
 
     // Create Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -143,7 +151,7 @@ serve(async (req) => {
     switch (type) {
       case "video.asset.created": {
         const { id: assetId } = data;
-        console.log('Video asset created:', { assetId });
+        logWebhookProcessing('video.asset.created', { assetId });
 
         const { error } = await supabase
           .from("recordings")
@@ -154,18 +162,20 @@ serve(async (req) => {
           .eq("mux_asset_id", assetId);
 
         if (error) {
-          console.error('Error updating recording:', error);
+          console.error(`[${requestId}] Error updating recording:`, error);
+          await logWebhook(requestId, payload, 'error', `Error updating recording: ${error.message}`);
           throw error;
         }
         
         logWebhookSuccess('video.asset.created');
+        await logWebhook(requestId, payload, 'processed');
         break;
       }
 
       case "video.asset.ready": {
         const { playback_ids, id: assetId } = data;
         const playbackId = playback_ids?.[0]?.id;
-        console.log('Video asset ready:', { assetId, playbackId });
+        logWebhookProcessing('video.asset.ready', { assetId, playbackId });
 
         if (playbackId) {
           // Get recording and user details
@@ -189,9 +199,12 @@ serve(async (req) => {
             .single();
 
           if (recordingError) {
-            console.error('Error fetching recording details:', recordingError);
+            console.error(`[${requestId}] Error fetching recording details:`, recordingError);
+            await logWebhook(requestId, payload, 'error', `Error fetching recording details: ${recordingError.message}`);
             throw recordingError;
           }
+
+          console.log(`[${requestId}] Found recording for Mux asset:`, recording);
 
           // Update recording status
           const { error: updateError } = await supabase
@@ -204,12 +217,13 @@ serve(async (req) => {
             .eq("mux_asset_id", assetId);
 
           if (updateError) {
-            console.error('Error updating recording:', updateError);
+            console.error(`[${requestId}] Error updating recording:`, updateError);
+            await logWebhook(requestId, payload, 'error', `Error updating recording status: ${updateError.message}`);
             throw updateError;
           }
 
           // Send email notification
-          console.log('📧 Triggering recording ready email notification');
+          console.log(`[${requestId}] 📧 Triggering recording ready email notification`);
           const { error: emailError } = await supabase.functions.invoke('send-recording-ready-email', {
             body: {
               recordingId: recording.id,
@@ -219,18 +233,25 @@ serve(async (req) => {
           });
 
           if (emailError) {
-            console.error('Error sending email notification:', emailError);
+            console.error(`[${requestId}] Error sending email notification:`, emailError);
             // Don't throw here, as we've already updated the recording status
+            await logWebhook(requestId, payload, 'warning', `Email notification failed: ${emailError.message}`);
+          } else {
+            console.log(`[${requestId}] Successfully sent email notification`);
           }
           
-          logWebhookSuccess('video.asset.ready');
+          logWebhookSuccess('video.asset.ready', { recordingId: recording.id });
+          await logWebhook(requestId, payload, 'processed');
+        } else {
+          console.error(`[${requestId}] No playback ID found in ready event`);
+          await logWebhook(requestId, payload, 'error', 'No playback ID found in ready event');
         }
         break;
       }
 
       case "video.asset.errored": {
         const { id: assetId, error: muxError } = data;
-        console.log('Video asset error:', { assetId, error: muxError });
+        logWebhookProcessing('video.asset.errored', { assetId, error: muxError });
 
         const { error } = await supabase
           .from("recordings")
@@ -241,19 +262,22 @@ serve(async (req) => {
           .eq("mux_asset_id", assetId);
 
         if (error) {
-          console.error('Error updating recording status:', error);
+          console.error(`[${requestId}] Error updating recording status:`, error);
+          await logWebhook(requestId, payload, 'error', `Error updating recording to error state: ${error.message}`);
           throw error;
         }
         
         logWebhookSuccess('video.asset.errored');
+        await logWebhook(requestId, payload, 'processed');
         break;
       }
 
       default:
-        console.log("Unhandled event type:", type);
+        console.log(`[${requestId}] Unhandled event type: ${type}`);
+        await logWebhook(requestId, payload, 'skipped', `Unhandled event type: ${type}`);
     }
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, requestId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
