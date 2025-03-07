@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { NotetakerActions } from "./NotetakerActions";
 import type { NotetakerRecord } from "./types";
+import { Badge } from "@/components/ui/badge";
 
 interface NotetakersTableProps {
   recordings: NotetakerRecord[];
@@ -35,34 +36,45 @@ export function NotetakersTable({
     return record.event.title;
   };
 
+  const getMeetingTypeContent = (record: NotetakerRecord) => {
+    const type = record.event.manual_meeting ? 'Manual Meeting' : 'Calendar Event';
+    const badgeVariant = record.event.manual_meeting ? 'outline' : 'secondary';
+    
+    return (
+      <Badge variant={badgeVariant} className="font-normal">
+        {type}
+      </Badge>
+    );
+  };
+
   return (
-    <div className="border rounded-lg">
+    <div className="border rounded-lg overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Notetaker ID</TableHead>
-            <TableHead>Event</TableHead>
-            <TableHead>Time</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Actions</TableHead>
+            <TableHead className="w-[180px]">Notetaker ID</TableHead>
+            <TableHead className="w-[250px]">Event</TableHead>
+            <TableHead className="w-[200px]">Time</TableHead>
+            <TableHead className="w-[140px]">Type</TableHead>
+            <TableHead className="text-center">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {recordings?.map((record) => (
             <TableRow key={record.id}>
-              <TableCell className="font-mono text-sm">
+              <TableCell className="font-mono text-xs truncate max-w-[180px]">
                 {record.notetaker_id}
               </TableCell>
-              <TableCell>
+              <TableCell className="font-medium truncate max-w-[250px]">
                 {getEventTitle(record)}
               </TableCell>
               <TableCell>
                 {format(new Date(record.event.start_time), "MMM d, yyyy 'at' h:mm a")}
               </TableCell>
               <TableCell>
-                {record.event.manual_meeting ? 'Manual Meeting' : 'Calendar Event'}
+                {getMeetingTypeContent(record)}
               </TableCell>
-              <TableCell>
+              <TableCell className="text-center">
                 <NotetakerActions
                   notetakerId={record.notetaker_id}
                   recordingId={record.id}
@@ -77,7 +89,7 @@ export function NotetakersTable({
           ))}
           {recordings?.length === 0 && (
             <TableRow>
-              <TableCell colSpan={5} className="text-center text-muted-foreground">
+              <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                 No notetakers found
               </TableCell>
             </TableRow>
