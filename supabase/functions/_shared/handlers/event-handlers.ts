@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 import { findUserByGrant } from './user-handlers.ts';
 import { logWebhookProcessing, logWebhookError, logWebhookSuccess } from '../webhook-logger.ts';
 import { processRecurringEvent } from '../recurring-event-utils.ts';
+import { unixSecondsToISOString } from '../timestamp-utils.ts';
 
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -39,6 +40,43 @@ function processEventData(objectData: any) {
     original_start_time: objectData.original_start_time ? 
       new Date(objectData.original_start_time * 1000).toISOString() : null
   };
+}
+
+// New function to update notetaker join time
+async function updateNotetakerJoinTime(grantId: string, notetakerId: string, newJoinTime: number) {
+  try {
+    console.log(`🔄 Updating notetaker ${notetakerId} join time to ${newJoinTime}`);
+    
+    const nylasApiKey = Deno.env.get('NYLAS_CLIENT_SECRET') ?? '';
+    if (!nylasApiKey) {
+      throw new Error('NYLAS_CLIENT_SECRET not set');
+    }
+    
+    const response = await fetch(
+      `https://api.us.nylas.com/v3/grants/${grantId}/notetakers/${notetakerId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${nylasApiKey}`,
+          'Accept': 'application/json, application/gzip',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          join_time: newJoinTime
+        })
+      }
+    );
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Nylas API error (${response.status}): ${errorText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error(`❌ Error updating notetaker join time:`, error);
+    throw error;
+  }
 }
 
 export const handleEventCreated = async (objectData: any, grantId: string) => {
@@ -114,6 +152,29 @@ export const handleEventUpdated = async (objectData: any, grantId: string) => {
       return { success: false, message: error.message };
     }
 
+    // Store the new start time for later comparison
+    const newStartTime = objectData.when.start_time ? new Date(objectData.when.start_time * 1000).toISOString() : null;
+    
+    // Get the current event data to check if start time has changed
+    const { data: existingEvent, error: eventFetchError } = await supabaseAdmin
+      .from('events')
+      .select('id, start_time')
+      .eq('nylas_event_id', objectData.id)
+      .eq('user_id', profile.id)
+      .maybeSingle();
+    
+    if (eventFetchError) {
+      logWebhookError('event.updated', eventFetchError);
+      return { success: false, error: eventFetchError };
+    }
+    
+    // Flag to check if start time has changed
+    const startTimeChanged = existingEvent && newStartTime && existingEvent.start_time !== newStartTime;
+    
+    if (startTimeChanged) {
+      console.log(`📅 Event start time changed for event ${objectData.id}. Old: ${existingEvent.start_time}, New: ${newStartTime}`);
+    }
+
     // Check if this is a recurring event or instance
     if (objectData.recurrence || objectData.master_event_id) {
       console.log('Processing recurring event update:', objectData.id);
@@ -150,6 +211,50 @@ export const handleEventUpdated = async (objectData: any, grantId: string) => {
       if (eventError) {
         logWebhookError('event.updated', eventError);
         return { success: false, error: eventError };
+      }
+    }
+    
+    // If start time changed, update any associated notetaker's join time
+    if (startTimeChanged && existingEvent) {
+      // Check if there's an active recording for this event
+      const { data: activeRecording, error: recordingError } = await supabaseAdmin
+        .from('recordings')
+        .select('id, notetaker_id, status')
+        .eq('event_id', existingEvent.id)
+        .eq('user_id', profile.id)
+        .in('status', ['waiting', 'joining'])
+        .not('notetaker_id', 'is', null)
+        .maybeSingle();
+      
+      if (recordingError) {
+        logWebhookError('event.updated', recordingError);
+        console.error(`❌ Error finding recording for event ${existingEvent.id}:`, recordingError);
+      } else if (activeRecording && activeRecording.notetaker_id) {
+        console.log(`🔄 Found active recording ${activeRecording.id} with notetaker ${activeRecording.notetaker_id} to update`);
+        
+        try {
+          // Convert ISO timestamp to Unix timestamp (seconds)
+          const newJoinTimeUnix = Math.floor(new Date(newStartTime).getTime() / 1000);
+          
+          // Update the notetaker join time via Nylas API
+          await updateNotetakerJoinTime(grantId, activeRecording.notetaker_id, newJoinTimeUnix);
+          
+          // Update our recording with the new join time
+          await supabaseAdmin
+            .from('recordings')
+            .update({
+              join_time: newStartTime,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', activeRecording.id);
+            
+          console.log(`✅ Successfully updated join time for recording ${activeRecording.id} to ${newStartTime}`);
+        } catch (updateError) {
+          console.error(`❌ Error updating notetaker join time:`, updateError);
+          logWebhookError('event.updated', updateError);
+        }
+      } else {
+        console.log(`ℹ️ No active recording found for event ${existingEvent.id} that needs join time update`);
       }
     }
 
