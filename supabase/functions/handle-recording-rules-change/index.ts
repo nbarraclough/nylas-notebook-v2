@@ -69,16 +69,16 @@ Deno.serve(async (req) => {
       throw new Error('No Nylas grant ID found for user')
     }
 
-    // If both recording settings are turned off, cancel all active notetakers
+    // If both recording settings are turned off, cancel all active notetakers that are in 'waiting' status
     if (!recordExternalMeetings && !recordInternalMeetings) {
-      console.log('🔴 Both recording settings are turned off, cancelling all active recordings')
+      console.log('🔴 Both recording settings are turned off, cancelling all waiting recordings')
       
-      // Get all active recordings with notetaker_id
+      // Get all active recordings with notetaker_id that are in 'waiting' status
       const { data: activeRecordings, error: recordingsError } = await supabaseClient
         .from('recordings')
         .select('id, notetaker_id')
         .eq('user_id', userId)
-        .in('status', ['waiting', 'joining', 'recording'])
+        .eq('status', 'waiting') // Only cancel recordings in 'waiting' status
         .not('notetaker_id', 'is', null)
 
       if (recordingsError) {
@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
         throw new Error('Failed to fetch active recordings')
       }
 
-      console.log(`📋 Found ${activeRecordings?.length || 0} active recordings to cancel`)
+      console.log(`📋 Found ${activeRecordings?.length || 0} waiting recordings to cancel`)
 
       // Cancel each notetaker
       for (const recording of activeRecordings || []) {
