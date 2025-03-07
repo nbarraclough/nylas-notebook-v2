@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import type { Database } from '../_shared/types.ts';
@@ -13,13 +14,34 @@ const RATE_LIMIT_DELAY_MS = 1100; // 1.1 seconds between requests to be safe
 const MAX_EVENT_AGE_MINS = 30;
 const DEDUP_WINDOW_MINS = 30;
 
+/**
+ * Generates a structured log message with timestamp, request ID, and log level
+ */
+function logMessage(requestId: string, level: 'INFO' | 'ERROR' | 'WARN' | 'DEBUG', message: string, data?: any) {
+  const timestamp = new Date().toISOString();
+  const logPrefix = `[${timestamp}] [${requestId}] [${level}]`;
+  
+  if (data) {
+    console.log(`${logPrefix} ${message}`, data);
+  } else {
+    console.log(`${logPrefix} ${message}`);
+  }
+}
+
 Deno.serve(async (req) => {
+  // Generate a unique request ID for this processing run
+  const requestId = crypto.randomUUID().substring(0, 8);
+  
+  logMessage(requestId, 'INFO', `Starting notetaker queue processing`);
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
     // Get pending queue items that are not manual meetings
+    logMessage(requestId, 'INFO', `Fetching pending queue items`);
+    
     const { data: queueItems, error: queueError } = await supabase
       .from('notetaker_queue')
       .select(`
@@ -43,10 +65,11 @@ Deno.serve(async (req) => {
       .limit(10);
 
     if (queueError) {
+      logMessage(requestId, 'ERROR', `Failed to fetch queue items`, queueError);
       throw queueError;
     }
 
-    console.log(`Found ${queueItems?.length || 0} queue items to process`);
+    logMessage(requestId, 'INFO', `Found ${queueItems?.length || 0} queue items to process`);
 
     if (!queueItems?.length) {
       return new Response(JSON.stringify({ message: 'No items to process' }), {
@@ -58,8 +81,14 @@ Deno.serve(async (req) => {
     // Process items sequentially with delay between each
     const processedItems = [];
     for (const item of queueItems) {
+      const itemRequestId = `${requestId}-${item.id.substring(0, 6)}`;
       try {
-        console.log(`Processing queue item ${item.id} for event ${item.events.id}`);
+        logMessage(itemRequestId, 'INFO', `Processing queue item for event`, { 
+          queueId: item.id, 
+          eventId: item.events.id,
+          attempts: item.attempts || 0,
+          scheduledFor: item.scheduled_for
+        });
         
         // Check if event started more than 30 minutes ago
         const eventStartTime = new Date(item.events.start_time);
@@ -67,7 +96,11 @@ Deno.serve(async (req) => {
         cutoffTime.setMinutes(cutoffTime.getMinutes() - MAX_EVENT_AGE_MINS);
         
         if (eventStartTime < cutoffTime) {
-          console.log(`Event ${item.events.id} started over ${MAX_EVENT_AGE_MINS} minutes ago, marking as failed`);
+          logMessage(itemRequestId, 'WARN', `Event started over ${MAX_EVENT_AGE_MINS} minutes ago, marking as failed`, {
+            eventId: item.events.id,
+            startTime: eventStartTime.toISOString(),
+            cutoffTime: cutoffTime.toISOString()
+          });
           
           const { error: updateError } = await supabase
             .from('notetaker_queue')
@@ -79,7 +112,10 @@ Deno.serve(async (req) => {
             })
             .eq('id', item.id);
 
-          if (updateError) throw updateError;
+          if (updateError) {
+            logMessage(itemRequestId, 'ERROR', `Failed to update queue item status`, updateError);
+            throw updateError;
+          }
 
           processedItems.push({
             queueId: item.id,
@@ -94,6 +130,12 @@ Deno.serve(async (req) => {
         // Check for recent notetakers sent to the same meeting URL by this user
         const dedupWindow = new Date();
         dedupWindow.setMinutes(dedupWindow.getMinutes() - DEDUP_WINDOW_MINS);
+
+        logMessage(itemRequestId, 'DEBUG', `Checking for duplicate notetakers in the last ${DEDUP_WINDOW_MINS} minutes`, {
+          conferenceUrl: item.events.conference_url,
+          userId: item.events.user_id,
+          dedupWindow: dedupWindow.toISOString()
+        });
 
         const { data: recentNotetakers } = await supabase
           .from('notetaker_queue')
@@ -111,7 +153,11 @@ Deno.serve(async (req) => {
           .not('notetaker_id', 'is', null);
 
         if (recentNotetakers && recentNotetakers.length > 0) {
-          console.log(`Found recent notetaker for meeting URL ${item.events.conference_url} by user ${item.events.user_id}`);
+          logMessage(itemRequestId, 'WARN', `Found recent notetaker for meeting URL`, {
+            conferenceUrl: item.events.conference_url,
+            userId: item.events.user_id,
+            recentNotetakersCount: recentNotetakers.length
+          });
           
           const { error: updateError } = await supabase
             .from('notetaker_queue')
@@ -123,7 +169,10 @@ Deno.serve(async (req) => {
             })
             .eq('id', item.id);
 
-          if (updateError) throw updateError;
+          if (updateError) {
+            logMessage(itemRequestId, 'ERROR', `Failed to update queue item status for duplicate`, updateError);
+            throw updateError;
+          }
 
           processedItems.push({
             queueId: item.id,
@@ -147,8 +196,11 @@ Deno.serve(async (req) => {
           throw new Error('No conference URL found for event');
         }
 
-        console.log(`Using nylas_grant_id: ${grantId}`);
-        console.log(`Conference URL: ${event.conference_url}`);
+        logMessage(itemRequestId, 'INFO', `Sending notetaker to conference`, {
+          grantId,
+          conferenceUrl: event.conference_url,
+          notetakerName
+        });
 
         // Send notetaker request to Nylas
         const nylasResponse = await fetch(
@@ -169,7 +221,11 @@ Deno.serve(async (req) => {
 
         if (!nylasResponse.ok) {
           const errorText = await nylasResponse.text();
-          console.error(`Nylas API error (${nylasResponse.status}):`, errorText);
+          logMessage(itemRequestId, 'ERROR', `Nylas API error (${nylasResponse.status})`, {
+            statusCode: nylasResponse.status,
+            statusText: nylasResponse.statusText,
+            errorText
+          });
           
           const newAttempts = (item.attempts || 0) + 1;
           const updateData = {
@@ -184,7 +240,10 @@ Deno.serve(async (req) => {
             .update(updateData)
             .eq('id', item.id);
 
-          if (updateError) throw updateError;
+          if (updateError) {
+            logMessage(itemRequestId, 'ERROR', `Failed to update queue item status after API error`, updateError);
+            throw updateError;
+          }
 
           processedItems.push({
             queueId: item.id,
@@ -194,26 +253,27 @@ Deno.serve(async (req) => {
           });
           
           if (nylasResponse.status === 429) {
-            console.log('Rate limited, waiting longer before next request...');
+            logMessage(itemRequestId, 'WARN', 'Rate limited, waiting longer before next request...');
             await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY_MS * 2));
             continue;
           }
         }
 
         const responseText = await nylasResponse.text();
-        console.log('Raw Nylas response:', responseText);
+        logMessage(itemRequestId, 'DEBUG', 'Raw Nylas response', { responseText });
         
         const notetakerData = JSON.parse(responseText);
-        console.log('Parsed Nylas response:', notetakerData);
+        logMessage(itemRequestId, 'DEBUG', 'Parsed Nylas response', { notetakerData });
 
         const notetakerId = notetakerData.data?.id;
         if (!notetakerId) {
           throw new Error('No notetaker ID in response');
         }
 
-        console.log('Extracted notetaker ID:', notetakerId);
+        logMessage(itemRequestId, 'INFO', 'Successfully created notetaker', { notetakerId });
 
         // Create recording entry with notetaker_id
+        logMessage(itemRequestId, 'INFO', 'Creating recording entry');
         const { error: recordingError } = await supabase
           .from('recordings')
           .insert({
@@ -224,10 +284,12 @@ Deno.serve(async (req) => {
           });
 
         if (recordingError) {
+          logMessage(itemRequestId, 'ERROR', 'Failed to create recording entry', recordingError);
           throw recordingError;
         }
 
         // Update queue item status with notetaker_id
+        logMessage(itemRequestId, 'INFO', 'Updating queue item status to completed');
         const { error: updateError } = await supabase
           .from('notetaker_queue')
           .update({
@@ -238,6 +300,7 @@ Deno.serve(async (req) => {
           .eq('id', item.id);
 
         if (updateError) {
+          logMessage(itemRequestId, 'ERROR', 'Failed to update queue item status', updateError);
           throw updateError;
         }
 
@@ -247,11 +310,14 @@ Deno.serve(async (req) => {
           notetakerId: notetakerId,
         });
 
-        console.log(`Waiting ${RATE_LIMIT_DELAY_MS}ms before next request...`);
+        logMessage(itemRequestId, 'INFO', `Waiting ${RATE_LIMIT_DELAY_MS}ms before next request...`);
         await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY_MS));
 
       } catch (error) {
-        console.error(`Error processing queue item ${item.id}:`, error);
+        logMessage(itemRequestId, 'ERROR', `Error processing queue item ${item.id}`, {
+          error: error.message,
+          stack: error.stack
+        });
 
         const newAttempts = (item.attempts || 0) + 1;
         const updateData = {
@@ -275,12 +341,21 @@ Deno.serve(async (req) => {
       }
     }
 
+    logMessage(requestId, 'INFO', `Finished processing queue items`, { 
+      totalProcessed: processedItems.length,
+      results: processedItems.map(item => ({ queueId: item.queueId, status: item.status }))
+    });
+
     return new Response(JSON.stringify({ processed: processedItems }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
   } catch (error) {
-    console.error('Error processing queue:', error);
+    logMessage(requestId, 'ERROR', 'Error processing queue', {
+      error: error.message,
+      stack: error.stack
+    });
+    
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
