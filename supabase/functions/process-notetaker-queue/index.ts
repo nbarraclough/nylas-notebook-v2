@@ -14,25 +14,67 @@ const RATE_LIMIT_DELAY_MS = 1100; // 1.1 seconds between requests to be safe
 const MAX_EVENT_AGE_MINS = 30;
 const DEDUP_WINDOW_MINS = 30;
 
+// Log level colors (using ANSI colors)
+const LOG_COLORS = {
+  INFO: '📘',
+  DEBUG: '📔',
+  WARN: '📙',
+  ERROR: '📕',
+  SUCCESS: '📗',
+};
+
+// Log action emojis
+const LOG_ACTIONS = {
+  START: '🚀',
+  FETCH: '🔍',
+  PROCESS: '⚙️',
+  QUEUE: '📅',
+  API: '🌐',
+  CHECK: '✅',
+  FINISH: '🏁',
+  ERROR: '❌',
+  SKIP: '⏭️',
+  TIME: '⏱️',
+};
+
 /**
  * Generates a structured log message with timestamp, request ID, and log level
  */
-function logMessage(requestId: string, level: 'INFO' | 'ERROR' | 'WARN' | 'DEBUG', message: string, data?: any) {
-  const timestamp = new Date().toISOString();
-  const logPrefix = `[${timestamp}] [${requestId}] [${level}]`;
+function logMessage(requestId: string, level: 'INFO' | 'ERROR' | 'WARN' | 'DEBUG' | 'SUCCESS', message: string, data?: any, action?: keyof typeof LOG_ACTIONS) {
+  const timestamp = new Date().toISOString().split('T')[1].substring(0, 8); // HH:MM:SS format
+  const emoji = LOG_COLORS[level];
+  const actionEmoji = action ? LOG_ACTIONS[action] + ' ' : '';
+  
+  const logPrefix = `${emoji} [${timestamp}][${requestId}]`;
   
   if (data) {
-    console.log(`${logPrefix} ${message}`, data);
+    console.log(`${logPrefix} ${actionEmoji}${message}`, data);
   } else {
-    console.log(`${logPrefix} ${message}`);
+    console.log(`${logPrefix} ${actionEmoji}${message}`);
   }
 }
+
+// Shortcut log functions
+const logInfo = (requestId: string, message: string, data?: any, action?: keyof typeof LOG_ACTIONS) => 
+  logMessage(requestId, 'INFO', message, data, action);
+
+const logDebug = (requestId: string, message: string, data?: any, action?: keyof typeof LOG_ACTIONS) => 
+  logMessage(requestId, 'DEBUG', message, data, action);
+
+const logWarn = (requestId: string, message: string, data?: any, action?: keyof typeof LOG_ACTIONS) => 
+  logMessage(requestId, 'WARN', message, data, action);
+
+const logError = (requestId: string, message: string, data?: any, action?: keyof typeof LOG_ACTIONS) => 
+  logMessage(requestId, 'ERROR', message, data, action);
+
+const logSuccess = (requestId: string, message: string, data?: any, action?: keyof typeof LOG_ACTIONS) => 
+  logMessage(requestId, 'SUCCESS', message, data, action);
 
 Deno.serve(async (req) => {
   // Generate a unique request ID for this processing run
   const requestId = crypto.randomUUID().substring(0, 8);
   
-  logMessage(requestId, 'INFO', `Starting notetaker queue processing`);
+  logInfo(requestId, `Starting notetaker queue processing`, undefined, 'START');
 
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -40,7 +82,7 @@ Deno.serve(async (req) => {
 
   try {
     // Get pending queue items that are not manual meetings
-    logMessage(requestId, 'INFO', `Fetching pending queue items`);
+    logInfo(requestId, `Fetching pending queue items`, undefined, 'FETCH');
     
     const { data: queueItems, error: queueError } = await supabase
       .from('notetaker_queue')
@@ -65,11 +107,11 @@ Deno.serve(async (req) => {
       .limit(10);
 
     if (queueError) {
-      logMessage(requestId, 'ERROR', `Failed to fetch queue items`, queueError);
+      logError(requestId, `Failed to fetch queue items`, queueError, 'ERROR');
       throw queueError;
     }
 
-    logMessage(requestId, 'INFO', `Found ${queueItems?.length || 0} queue items to process`);
+    logInfo(requestId, `Found ${queueItems?.length || 0} queue items to process`, undefined, 'FETCH');
 
     if (!queueItems?.length) {
       return new Response(JSON.stringify({ message: 'No items to process' }), {
@@ -83,24 +125,30 @@ Deno.serve(async (req) => {
     for (const item of queueItems) {
       const itemRequestId = `${requestId}-${item.id.substring(0, 6)}`;
       try {
-        logMessage(itemRequestId, 'INFO', `Processing queue item for event`, { 
+        logInfo(itemRequestId, `Processing queue item for event`, { 
           queueId: item.id, 
           eventId: item.events.id,
           attempts: item.attempts || 0,
           scheduledFor: item.scheduled_for
-        });
+        }, 'PROCESS');
         
         // Check if event started more than 30 minutes ago
         const eventStartTime = new Date(item.events.start_time);
         const cutoffTime = new Date();
         cutoffTime.setMinutes(cutoffTime.getMinutes() - MAX_EVENT_AGE_MINS);
         
+        logDebug(itemRequestId, `Checking event age`, {
+          eventTime: eventStartTime.toISOString(),
+          cutoffTime: cutoffTime.toISOString(),
+          maxAgeMins: MAX_EVENT_AGE_MINS
+        }, 'CHECK');
+        
         if (eventStartTime < cutoffTime) {
-          logMessage(itemRequestId, 'WARN', `Event started over ${MAX_EVENT_AGE_MINS} minutes ago, marking as failed`, {
+          logWarn(itemRequestId, `Event started over ${MAX_EVENT_AGE_MINS} minutes ago, marking as failed`, {
             eventId: item.events.id,
             startTime: eventStartTime.toISOString(),
             cutoffTime: cutoffTime.toISOString()
-          });
+          }, 'SKIP');
           
           const { error: updateError } = await supabase
             .from('notetaker_queue')
@@ -113,7 +161,7 @@ Deno.serve(async (req) => {
             .eq('id', item.id);
 
           if (updateError) {
-            logMessage(itemRequestId, 'ERROR', `Failed to update queue item status`, updateError);
+            logError(itemRequestId, `Failed to update queue item status`, updateError, 'ERROR');
             throw updateError;
           }
 
@@ -131,11 +179,11 @@ Deno.serve(async (req) => {
         const dedupWindow = new Date();
         dedupWindow.setMinutes(dedupWindow.getMinutes() - DEDUP_WINDOW_MINS);
 
-        logMessage(itemRequestId, 'DEBUG', `Checking for duplicate notetakers in the last ${DEDUP_WINDOW_MINS} minutes`, {
+        logDebug(itemRequestId, `Checking for duplicate notetakers in the last ${DEDUP_WINDOW_MINS} minutes`, {
           conferenceUrl: item.events.conference_url,
           userId: item.events.user_id,
           dedupWindow: dedupWindow.toISOString()
-        });
+        }, 'CHECK');
 
         const { data: recentNotetakers } = await supabase
           .from('notetaker_queue')
@@ -153,11 +201,11 @@ Deno.serve(async (req) => {
           .not('notetaker_id', 'is', null);
 
         if (recentNotetakers && recentNotetakers.length > 0) {
-          logMessage(itemRequestId, 'WARN', `Found recent notetaker for meeting URL`, {
+          logWarn(itemRequestId, `Found recent notetaker for meeting URL`, {
             conferenceUrl: item.events.conference_url,
             userId: item.events.user_id,
             recentNotetakersCount: recentNotetakers.length
-          });
+          }, 'SKIP');
           
           const { error: updateError } = await supabase
             .from('notetaker_queue')
@@ -170,7 +218,7 @@ Deno.serve(async (req) => {
             .eq('id', item.id);
 
           if (updateError) {
-            logMessage(itemRequestId, 'ERROR', `Failed to update queue item status for duplicate`, updateError);
+            logError(itemRequestId, `Failed to update queue item status for duplicate`, updateError, 'ERROR');
             throw updateError;
           }
 
@@ -196,13 +244,14 @@ Deno.serve(async (req) => {
           throw new Error('No conference URL found for event');
         }
 
-        logMessage(itemRequestId, 'INFO', `Sending notetaker to conference`, {
+        logInfo(itemRequestId, `Sending notetaker to conference`, {
           grantId,
           conferenceUrl: event.conference_url,
           notetakerName
-        });
+        }, 'API');
 
         // Send notetaker request to Nylas
+        const startApiTime = Date.now();
         const nylasResponse = await fetch(
           `https://api.us.nylas.com/v3/grants/${grantId}/notetakers`,
           {
@@ -218,14 +267,16 @@ Deno.serve(async (req) => {
             }),
           }
         );
+        const apiTimeMs = Date.now() - startApiTime;
+        logDebug(itemRequestId, `Nylas API response time: ${apiTimeMs}ms`, undefined, 'TIME');
 
         if (!nylasResponse.ok) {
           const errorText = await nylasResponse.text();
-          logMessage(itemRequestId, 'ERROR', `Nylas API error (${nylasResponse.status})`, {
+          logError(itemRequestId, `Nylas API error (${nylasResponse.status})`, {
             statusCode: nylasResponse.status,
             statusText: nylasResponse.statusText,
             errorText
-          });
+          }, 'ERROR');
           
           const newAttempts = (item.attempts || 0) + 1;
           const updateData = {
@@ -241,7 +292,7 @@ Deno.serve(async (req) => {
             .eq('id', item.id);
 
           if (updateError) {
-            logMessage(itemRequestId, 'ERROR', `Failed to update queue item status after API error`, updateError);
+            logError(itemRequestId, `Failed to update queue item status after API error`, updateError, 'ERROR');
             throw updateError;
           }
 
@@ -253,27 +304,27 @@ Deno.serve(async (req) => {
           });
           
           if (nylasResponse.status === 429) {
-            logMessage(itemRequestId, 'WARN', 'Rate limited, waiting longer before next request...');
+            logWarn(itemRequestId, 'Rate limited, waiting longer before next request...', undefined, 'TIME');
             await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY_MS * 2));
             continue;
           }
         }
 
         const responseText = await nylasResponse.text();
-        logMessage(itemRequestId, 'DEBUG', 'Raw Nylas response', { responseText });
+        logDebug(itemRequestId, 'Raw Nylas response', { responseText }, 'API');
         
         const notetakerData = JSON.parse(responseText);
-        logMessage(itemRequestId, 'DEBUG', 'Parsed Nylas response', { notetakerData });
+        logDebug(itemRequestId, 'Parsed Nylas response', { notetakerData }, 'API');
 
         const notetakerId = notetakerData.data?.id;
         if (!notetakerId) {
           throw new Error('No notetaker ID in response');
         }
 
-        logMessage(itemRequestId, 'INFO', 'Successfully created notetaker', { notetakerId });
+        logSuccess(itemRequestId, 'Successfully created notetaker', { notetakerId }, 'API');
 
         // Create recording entry with notetaker_id
-        logMessage(itemRequestId, 'INFO', 'Creating recording entry');
+        logInfo(itemRequestId, 'Creating recording entry', undefined, 'PROCESS');
         const { error: recordingError } = await supabase
           .from('recordings')
           .insert({
@@ -284,12 +335,12 @@ Deno.serve(async (req) => {
           });
 
         if (recordingError) {
-          logMessage(itemRequestId, 'ERROR', 'Failed to create recording entry', recordingError);
+          logError(itemRequestId, 'Failed to create recording entry', recordingError, 'ERROR');
           throw recordingError;
         }
 
         // Update queue item status with notetaker_id
-        logMessage(itemRequestId, 'INFO', 'Updating queue item status to completed');
+        logInfo(itemRequestId, 'Updating queue item status to completed', undefined, 'PROCESS');
         const { error: updateError } = await supabase
           .from('notetaker_queue')
           .update({
@@ -300,7 +351,7 @@ Deno.serve(async (req) => {
           .eq('id', item.id);
 
         if (updateError) {
-          logMessage(itemRequestId, 'ERROR', 'Failed to update queue item status', updateError);
+          logError(itemRequestId, 'Failed to update queue item status', updateError, 'ERROR');
           throw updateError;
         }
 
@@ -310,14 +361,14 @@ Deno.serve(async (req) => {
           notetakerId: notetakerId,
         });
 
-        logMessage(itemRequestId, 'INFO', `Waiting ${RATE_LIMIT_DELAY_MS}ms before next request...`);
+        logInfo(itemRequestId, `Waiting ${RATE_LIMIT_DELAY_MS}ms before next request...`, undefined, 'TIME');
         await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY_MS));
 
       } catch (error) {
-        logMessage(itemRequestId, 'ERROR', `Error processing queue item ${item.id}`, {
+        logError(itemRequestId, `Error processing queue item ${item.id}`, {
           error: error.message,
           stack: error.stack
-        });
+        }, 'ERROR');
 
         const newAttempts = (item.attempts || 0) + 1;
         const updateData = {
@@ -341,20 +392,20 @@ Deno.serve(async (req) => {
       }
     }
 
-    logMessage(requestId, 'INFO', `Finished processing queue items`, { 
+    logSuccess(requestId, `Finished processing queue items`, { 
       totalProcessed: processedItems.length,
       results: processedItems.map(item => ({ queueId: item.queueId, status: item.status }))
-    });
+    }, 'FINISH');
 
     return new Response(JSON.stringify({ processed: processedItems }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
   } catch (error) {
-    logMessage(requestId, 'ERROR', 'Error processing queue', {
+    logError(requestId, 'Error processing queue', {
       error: error.message,
       stack: error.stack
-    });
+    }, 'ERROR');
     
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
