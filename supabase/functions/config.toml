@@ -76,3 +76,7 @@ verify_jwt = true
 [[functions]]
 name = "create-notetaker"
 verify_jwt = true
+
+[[functions]]
+name = "handle-recording-rules-change"
+verify_jwt = true

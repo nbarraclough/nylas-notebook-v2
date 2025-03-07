@@ -76,15 +76,21 @@ export const RecordingRules = ({
 
       console.log('Profile updated successfully:', data);
 
-      console.log('Recording rules changed, triggering event re-evaluation');
-      const { error: evalError } = await supabase.functions.invoke('sync-nylas-events', {
-        body: { 
-          user_id: userId,
-          force_recording_rules: true 
-        }
-      });
+      // Call our new edge function to handle recording rules change
+      if ('record_external_meetings' in updates || 'record_internal_meetings' in updates) {
+        console.log('Recording rules changed, calling handle-recording-rules-change function');
+        const { error: handleError } = await supabase.functions.invoke('handle-recording-rules-change', {
+          body: { 
+            userId, 
+            recordExternalMeetings: updates.record_external_meetings !== undefined ? 
+              updates.record_external_meetings : localState.record_external_meetings,
+            recordInternalMeetings: updates.record_internal_meetings !== undefined ? 
+              updates.record_internal_meetings : localState.record_internal_meetings
+          }
+        });
 
-      if (evalError) throw evalError;
+        if (handleError) throw handleError;
+      }
 
       return data;
     },
