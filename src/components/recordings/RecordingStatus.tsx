@@ -1,4 +1,3 @@
-
 import { 
   Clock, LogIn, LogOut, Video, CheckCircle, XCircle, Loader, 
   Play, UserMinus, UserPlus, Users, AlertTriangle, 
@@ -143,13 +142,12 @@ export const RecordingStatus = ({
     }
   };
 
-  // New helper functions for video and transcript badges
   const getVideoBadge = () => {
     return {
       icon: <FileVideo className="h-4 w-4" />,
       text: "Video",
       description: "Video recording is available",
-      color: "bg-purple-100 text-purple-800 border-purple-200"
+      color: "bg-gray-100 text-gray-800 border-gray-200"
     };
   };
 
@@ -158,7 +156,7 @@ export const RecordingStatus = ({
       icon: <FileText className="h-4 w-4" />,
       text: "Transcript",
       description: "Transcript is available",
-      color: "bg-emerald-100 text-emerald-800 border-emerald-200"
+      color: "bg-gray-100 text-gray-800 border-gray-200"
     };
   };
 
@@ -184,7 +182,6 @@ export const RecordingStatus = ({
             </TooltipContent>
           </Tooltip>
           
-          {/* Show video badge if available */}
           {hasVideo && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -198,7 +195,6 @@ export const RecordingStatus = ({
             </Tooltip>
           )}
           
-          {/* Show transcript badge if available */}
           {hasTranscript && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -234,7 +230,6 @@ export const RecordingStatus = ({
             </TooltipContent>
           </Tooltip>
           
-          {/* Show video badge if available */}
           {hasVideo && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -249,7 +244,6 @@ export const RecordingStatus = ({
             </Tooltip>
           )}
           
-          {/* Show transcript badge if available */}
           {hasTranscript && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -268,7 +262,6 @@ export const RecordingStatus = ({
     );
   }
 
-  // Default variant with more detailed display
   return (
     <TooltipProvider>
       <div className="flex flex-col gap-1.5">
@@ -287,7 +280,6 @@ export const RecordingStatus = ({
         </Tooltip>
         
         <div className="flex items-center gap-1.5">
-          {/* Show video badge if available */}
           {hasVideo && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -304,7 +296,6 @@ export const RecordingStatus = ({
             </Tooltip>
           )}
           
-          {/* Show transcript badge if available */}
           {hasTranscript && (
             <Tooltip>
               <TooltipTrigger asChild>
