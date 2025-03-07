@@ -1,4 +1,3 @@
-
 import { format } from "date-fns";
 import {
   Table,
@@ -28,11 +27,9 @@ export function NotetakersTable({
   onRetrieve,
 }: NotetakersTableProps) {
   const getEventTitle = (record: NotetakerRecord) => {
-    // If it's a manual meeting and has a title, use that
     if (record.event.manual_meeting?.title) {
       return record.event.manual_meeting.title;
     }
-    // Otherwise use the event title
     return record.event.title;
   };
 
@@ -78,7 +75,7 @@ export function NotetakersTable({
                 <NotetakerActions
                   notetakerId={record.notetaker_id}
                   recordingId={record.id}
-                  status=""
+                  status={record.status}
                   isKicking={isKicking[record.id]}
                   isRetrieving={isRetrieving[record.id]}
                   onKick={() => onKick(record.notetaker_id, record.id)}
