@@ -5,7 +5,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 import { corsHeaders } from '../_shared/cors.ts'
-import { createMuxAsset, getNylasRecordingMedia } from '../_shared/mux-utils.ts';
+import { createMuxAsset, getNylasRecordingMedia, fetchTranscriptContent } from '../_shared/mux-utils.ts';
 
 console.log("Loading get-recording-media function")
 
@@ -122,6 +122,15 @@ Deno.serve(async (req) => {
         // Add transcript URL if available
         if (transcriptUrl) {
           updateData.transcript_url = transcriptUrl;
+          
+          // Fetch and process transcript content if URL is available
+          console.log(`📝 [${requestId}] Fetching transcript content from URL`);
+          const transcriptContent = await fetchTranscriptContent(transcriptUrl, requestId);
+          
+          if (transcriptContent) {
+            console.log(`📝 [${requestId}] Successfully processed transcript content with ${transcriptContent.length} entries`);
+            updateData.transcript_content = transcriptContent;
+          }
         }
 
         // Update the recording with the URLs
@@ -190,6 +199,23 @@ Deno.serve(async (req) => {
       }
     } else {
       // We have a recording URL but no Mux asset yet
+      
+      // If we have a transcript URL but no content, try to fetch and process it
+      if (recording.transcript_url && !recording.transcript_content) {
+        console.log(`📝 [${requestId}] Found transcript URL but no content, fetching from: ${recording.transcript_url}`);
+        const transcriptContent = await fetchTranscriptContent(recording.transcript_url, requestId);
+        
+        if (transcriptContent) {
+          console.log(`📝 [${requestId}] Successfully processed transcript content with ${transcriptContent.length} entries`);
+          await supabase
+            .from('recordings')
+            .update({
+              transcript_content: transcriptContent,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', recording.id);
+        }
+      }
       
       // Update status to retrieving
       await supabase
