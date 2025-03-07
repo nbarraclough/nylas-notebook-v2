@@ -70,6 +70,7 @@ const logError = (requestId: string, message: string, data?: any, action?: keyof
 const logSuccess = (requestId: string, message: string, data?: any, action?: keyof typeof LOG_ACTIONS) => 
   logMessage(requestId, 'SUCCESS', message, data, action);
 
+// Note: JWT verification is intentionally turned OFF for webhook functions
 Deno.serve(async (req) => {
   // Generate a unique request ID for this processing run
   const requestId = crypto.randomUUID().substring(0, 8);
