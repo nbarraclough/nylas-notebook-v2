@@ -40,18 +40,19 @@ export function RecurringRecordingToggle({
           setSettingId(existingSetting.id);
         } else {
           // Fall back to checking recordings
-          const hasRecordings = events.some(event => 
-            event.recordings?.length > 0
+          // Check for non-cancelled recordings
+          const activeRecordings = events.filter(event => 
+            event.recordings?.some(recording => recording.status !== 'cancelled')
           );
-          setIsEnabled(hasRecordings);
+          setIsEnabled(activeRecordings.length > 0);
         }
       } catch (error) {
         console.error('Error fetching recording settings:', error);
         // Fall back to checking recordings
-        const hasRecordings = events.some(event => 
-          event.recordings?.length > 0
+        const activeRecordings = events.filter(event => 
+          event.recordings?.some(recording => recording.status !== 'cancelled')
         );
-        setIsEnabled(hasRecordings);
+        setIsEnabled(activeRecordings.length > 0);
       }
     };
 

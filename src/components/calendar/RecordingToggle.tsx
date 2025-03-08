@@ -78,9 +78,10 @@ export const RecordingToggle = ({
         // First, get the notetaker_id for this event
         const { data: recordingData, error: recordingError } = await supabase
           .from('recordings')
-          .select('notetaker_id')
+          .select('id, notetaker_id')
           .eq('event_id', eventId)
           .eq('user_id', userId)
+          .not('status', 'eq', 'cancelled')
           .maybeSingle();
 
         if (recordingError) throw recordingError;

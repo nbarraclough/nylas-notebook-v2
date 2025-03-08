@@ -49,12 +49,25 @@ export const useRealtimeUpdates = (userId: string | null) => {
           console.log('Recordings change received:', payload);
           // Invalidate recordings queries
           queryClient.invalidateQueries({ queryKey: ['recordings'] });
+          queryClient.invalidateQueries({ queryKey: ['notetakers'] });
           
-          if (payload.eventType === 'INSERT') {
+          if (payload.eventType === 'INSERT' && payload.new.status !== 'cancelled') {
             toast({
               title: 'New Recording',
               description: 'A new meeting recording is available.',
             });
+          } else if (payload.eventType === 'UPDATE') {
+            // If status changed to cancelled, don't show toast
+            if (payload.old.status !== 'cancelled' && payload.new.status === 'cancelled') {
+              console.log('Recording cancelled:', payload.new.id);
+            } 
+            // If status changed from cancelled to something else, show toast
+            else if (payload.old.status === 'cancelled' && payload.new.status !== 'cancelled') {
+              toast({
+                title: 'Recording Reactivated',
+                description: 'A meeting recording has been reactivated.',
+              });
+            }
           }
         }
       )

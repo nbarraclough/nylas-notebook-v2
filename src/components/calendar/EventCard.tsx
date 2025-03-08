@@ -61,9 +61,10 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
       console.log('Checking recording status for event:', event.id);
       const { data, error } = await supabase
         .from('recordings')
-        .select('id')
+        .select('id, status')
         .eq('event_id', event.id)
         .eq('user_id', userId)
+        .not('status', 'eq', 'cancelled') // Filter out cancelled recordings
         .maybeSingle();
 
       if (error) {
@@ -72,7 +73,7 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
       }
 
       const isCurrentlyQueued = !!data;
-      console.log('Recording status for event:', event.id, 'is:', isCurrentlyQueued);
+      console.log('Recording status for event:', event.id, 'is:', isCurrentlyQueued, data?.status);
       setIsQueued(isCurrentlyQueued);
     } catch (err) {
       console.error('Error in checkQueueStatus:', err);
@@ -100,10 +101,19 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
       }, 
       (payload) => {
         console.log('Received recording status update:', payload);
+        
+        // Handle different events based on status
         if (payload.eventType === 'DELETE') {
           setIsQueued(false);
-        } else if (payload.eventType === 'INSERT') {
+        } else if (payload.eventType === 'INSERT' && payload.new.status !== 'cancelled') {
           setIsQueued(true);
+        } else if (payload.eventType === 'UPDATE') {
+          // Only show as queued if status is not cancelled
+          if (payload.new.status === 'cancelled') {
+            setIsQueued(false);
+          } else if (payload.old.status === 'cancelled' && payload.new.status !== 'cancelled') {
+            setIsQueued(true);
+          }
         }
       })
       .subscribe();

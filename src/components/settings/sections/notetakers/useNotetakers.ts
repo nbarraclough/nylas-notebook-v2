@@ -28,7 +28,7 @@ export function useNotetakers(userId: string) {
         `)
         .eq('user_id', userId)
         .not('notetaker_id', 'is', null)
-        .not('status', 'eq', 'cancelled'); // Filter out cancelled notetakers
+        .not('status', 'eq', 'cancelled'); // Explicitly filter out cancelled notetakers
 
       console.log('Recordings query result:', { recordingsData, recordingsError });
       

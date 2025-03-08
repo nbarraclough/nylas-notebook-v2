@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -62,12 +61,11 @@ export function useRecordings({
         `, { count: 'exact' })
         .order('created_at', { ascending: false });
 
-      // Always filter out cancelled recordings
-      query = query.not('status', 'eq', 'cancelled');
-
-      // Filter out error recordings unless showErrors is true
+      // Always filter out cancelled recordings unless explicitly requested (showErrors = true)
       if (!showErrors) {
-        query = query.not('status', 'in', '("error","failed_entry","failed")');
+        query = query.not('status', 'in', '("error","failed_entry","failed","cancelled")');
+      } else {
+        query = query.not('status', 'eq', 'cancelled');
       }
 
       // If not authenticated, only fetch the shared recording
