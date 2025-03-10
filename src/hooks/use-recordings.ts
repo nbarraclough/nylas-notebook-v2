@@ -71,15 +71,16 @@ export function useRecordings({
         query = query.not('status', 'eq', 'cancelled');
       }
       
-      // Filter out scheduled meetings that haven't started yet
+      // Filter out scheduled meetings that haven't started yet (if showScheduled is false)
       if (!showScheduled) {
         const now = new Date().toISOString();
         
-        // Filter out recordings where:
-        // 1. The event hasn't started yet, OR
-        // 2. The recording is still in waiting/joining state
-        query = query
-          .or(`event.start_time.lte.${now},and(status.neq.waiting,status.neq.joining,status.neq.waiting_for_admission,status.neq.dispatched)`);
+        // First, exclude recordings where the event start time is in the future
+        query = query.not('event.start_time', 'gt', now);
+        
+        // Also exclude recordings in a waiting/joining state
+        const waitingStates = ['waiting', 'joining', 'waiting_for_admission', 'dispatched'];
+        query = query.not('status', 'in', `(${waitingStates.map(s => `"${s}"`).join(',')})`);
       }
 
       // If not authenticated, only fetch the shared recording

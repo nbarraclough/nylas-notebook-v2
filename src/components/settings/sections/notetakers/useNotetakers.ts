@@ -30,10 +30,16 @@ export function useNotetakers(userId: string, showScheduled: boolean = false) {
         .not('notetaker_id', 'is', null)
         .not('status', 'eq', 'cancelled'); // Explicitly filter out cancelled notetakers
 
-      // If we're not showing scheduled meetings, filter by event start time
+      // If we're not showing scheduled meetings, filter them out
       if (!showScheduled) {
         const now = new Date().toISOString();
-        query = query.or(`event.start_time.lte.${now},and(status.neq.waiting,status.neq.joining,status.neq.waiting_for_admission,status.neq.dispatched)`);
+        
+        // Filter out future events
+        query = query.not('event.start_time', 'gt', now);
+        
+        // Also filter out recordings in waiting states
+        const waitingStates = ['waiting', 'joining', 'waiting_for_admission', 'dispatched'];
+        query = query.not('status', 'in', `(${waitingStates.map(s => `"${s}"`).join(',')})`);
       }
 
       const { data: recordingsData, error: recordingsError } = await query;
