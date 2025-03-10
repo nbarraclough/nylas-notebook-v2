@@ -30,6 +30,9 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
   const isCalendarRoute = location.pathname === "/calendar";
   const { data: profile, isLoading: profileLoading } = useProfile(userId);
 
+  // Check if this is a recurring event
+  const isRecurringEvent = !!event.master_event_id;
+
   const parseParticipants = (data: unknown): EventParticipant[] => {
     if (Array.isArray(data)) {
       return data.filter((item): item is EventParticipant => 
@@ -189,59 +192,99 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
             isPast={isPast}
           />
           
-          {/* Only show debugging info if queued */}
-          {isQueued && (
-            <div className="mt-2 border-t pt-2 text-xs font-mono text-gray-500">
-              <div className="flex items-center justify-between mb-1">
-                <span>Event ID:</span>
-                <div className="flex items-center">
-                  <code className="bg-gray-100 px-1 py-0.5 rounded">{event.id}</code>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-5 w-5 ml-1" 
-                    onClick={() => copyToClipboard(event.id, "Event ID")}
-                  >
-                    <CopyIcon className="h-3 w-3" />
-                  </Button>
-                </div>
+          {/* Debug information - now always show event ID */}
+          <div className="mt-2 border-t pt-2 text-xs font-mono text-gray-500">
+            <div className="flex items-center justify-between mb-1">
+              <span>Event ID:</span>
+              <div className="flex items-center">
+                <code className="bg-gray-100 px-1 py-0.5 rounded">{event.id}</code>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-5 w-5 ml-1" 
+                  onClick={() => copyToClipboard(event.id, "Event ID")}
+                >
+                  <CopyIcon className="h-3 w-3" />
+                </Button>
               </div>
-              
-              {calendarId && (
-                <div className="flex items-center justify-between mb-1">
-                  <span>Calendar ID:</span>
-                  <div className="flex items-center">
-                    <code className="bg-gray-100 px-1 py-0.5 rounded">{calendarId}</code>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-5 w-5 ml-1" 
-                      onClick={() => copyToClipboard(calendarId, "Calendar ID")}
-                    >
-                      <CopyIcon className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-              
-              {notetakerId && (
-                <div className="flex items-center justify-between">
-                  <span>Notetaker ID:</span>
-                  <div className="flex items-center">
-                    <code className="bg-gray-100 px-1 py-0.5 rounded">{notetakerId}</code>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-5 w-5 ml-1" 
-                      onClick={() => copyToClipboard(notetakerId, "Notetaker ID")}
-                    >
-                      <CopyIcon className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              )}
             </div>
-          )}
+            
+            {/* Show recurring event info if available */}
+            {isRecurringEvent && (
+              <>
+                <div className="flex items-center justify-between mb-1">
+                  <span>Master Event ID:</span>
+                  <div className="flex items-center">
+                    <code className="bg-gray-100 px-1 py-0.5 rounded">{event.master_event_id}</code>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-5 w-5 ml-1" 
+                      onClick={() => copyToClipboard(event.master_event_id || "", "Master Event ID")}
+                    >
+                      <CopyIcon className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+                
+                {event.ical_uid && (
+                  <div className="flex items-center justify-between mb-1">
+                    <span>Occurrence ID:</span>
+                    <div className="flex items-center">
+                      <code className="bg-gray-100 px-1 py-0.5 rounded">{event.ical_uid}</code>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-5 w-5 ml-1" 
+                        onClick={() => copyToClipboard(event.ical_uid || "", "Occurrence ID")}
+                      >
+                        <CopyIcon className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+            
+            {/* Only show additional recording info if queued */}
+            {isQueued && (
+              <>
+                {calendarId && (
+                  <div className="flex items-center justify-between mb-1">
+                    <span>Calendar ID:</span>
+                    <div className="flex items-center">
+                      <code className="bg-gray-100 px-1 py-0.5 rounded">{calendarId}</code>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-5 w-5 ml-1" 
+                        onClick={() => copyToClipboard(calendarId, "Calendar ID")}
+                      >
+                        <CopyIcon className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {notetakerId && (
+                  <div className="flex items-center justify-between">
+                    <span>Notetaker ID:</span>
+                    <div className="flex items-center">
+                      <code className="bg-gray-100 px-1 py-0.5 rounded">{notetakerId}</code>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-5 w-5 ml-1" 
+                        onClick={() => copyToClipboard(notetakerId, "Notetaker ID")}
+                      >
+                        <CopyIcon className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
