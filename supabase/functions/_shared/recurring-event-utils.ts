@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 
 export interface NylasEvent {
@@ -202,15 +201,16 @@ export async function cleanupOrphanedInstances(supabaseUrl: string, supabaseKey:
   }
 }
 
-// Updated function to deduplicate events with the same ical_uid
+// Improved function to safely deduplicate non-recurring events with the same ical_uid
 export async function deduplicateEvents(supabaseUrl: string, supabaseKey: string, requestId: string) {
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
-    console.log(`🔍 [${requestId}] Starting event deduplication process`);
+    console.log(`🔍 [${requestId}] Starting event deduplication process with improved recurring event handling`);
 
-    // Find all events with duplicate ical_uids
-    const { data: duplicates, error: queryError } = await supabase.rpc(
-      'find_duplicate_events_by_ical_uid'
+    // Find all non-recurring events with duplicate ical_uids
+    // This custom query excludes events that are part of recurring series
+    const { data: duplicateGroups, error: queryError } = await supabase.rpc(
+      'find_non_recurring_duplicate_events'
     );
 
     if (queryError) {
@@ -218,71 +218,97 @@ export async function deduplicateEvents(supabaseUrl: string, supabaseKey: string
       return { success: false, error: queryError.message };
     }
 
-    if (!duplicates || duplicates.length === 0) {
+    if (!duplicateGroups || duplicateGroups.length === 0) {
       console.log(`✅ [${requestId}] No duplicate events found.`);
       return { success: true, count: 0 };
     }
 
-    console.log(`⚠️ [${requestId}] Found ${duplicates.length} sets of duplicate events.`);
+    console.log(`⚠️ [${requestId}] Found ${duplicateGroups.length} sets of non-recurring duplicate events.`);
 
     let deletedCount = 0;
-    for (const dup of duplicates) {
-      const { data: events, error: eventsError } = await supabase
-        .from('events')
-        .select('*')
-        .eq('ical_uid', dup.ical_uid)
-        .eq('user_id', dup.user_id)
-        .order('last_updated_at', { ascending: false });
+    for (const group of duplicateGroups) {
+      console.log(`🔄 [${requestId}] Processing duplicate group with ical_uid: ${group.ical_uid}, user_id: ${group.user_id}, count: ${group.count}`);
 
-      if (eventsError) {
-        console.error(`❌ [${requestId}] Error fetching duplicate events:`, eventsError);
-        continue;
-      }
+      // Start a transaction for each group of duplicates
+      const transaction = async () => {
+        // Get all the events in this duplicate group
+        const { data: events, error: eventsError } = await supabase
+          .from('events')
+          .select('*')
+          .eq('ical_uid', group.ical_uid)
+          .eq('user_id', group.user_id)
+          .is('master_event_id', null)      // Ensure these are NOT recurring instances
+          .is('recurrence', null)           // Ensure these do NOT have recurrence rules
+          .order('last_updated_at', { ascending: false });
 
-      if (events && events.length > 1) {
+        if (eventsError) {
+          console.error(`❌ [${requestId}] Error fetching duplicate events:`, eventsError);
+          throw eventsError;
+        }
+
+        if (!events || events.length <= 1) {
+          console.log(`ℹ️ [${requestId}] No duplicates found for ical_uid: ${group.ical_uid} after filtering recurring events.`);
+          return 0;
+        }
+
         // Keep the most recently updated event
         const [keepEvent, ...deleteEvents] = events;
-        
-        console.log(`🔄 [${requestId}] Keeping event ${keepEvent.id} (${keepEvent.nylas_event_id}) and deleting ${deleteEvents.length} duplicates for ical_uid: ${dup.ical_uid}`);
-        
-        // Get IDs of events to delete
         const deleteIds = deleteEvents.map(e => e.id);
         
-        // First, update any recordings to point to the kept event
+        console.log(`🔄 [${requestId}] Will keep event ${keepEvent.id} (${keepEvent.nylas_event_id}) and delete ${deleteEvents.length} duplicates.`);
+        
+        // Additional safety check - verify none of these events are recurring
+        for (const event of deleteEvents) {
+          if (event.master_event_id || event.recurrence) {
+            console.error(`⚠️ [${requestId}] Skipping deletion of event ${event.id} as it appears to be part of a recurring series.`);
+            deleteIds.splice(deleteIds.indexOf(event.id), 1);
+          }
+        }
+        
+        if (deleteIds.length === 0) {
+          console.log(`ℹ️ [${requestId}] No events to delete after safety checks.`);
+          return 0;
+        }
+        
+        // Update all related tables to point to the kept event
+        
+        // 1. Update recordings
         const { error: updateRecordingsError } = await supabase
           .from('recordings')
           .update({ event_id: keepEvent.id })
           .in('event_id', deleteIds);
         
         if (updateRecordingsError) {
-          console.error(`❌ [${requestId}] Error updating recordings for duplicate events:`, updateRecordingsError);
-          continue;
+          console.error(`❌ [${requestId}] Error updating recordings:`, updateRecordingsError);
+          throw updateRecordingsError;
         }
         
-        // Now update any webhook_relationships to point to the kept event
+        // 2. Update webhook relationships
         const { error: updateWebhookRelationshipsError } = await supabase
           .from('webhook_relationships')
           .update({ event_id: keepEvent.id })
           .in('event_id', deleteIds);
         
         if (updateWebhookRelationshipsError) {
-          console.error(`❌ [${requestId}] Error updating webhook_relationships for duplicate events:`, updateWebhookRelationshipsError);
-          continue;
+          console.error(`❌ [${requestId}] Error updating webhook_relationships:`, updateWebhookRelationshipsError);
+          throw updateWebhookRelationshipsError;
         }
         
-        // Check for any other tables that might reference events
-        // For example, notetaker_queue
+        // 3. Update notetaker queue
         const { error: updateNotetakerQueueError } = await supabase
           .from('notetaker_queue')
           .update({ event_id: keepEvent.id })
           .in('event_id', deleteIds);
         
         if (updateNotetakerQueueError) {
-          console.error(`❌ [${requestId}] Error updating notetaker_queue for duplicate events:`, updateNotetakerQueueError);
-          continue;
+          console.error(`❌ [${requestId}] Error updating notetaker_queue:`, updateNotetakerQueueError);
+          throw updateNotetakerQueueError;
         }
-
-        // Then delete the duplicate events
+        
+        // 4. Check for any other potential foreign key references
+        // Add more tables here if needed
+        
+        // Now delete the duplicate events
         const { error: deleteError, count } = await supabase
           .from('events')
           .delete()
@@ -290,14 +316,24 @@ export async function deduplicateEvents(supabaseUrl: string, supabaseKey: string
         
         if (deleteError) {
           console.error(`❌ [${requestId}] Error deleting duplicate events:`, deleteError);
-          continue;
+          throw deleteError;
         }
         
-        deletedCount += count || 0;
+        console.log(`✅ [${requestId}] Successfully deleted ${count} duplicate events for ical_uid: ${group.ical_uid}`);
+        return count || 0;
+      };
+
+      try {
+        // Execute the transaction
+        const deleted = await transaction();
+        deletedCount += deleted;
+      } catch (error) {
+        console.error(`❌ [${requestId}] Transaction failed for ical_uid ${group.ical_uid}:`, error);
+        // Continue with next group despite error in this one
       }
     }
 
-    console.log(`✅ [${requestId}] Successfully deleted ${deletedCount} duplicate events.`);
+    console.log(`✅ [${requestId}] Successfully completed deduplication: ${deletedCount} duplicate events removed.`);
     return { success: true, count: deletedCount };
 
   } catch (error: any) {

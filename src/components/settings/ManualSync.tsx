@@ -12,6 +12,7 @@ export const ManualSync = ({ userId }: { userId: string }) => {
   const { toast } = useToast();
   const [isSyncing, setIsSyncing] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isDeduplicate, setIsDeduplicate] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncStatus, setSyncStatus] = useState("");
   const { data: profileData, isLoading: isProfileLoading } = useProfileData();
@@ -112,6 +113,46 @@ export const ManualSync = ({ userId }: { userId: string }) => {
     }
   };
 
+  const runDeduplication = async () => {
+    if (!userId) return;
+
+    try {
+      setIsDeduplicate(true);
+      setSyncStatus("Running event deduplication...");
+      
+      console.log('Starting event deduplication for user:', userId);
+      
+      const { data, error } = await supabase.functions.invoke('deduplicate-events', {
+        body: { user_id: userId }
+      });
+      
+      if (error) {
+        console.error('Error response from function:', error);
+        throw new Error(`Deduplication failed: ${error.message || 'Unknown error'}`);
+      }
+      
+      if (data && data.success === false) {
+        throw new Error(data.message || 'Deduplication operation failed');
+      }
+      
+      console.log('Deduplication completed:', data);
+      
+      toast({
+        title: "Success",
+        description: `Deduplication completed: ${data.result?.count || 0} duplicate events removed.`,
+      });
+    } catch (error) {
+      console.error('Error deduplicating events:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to deduplicate events. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeduplicate(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -157,6 +198,35 @@ export const ManualSync = ({ userId }: { userId: string }) => {
               <Play className="mr-2 h-4 w-4" />
               {isProcessing ? "Processing..." : "Process Queue"}
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Fix Duplicate Events</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              This tool safely fixes duplicate non-recurring events while preserving recurring event series.
+            </p>
+            <div className="flex justify-end">
+              <Button 
+                onClick={runDeduplication} 
+                disabled={isDeduplicate}
+                className="w-full !bg-[#0F172A] !text-white hover:!bg-[#0F172A]/90"
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${isDeduplicate ? 'animate-spin' : ''}`} />
+                {isDeduplicate ? "Running..." : "Fix Duplicates"}
+              </Button>
+            </div>
+            
+            {isDeduplicate && (
+              <p className="text-sm text-muted-foreground text-center mt-2">
+                {syncStatus || "Processing event deduplication..."}
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

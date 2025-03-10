@@ -55,7 +55,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: result.success,
-        message: `Deduplication completed: ${result.count} duplicate events removed`,
+        message: `Deduplication completed: ${result.count || 0} duplicate events removed`,
         result
       }),
       { 
