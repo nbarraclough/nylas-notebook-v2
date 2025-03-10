@@ -55,32 +55,65 @@ serve(async (req) => {
     
     console.log(`📅 [${requestId}] Fetching events from ${formatDate(startDate)} to ${formatDate(endDate)}`);
 
-    // Fetch events from Nylas API
-    const nylasResponse = await fetch(
-      `https://api.us.nylas.com/v3/grants/${grant_id}/events?calendar_id=primary&starts_after=${startTimestamp}&ends_before=${endTimestamp}`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${NYLAS_CLIENT_SECRET}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+    // Implement pagination to fetch all events
+    let allEvents = [];
+    let pageToken = null;
+    let pageCount = 0;
+    const limit = 100; // Fetch 100 events at a time (maximum is 200)
+    
+    do {
+      pageCount++;
+      console.log(`📄 [${requestId}] Fetching page ${pageCount} of events${pageToken ? ' with page token' : ''}`);
+      
+      // Build query parameters for the Nylas API
+      const queryParams = new URLSearchParams({
+        calendar_id: 'primary',
+        starts_after: startTimestamp.toString(),
+        ends_before: endTimestamp.toString(),
+        limit: limit.toString()
+      });
+      
+      // Add page_token if we have one from a previous request
+      if (pageToken) {
+        queryParams.append('page_token', pageToken);
       }
-    );
+      
+      // Fetch events from Nylas API
+      const nylasResponse = await fetch(
+        `https://api.us.nylas.com/v3/grants/${grant_id}/events?${queryParams.toString()}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${NYLAS_CLIENT_SECRET}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+        }
+      );
 
-    if (!nylasResponse.ok) {
-      const errorText = await nylasResponse.text();
-      console.error(`❌ [${requestId}] Nylas API error:`, errorText);
-      throw new Error(`Failed to fetch events from Nylas: ${nylasResponse.status} ${errorText}`);
-    }
+      if (!nylasResponse.ok) {
+        const errorText = await nylasResponse.text();
+        console.error(`❌ [${requestId}] Nylas API error on page ${pageCount}:`, errorText);
+        throw new Error(`Failed to fetch events from Nylas: ${nylasResponse.status} ${errorText}`);
+      }
 
-    const nylasData = await nylasResponse.json();
-    const events = nylasData.data || [];
-
-    console.log(`📊 [${requestId}] Received ${events.length} events from Nylas API`);
+      const nylasData = await nylasResponse.json();
+      const pageEvents = nylasData.data || [];
+      
+      console.log(`📊 [${requestId}] Received ${pageEvents.length} events on page ${pageCount}`);
+      
+      // Add events from this page to our collection
+      allEvents = [...allEvents, ...pageEvents];
+      
+      // Check if there are more pages
+      pageToken = nylasData.next_cursor || null;
+      
+    } while (pageToken); // Continue fetching pages until there's no next_cursor
+    
+    console.log(`📊 [${requestId}] Fetched a total of ${allEvents.length} events across ${pageCount} pages`);
 
     // Process each event
-    const processingPromises = events.map(event => 
+    const processingPromises = allEvents.map(event => 
       processEvent(event, user_id, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
     );
     
@@ -101,9 +134,9 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Processed ${events.length} events and removed ${deduplicationResult.count || 0} duplicates`,
+        message: `Processed ${allEvents.length} events and removed ${deduplicationResult.count || 0} duplicates`,
         results: {
-          totalEvents: events.length,
+          totalEvents: allEvents.length,
           duplicatesRemoved: deduplicationResult.count || 0
         }
       }),
