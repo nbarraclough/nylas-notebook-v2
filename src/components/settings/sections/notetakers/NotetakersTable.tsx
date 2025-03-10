@@ -1,3 +1,4 @@
+
 import { format } from "date-fns";
 import {
   Table,
@@ -27,13 +28,36 @@ export function NotetakersTable({
   onRetrieve,
 }: NotetakersTableProps) {
   const getEventTitle = (record: NotetakerRecord) => {
+    if (!record.event) return "Unknown Event";
     if (record.event.manual_meeting?.title) {
       return record.event.manual_meeting.title;
     }
-    return record.event.title;
+    return record.event.title || "Untitled Event";
+  };
+
+  const getFormattedDate = (record: NotetakerRecord) => {
+    try {
+      if (record.event?.start_time) {
+        return format(new Date(record.event.start_time), "MMM d, yyyy 'at' h:mm a");
+      } else if (record.created_at) {
+        return format(new Date(record.created_at), "MMM d, yyyy 'at' h:mm a") + " (created)";
+      }
+      return "Unknown date";
+    } catch (error) {
+      console.error("Date formatting error:", error);
+      return "Invalid date";
+    }
   };
 
   const getMeetingTypeContent = (record: NotetakerRecord) => {
+    if (!record.event) {
+      return (
+        <Badge variant="outline" className="font-normal text-yellow-600 border-yellow-600">
+          Unknown Type
+        </Badge>
+      );
+    }
+    
     const type = record.event.manual_meeting ? 'Manual Meeting' : 'Calendar Event';
     const badgeVariant = record.event.manual_meeting ? 'outline' : 'secondary';
     
@@ -66,7 +90,7 @@ export function NotetakersTable({
                 {getEventTitle(record)}
               </TableCell>
               <TableCell>
-                {format(new Date(record.event.start_time), "MMM d, yyyy 'at' h:mm a")}
+                {getFormattedDate(record)}
               </TableCell>
               <TableCell>
                 {getMeetingTypeContent(record)}
