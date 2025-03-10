@@ -1,17 +1,15 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { RefreshCw, Play, CheckCircle } from "lucide-react";
+import { RefreshCw, CheckCircle } from "lucide-react";
 import { useProfileData } from "@/components/library/video/useProfileData";
 
 export const ManualSync = ({ userId }: { userId: string }) => {
   const { toast } = useToast();
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [isDeduplicate, setIsDeduplicate] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncStatus, setSyncStatus] = useState("");
@@ -90,29 +88,6 @@ export const ManualSync = ({ userId }: { userId: string }) => {
     }
   };
 
-  const processQueue = async () => {
-    try {
-      setIsProcessing(true);
-      const { data, error } = await supabase.functions.invoke('process-notetaker-queue');
-      
-      if (error) throw error;
-      
-      toast({
-        title: "Queue Processing Started",
-        description: "The notetaker queue is being processed. Check back in a few moments.",
-      });
-    } catch (error) {
-      console.error('Error processing queue:', error);
-      toast({
-        title: "Error Processing Queue",
-        description: "There was an error processing the queue. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
   const runDeduplication = async () => {
     if (!userId) return;
 
@@ -181,24 +156,6 @@ export const ManualSync = ({ userId }: { userId: string }) => {
                 </p>
               </div>
             )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Queue Processing</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex justify-end">
-            <Button 
-              onClick={processQueue} 
-              disabled={isProcessing}
-              className="w-full !bg-[#0F172A] !text-white hover:!bg-[#0F172A]/90"
-            >
-              <Play className="mr-2 h-4 w-4" />
-              {isProcessing ? "Processing..." : "Process Queue"}
-            </Button>
           </div>
         </CardContent>
       </Card>
