@@ -9,6 +9,9 @@ import { EventActions } from "./EventActions";
 import { useProfile } from "@/hooks/use-profile";
 import type { Database } from "@/integrations/supabase/types";
 import type { EventParticipant, EventOrganizer } from "@/types/calendar";
+import { CopyIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 type Event = Database['public']['Tables']['events']['Row'];
 
@@ -20,7 +23,10 @@ interface EventCardProps {
 
 export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
   const [isQueued, setIsQueued] = useState(false);
+  const [calendarId, setCalendarId] = useState<string | null>(null);
+  const [notetakerId, setNotetakerId] = useState<string | null>(null);
   const location = useLocation();
+  const { toast } = useToast();
   const isCalendarRoute = location.pathname === "/calendar";
   const { data: profile, isLoading: profileLoading } = useProfile(userId);
 
@@ -54,6 +60,15 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
     );
   })();
 
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      toast({
+        title: "Copied to clipboard",
+        description: `${label} has been copied to your clipboard.`
+      });
+    });
+  };
+
   const checkQueueStatus = async () => {
     if (!userId) return;
 
@@ -61,7 +76,7 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
       console.log('Checking recording status for event:', event.id);
       const { data, error } = await supabase
         .from('recordings')
-        .select('id, status')
+        .select('id, status, calendar_id, notetaker_id')
         .eq('event_id', event.id)
         .eq('user_id', userId)
         .not('status', 'eq', 'cancelled') // Filter out cancelled recordings
@@ -75,6 +90,14 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
       const isCurrentlyQueued = !!data;
       console.log('Recording status for event:', event.id, 'is:', isCurrentlyQueued, data?.status);
       setIsQueued(isCurrentlyQueued);
+      
+      if (data) {
+        setCalendarId(data.calendar_id);
+        setNotetakerId(data.notetaker_id);
+      } else {
+        setCalendarId(null);
+        setNotetakerId(null);
+      }
     } catch (err) {
       console.error('Error in checkQueueStatus:', err);
     }
@@ -105,9 +128,17 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
         // Handle different events based on status
         if (payload.eventType === 'DELETE') {
           setIsQueued(false);
+          setCalendarId(null);
+          setNotetakerId(null);
         } else if (payload.eventType === 'INSERT' && payload.new.status !== 'cancelled') {
           setIsQueued(true);
+          setCalendarId(payload.new.calendar_id);
+          setNotetakerId(payload.new.notetaker_id);
         } else if (payload.eventType === 'UPDATE') {
+          // Update IDs
+          setCalendarId(payload.new.calendar_id);
+          setNotetakerId(payload.new.notetaker_id);
+          
           // Only show as queued if status is not cancelled
           if (payload.new.status === 'cancelled') {
             setIsQueued(false);
@@ -157,6 +188,60 @@ export const EventCard = ({ event, userId, isPast }: EventCardProps) => {
             isCalendarRoute={isCalendarRoute}
             isPast={isPast}
           />
+          
+          {/* Only show debugging info if queued */}
+          {isQueued && (
+            <div className="mt-2 border-t pt-2 text-xs font-mono text-gray-500">
+              <div className="flex items-center justify-between mb-1">
+                <span>Event ID:</span>
+                <div className="flex items-center">
+                  <code className="bg-gray-100 px-1 py-0.5 rounded">{event.id}</code>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-5 w-5 ml-1" 
+                    onClick={() => copyToClipboard(event.id, "Event ID")}
+                  >
+                    <CopyIcon className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+              
+              {calendarId && (
+                <div className="flex items-center justify-between mb-1">
+                  <span>Calendar ID:</span>
+                  <div className="flex items-center">
+                    <code className="bg-gray-100 px-1 py-0.5 rounded">{calendarId}</code>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-5 w-5 ml-1" 
+                      onClick={() => copyToClipboard(calendarId, "Calendar ID")}
+                    >
+                      <CopyIcon className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+              
+              {notetakerId && (
+                <div className="flex items-center justify-between">
+                  <span>Notetaker ID:</span>
+                  <div className="flex items-center">
+                    <code className="bg-gray-100 px-1 py-0.5 rounded">{notetakerId}</code>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-5 w-5 ml-1" 
+                      onClick={() => copyToClipboard(notetakerId, "Notetaker ID")}
+                    >
+                      <CopyIcon className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
