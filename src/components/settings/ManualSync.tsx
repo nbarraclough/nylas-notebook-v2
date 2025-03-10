@@ -2,7 +2,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { RefreshCw, Play } from "lucide-react";
@@ -44,7 +44,7 @@ export const ManualSync = ({ userId }: { userId: string }) => {
       const { data, error } = await supabase.functions.invoke('sync-nylas-events', {
         body: { 
           user_id: userId,
-          grant_id: profileData.nylas_grant_id  // Pass the grant ID explicitly
+          grant_id: profileData.nylas_grant_id
         }
       });
 
@@ -68,8 +68,8 @@ export const ManualSync = ({ userId }: { userId: string }) => {
 
       toast({
         title: "Success",
-        description: data?.results?.totalUsers 
-          ? `Synced events for ${data.results.totalUsers} user(s) with ${data.results.grantsProcessed} grant(s).`
+        description: data?.results?.totalEvents 
+          ? `Synced ${data.results.totalEvents} events and removed ${data.results.duplicatesRemoved} duplicates.`
           : "Calendar events synced successfully!",
       });
     } catch (error) {
