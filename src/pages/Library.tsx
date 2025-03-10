@@ -21,6 +21,7 @@ export default function Library() {
   const [sharedRecordingsPage, setSharedRecordingsPage] = useState(1);
   const [errorRecordingsPage, setErrorRecordingsPage] = useState(1);
   const [showErrors, setShowErrors] = useState(false);
+  const [showScheduled, setShowScheduled] = useState(false); // New state for scheduled meetings
   const [filters, setFilters] = useState({
     types: [] as string[],
     meetingTypes: [] as string[],
@@ -40,7 +41,8 @@ export default function Library() {
     isAuthenticated: true,
     page: myRecordingsPage,
     pageSize: ITEMS_PER_PAGE,
-    filters
+    filters,
+    showScheduled // Pass through the showScheduled flag
   });
 
   // Query for shared recordings with pagination
@@ -49,13 +51,14 @@ export default function Library() {
     isLoading: isLoadingShared, 
     error: sharedError 
   } = useQuery({
-    queryKey: ["shared-recordings", filters, sharedRecordingsPage],
+    queryKey: ["shared-recordings", filters, sharedRecordingsPage, showScheduled],
     queryFn: async () => {
       const { data: profile } = await supabase.auth.getUser();
       if (!profile.user) return { data: [], count: 0 };
 
       const from = (sharedRecordingsPage - 1) * ITEMS_PER_PAGE;
       const to = from + ITEMS_PER_PAGE - 1;
+      const now = new Date().toISOString();
 
       let query = supabase
         .from("recordings")
@@ -80,9 +83,14 @@ export default function Library() {
           )
         `, { count: 'exact' })
         .neq('user_id', profile.user.id)
-        .order("created_at", { ascending: false })
-        .range(from, to);
-
+        .order("created_at", { ascending: false });
+      
+      // Filter out scheduled meetings that haven't started yet
+      if (!showScheduled) {
+        query = query
+          .or(`event.start_time.lte.${now},and(status.neq.waiting,status.neq.joining,status.neq.waiting_for_admission,status.neq.dispatched)`);
+      }
+      
       // Apply filters
       if (filters.titleSearch) {
         query = query.textSearch("(event->title).text", filters.titleSearch.replace(/\s+/g, " & "));
@@ -96,6 +104,7 @@ export default function Library() {
         query = query.lte("created_at", filters.endDate.toISOString());
       }
 
+      query = query.range(from, to);
       const { data, error, count } = await query;
 
       if (error) throw error;
@@ -113,7 +122,8 @@ export default function Library() {
     page: errorRecordingsPage,
     pageSize: ITEMS_PER_PAGE,
     filters,
-    showErrors: true
+    showErrors: true,
+    showScheduled // Pass through the showScheduled flag
   });
 
   const handleRecordingSelect = (id: string | null) => {
@@ -132,6 +142,17 @@ export default function Library() {
           filters={filters}
           onFiltersChange={setFilters}
         />
+        
+        <div className="flex items-center justify-end space-x-4 mb-4">
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="show-scheduled"
+              checked={showScheduled}
+              onCheckedChange={setShowScheduled}
+            />
+            <Label htmlFor="show-scheduled">Show scheduled meetings</Label>
+          </div>
+        </div>
         
         <div className="space-y-12">
           {/* My Recordings Section */}

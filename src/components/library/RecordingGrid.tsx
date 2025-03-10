@@ -1,9 +1,8 @@
-
 import { Card, CardContent } from "@/components/ui/card";
 import { format } from "date-fns";
 import { VideoPlayerView } from "./VideoPlayerView";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Globe } from "lucide-react";
+import { Shield, Globe, Clock } from "lucide-react";
 import { RecordingStatus } from "@/components/recordings/RecordingStatus";
 
 interface RecordingGridProps {
@@ -38,6 +37,12 @@ export function RecordingGrid({
     return null;
   };
 
+  const isScheduled = (recording: any) => {
+    const scheduledStatuses = ["waiting", "joining", "waiting_for_admission", "dispatched"];
+    return scheduledStatuses.includes(recording.status) || 
+           (recording.event?.start_time && new Date(recording.event.start_time) > new Date());
+  };
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -54,7 +59,6 @@ export function RecordingGrid({
     );
   }
 
-  // Filter out cancelled recordings
   const filteredRecordings = recordings.filter(recording => recording.status !== 'cancelled');
 
   if (filteredRecordings.length === 0) {
@@ -72,9 +76,9 @@ export function RecordingGrid({
           const internal = isInternalMeeting(recording);
           const isError = ['error', 'failed_entry', 'failed'].includes(recording.status);
           const isProcessing = ["waiting", "retrieving", "processing"].includes(recording.status);
+          const isWaitingToStart = isScheduled(recording);
           const thumbnailUrl = getThumbnailUrl(recording);
           
-          // Check for video and transcript availability
           const hasVideo = !!recording.video_url || !!recording.recording_url || !!recording.mux_playback_id;
           const hasTranscript = !!recording.transcript_content;
           
@@ -86,7 +90,9 @@ export function RecordingGrid({
                   ? 'bg-red-50 cursor-not-allowed' 
                   : isProcessing 
                     ? 'bg-blue-50 cursor-pointer card-hover-effect'
-                    : 'cursor-pointer card-hover-effect'
+                    : isWaitingToStart
+                      ? 'bg-yellow-50 cursor-pointer card-hover-effect'
+                      : 'cursor-pointer card-hover-effect'
               }`}
               onClick={() => !isError && onRecordingSelect(recording.id)}
             >
@@ -103,6 +109,14 @@ export function RecordingGrid({
                     className="w-full h-full object-cover"
                     preload="metadata"
                   />
+                )}
+                {isWaitingToStart && (
+                  <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-black/40">
+                    <div className="bg-yellow-100 text-yellow-800 px-3 py-2 rounded-full flex items-center">
+                      <Clock className="w-4 h-4 mr-2" />
+                      <span>Scheduled</span>
+                    </div>
+                  </div>
                 )}
                 {recording.duration && (
                   <div className="absolute bottom-2 right-2 bg-black/75 text-white text-sm px-2 py-1 rounded">

@@ -3,14 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { NotetakerRecord } from "./types";
 
-export function useNotetakers(userId: string) {
+export function useNotetakers(userId: string, showScheduled: boolean = false) {
   return useQuery({
-    queryKey: ['notetakers', userId],
+    queryKey: ['notetakers', userId, showScheduled],
     queryFn: async () => {
       console.log('Fetching notetakers for user:', userId);
 
-      // Get recordings with notetakers
-      const { data: recordingsData, error: recordingsError } = await supabase
+      // Build the query
+      let query = supabase
         .from('recordings')
         .select(`
           id,
@@ -29,6 +29,14 @@ export function useNotetakers(userId: string) {
         .eq('user_id', userId)
         .not('notetaker_id', 'is', null)
         .not('status', 'eq', 'cancelled'); // Explicitly filter out cancelled notetakers
+
+      // If we're not showing scheduled meetings, filter by event start time
+      if (!showScheduled) {
+        const now = new Date().toISOString();
+        query = query.or(`event.start_time.lte.${now},and(status.neq.waiting,status.neq.joining,status.neq.waiting_for_admission,status.neq.dispatched)`);
+      }
+
+      const { data: recordingsData, error: recordingsError } = await query;
 
       console.log('Recordings query result:', { recordingsData, recordingsError });
       

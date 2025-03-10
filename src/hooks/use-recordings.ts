@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -15,6 +16,7 @@ interface UseRecordingsProps {
     hasPublicLink: boolean;
   };
   showErrors?: boolean;
+  showScheduled?: boolean; // New prop to control showing scheduled meetings
 }
 
 interface PaginatedResponse<T> {
@@ -28,10 +30,11 @@ export function useRecordings({
   page = 1, 
   pageSize = 8,
   filters,
-  showErrors = false
+  showErrors = false,
+  showScheduled = false // Default to false - don't show scheduled meetings
 }: UseRecordingsProps) {
   return useQuery({
-    queryKey: ['library-recordings', filters, isAuthenticated, recordingId, page, pageSize, showErrors],
+    queryKey: ['library-recordings', filters, isAuthenticated, recordingId, page, pageSize, showErrors, showScheduled],
     queryFn: async () => {
       console.log('Fetching recordings with auth status:', isAuthenticated);
       
@@ -66,6 +69,17 @@ export function useRecordings({
         query = query.not('status', 'in', '("error","failed_entry","failed","cancelled")');
       } else {
         query = query.not('status', 'eq', 'cancelled');
+      }
+      
+      // Filter out scheduled meetings that haven't started yet
+      if (!showScheduled) {
+        const now = new Date().toISOString();
+        
+        // Filter out recordings where:
+        // 1. The event hasn't started yet, OR
+        // 2. The recording is still in waiting/joining state
+        query = query
+          .or(`event.start_time.lte.${now},and(status.neq.waiting,status.neq.joining,status.neq.waiting_for_admission,status.neq.dispatched)`);
       }
 
       // If not authenticated, only fetch the shared recording
