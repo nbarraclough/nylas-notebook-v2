@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { RefreshCw, Play } from "lucide-react";
 import { useProfileData } from "@/components/library/video/useProfileData";
 
-export const ManualSync = () => {
+export const ManualSync = ({ userId }: { userId: string }) => {
   const { toast } = useToast();
   const [isSyncing, setIsSyncing] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -17,14 +17,7 @@ export const ManualSync = () => {
   const { data: profileData, isLoading: isProfileLoading } = useProfileData();
 
   const syncEvents = async () => {
-    if (isProfileLoading || !profileData) {
-      toast({
-        title: "Error",
-        description: "Unable to fetch user profile. Please try again later.",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!userId) return;
 
     try {
       // Check if user has a Nylas grant ID first
@@ -41,27 +34,17 @@ export const ManualSync = () => {
       setSyncProgress(10);
       setSyncStatus("Initiating calendar sync...");
       console.log('Starting events sync...', {
-        userId: profileData.id,
+        userId,
         grantId: profileData.nylas_grant_id
       });
       
       setSyncProgress(25);
       setSyncStatus("Fetching events from Nylas...");
       
-      // Calculate date range (3 months back and 6 months forward)
-      const now = new Date();
-      const threeMonthsAgo = new Date(now);
-      threeMonthsAgo.setMonth(now.getMonth() - 3);
-      
-      const sixMonthsAhead = new Date(now);
-      sixMonthsAhead.setMonth(now.getMonth() + 6);
-      
       const { data, error } = await supabase.functions.invoke('sync-nylas-events', {
         body: { 
-          userId: profileData.id,
-          grant_id: profileData.nylas_grant_id,
-          start_date: threeMonthsAgo.toISOString(),
-          end_date: sixMonthsAhead.toISOString()
+          user_id: userId,
+          grant_id: profileData.nylas_grant_id  // Pass the grant ID explicitly
         }
       });
 
@@ -85,8 +68,8 @@ export const ManualSync = () => {
 
       toast({
         title: "Success",
-        description: data?.eventsCount 
-          ? `Synced ${data.eventsCount} events from your calendar.`
+        description: data?.results?.totalUsers 
+          ? `Synced events for ${data.results.totalUsers} user(s) with ${data.results.grantsProcessed} grant(s).`
           : "Calendar events synced successfully!",
       });
     } catch (error) {

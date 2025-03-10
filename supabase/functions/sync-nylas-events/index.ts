@@ -2,7 +2,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { processEvent } from "./event-processor.ts"
 import { deduplicateEvents } from "../_shared/recurring-event-utils.ts";
-import { fetchNylasEvents } from "./nylas-api.ts";
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -21,37 +20,10 @@ serve(async (req) => {
 
   try {
     const requestData = await req.json();
-    
-    // Handle both camelCase and snake_case parameter formats for compatibility
-    const userId = requestData.userId || requestData.user_id;
-    let events = requestData.events || [];
-    const syncToken = requestData.syncToken;
-    const grantId = requestData.grant_id;
-    const startDate = requestData.start_date;
-    const endDate = requestData.end_date;
+    const { userId, events, syncToken } = requestData;
 
     if (!userId) {
       throw new Error('User ID is required');
-    }
-
-    console.log(`📊 [${requestId}] Processing for user ${userId}, grant_id: ${grantId}`);
-    
-    // If no events were provided but there's a grant ID, fetch events from Nylas
-    if ((!events || events.length === 0) && grantId) {
-      console.log(`ℹ️ [${requestId}] No events provided but grant_id present. Fetching events from Nylas...`);
-      
-      try {
-        const fetchedEvents = await fetchNylasEvents(grantId, startDate, endDate, requestId);
-        if (fetchedEvents && fetchedEvents.length > 0) {
-          events = fetchedEvents;
-          console.log(`✅ [${requestId}] Successfully fetched ${events.length} events from Nylas`);
-        } else {
-          console.log(`ℹ️ [${requestId}] No events found from Nylas API fetch`);
-        }
-      } catch (fetchError) {
-        console.error(`❌ [${requestId}] Error fetching events from Nylas:`, fetchError);
-        throw new Error(`Failed to fetch events: ${fetchError.message}`);
-      }
     }
 
     if (!events || !Array.isArray(events)) {
@@ -90,7 +62,6 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         message: `Processed ${events.length} events and removed ${deduplicationResult.count || 0} duplicates`,
-        eventsCount: events.length,
         syncToken: syncToken
       }),
       {

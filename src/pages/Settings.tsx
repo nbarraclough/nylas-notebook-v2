@@ -60,7 +60,7 @@ export default function Settings() {
               <Route path="/organization" element={<OrganizationSettings userId={userId} />} />
               <Route path="/recording" element={<RecordingSettings userId={userId} />} />
               <Route path="/sharing" element={<SharingSettings userId={userId} />} />
-              <Route path="/sync" element={<ManualSyncSettings />} />
+              <Route path="/sync" element={<ManualSyncSettings userId={userId} />} />
               <Route path="/notetakers" element={<NotetakersSettings userId={userId} />} />
               <Route path="/webhooks" element={<WebhooksSettings userId={userId} />} />
               <Route path="*" element={<Navigate to="/settings" replace />} />
