@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { RefreshCw, Play } from "lucide-react";
 import { useProfileData } from "@/components/library/video/useProfileData";
 
-export const ManualSync = ({ userId }: { userId: string }) => {
+export const ManualSync = () => {
   const { toast } = useToast();
   const [isSyncing, setIsSyncing] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -17,7 +17,14 @@ export const ManualSync = ({ userId }: { userId: string }) => {
   const { data: profileData, isLoading: isProfileLoading } = useProfileData();
 
   const syncEvents = async () => {
-    if (!userId) return;
+    if (isProfileLoading || !profileData) {
+      toast({
+        title: "Error",
+        description: "Unable to fetch user profile. Please try again later.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       // Check if user has a Nylas grant ID first
@@ -34,7 +41,7 @@ export const ManualSync = ({ userId }: { userId: string }) => {
       setSyncProgress(10);
       setSyncStatus("Initiating calendar sync...");
       console.log('Starting events sync...', {
-        userId,
+        userId: profileData.id,
         grantId: profileData.nylas_grant_id
       });
       
@@ -51,7 +58,7 @@ export const ManualSync = ({ userId }: { userId: string }) => {
       
       const { data, error } = await supabase.functions.invoke('sync-nylas-events', {
         body: { 
-          userId: userId,
+          userId: profileData.id,
           grant_id: profileData.nylas_grant_id,
           start_date: threeMonthsAgo.toISOString(),
           end_date: sixMonthsAhead.toISOString()

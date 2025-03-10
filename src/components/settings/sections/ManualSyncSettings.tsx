@@ -1,11 +1,8 @@
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ManualSync } from "@/components/settings/ManualSync";
 
-interface ManualSyncSettingsProps {
-  userId: string;
-}
-
-export function ManualSyncSettings({ userId }: ManualSyncSettingsProps) {
+export function ManualSyncSettings() {
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Manual Sync</h2>
@@ -14,7 +11,7 @@ export function ManualSyncSettings({ userId }: ManualSyncSettingsProps) {
           <CardTitle>Sync Settings</CardTitle>
         </CardHeader>
         <CardContent>
-          <ManualSync userId={userId} />
+          <ManualSync />
         </CardContent>
       </Card>
     </div>

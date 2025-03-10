@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -12,6 +13,7 @@ export function useProfileData() {
       const { data, error } = await supabase
         .from('profiles')
         .select(`
+          id,
           nylas_grant_id,
           email,
           first_name,
