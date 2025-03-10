@@ -1076,6 +1076,14 @@ export type Database = {
           count: number
         }[]
       }
+      find_non_recurring_duplicate_events: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          ical_uid: string
+          user_id: string
+          count: number
+        }[]
+      }
       get_shared_recording: {
         Args: {
           p_recording_id: string

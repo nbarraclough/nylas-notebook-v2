@@ -49,7 +49,7 @@ serve(async (req) => {
     console.log(`🔄 [${requestId}] Running deduplication for user: ${user_id}`);
 
     // Run the deduplication
-    const result = await deduplicateEvents(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, requestId);
+    const result = await deduplicateEvents(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, requestId, user_id);
 
     // Return the results
     return new Response(

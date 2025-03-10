@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 
 export interface NylasEvent {
@@ -202,13 +203,17 @@ export async function cleanupOrphanedInstances(supabaseUrl: string, supabaseKey:
 }
 
 // Improved function to safely deduplicate non-recurring events with the same ical_uid
-export async function deduplicateEvents(supabaseUrl: string, supabaseKey: string, requestId: string) {
+export async function deduplicateEvents(
+  supabaseUrl: string, 
+  supabaseKey: string, 
+  requestId: string,
+  userId?: string
+): Promise<{ success: boolean; count?: number; error?: string }> {
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
     console.log(`🔍 [${requestId}] Starting event deduplication process with improved recurring event handling`);
 
-    // Find all non-recurring events with duplicate ical_uids
-    // This custom query excludes events that are part of recurring series
+    // Find all non-recurring events with duplicate ical_uids using our new SQL function
     const { data: duplicateGroups, error: queryError } = await supabase.rpc(
       'find_non_recurring_duplicate_events'
     );
@@ -223,10 +228,22 @@ export async function deduplicateEvents(supabaseUrl: string, supabaseKey: string
       return { success: true, count: 0 };
     }
 
-    console.log(`⚠️ [${requestId}] Found ${duplicateGroups.length} sets of non-recurring duplicate events.`);
+    // Filter by userId if provided
+    let filteredGroups = duplicateGroups;
+    if (userId) {
+      filteredGroups = duplicateGroups.filter(group => group.user_id === userId);
+      console.log(`🔍 [${requestId}] Filtering for user ${userId}: found ${filteredGroups.length} sets of duplicates out of ${duplicateGroups.length} total`);
+    } else {
+      console.log(`⚠️ [${requestId}] No user ID provided, processing all ${duplicateGroups.length} sets of non-recurring duplicate events.`);
+    }
+
+    if (filteredGroups.length === 0) {
+      console.log(`✅ [${requestId}] No duplicate events found for the specified user.`);
+      return { success: true, count: 0 };
+    }
 
     let deletedCount = 0;
-    for (const group of duplicateGroups) {
+    for (const group of filteredGroups) {
       console.log(`🔄 [${requestId}] Processing duplicate group with ical_uid: ${group.ical_uid}, user_id: ${group.user_id}, count: ${group.count}`);
 
       // Start a transaction for each group of duplicates

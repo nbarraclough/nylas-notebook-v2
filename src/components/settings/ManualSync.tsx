@@ -5,7 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { RefreshCw, Play } from "lucide-react";
+import { RefreshCw, Play, CheckCircle } from "lucide-react";
 import { useProfileData } from "@/components/library/video/useProfileData";
 
 export const ManualSync = ({ userId }: { userId: string }) => {
@@ -150,6 +150,7 @@ export const ManualSync = ({ userId }: { userId: string }) => {
       });
     } finally {
       setIsDeduplicate(false);
+      setSyncStatus("");
     }
   };
 
@@ -217,7 +218,7 @@ export const ManualSync = ({ userId }: { userId: string }) => {
                 disabled={isDeduplicate}
                 className="w-full !bg-[#0F172A] !text-white hover:!bg-[#0F172A]/90"
               >
-                <RefreshCw className={`mr-2 h-4 w-4 ${isDeduplicate ? 'animate-spin' : ''}`} />
+                <CheckCircle className={`mr-2 h-4 w-4 ${isDeduplicate ? 'animate-spin' : ''}`} />
                 {isDeduplicate ? "Running..." : "Fix Duplicates"}
               </Button>
             </div>
