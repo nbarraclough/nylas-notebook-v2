@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 
 export interface NylasEvent {
@@ -201,7 +202,7 @@ export async function cleanupOrphanedInstances(supabaseUrl: string, supabaseKey:
   }
 }
 
-// New function to deduplicate events with the same ical_uid
+// Updated function to deduplicate events with the same ical_uid
 export async function deduplicateEvents(supabaseUrl: string, supabaseKey: string, requestId: string) {
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -248,13 +249,36 @@ export async function deduplicateEvents(supabaseUrl: string, supabaseKey: string
         const deleteIds = deleteEvents.map(e => e.id);
         
         // First, update any recordings to point to the kept event
-        const { error: updateError } = await supabase
+        const { error: updateRecordingsError } = await supabase
           .from('recordings')
           .update({ event_id: keepEvent.id })
           .in('event_id', deleteIds);
         
-        if (updateError) {
-          console.error(`❌ [${requestId}] Error updating recordings for duplicate events:`, updateError);
+        if (updateRecordingsError) {
+          console.error(`❌ [${requestId}] Error updating recordings for duplicate events:`, updateRecordingsError);
+          continue;
+        }
+        
+        // Now update any webhook_relationships to point to the kept event
+        const { error: updateWebhookRelationshipsError } = await supabase
+          .from('webhook_relationships')
+          .update({ event_id: keepEvent.id })
+          .in('event_id', deleteIds);
+        
+        if (updateWebhookRelationshipsError) {
+          console.error(`❌ [${requestId}] Error updating webhook_relationships for duplicate events:`, updateWebhookRelationshipsError);
+          continue;
+        }
+        
+        // Check for any other tables that might reference events
+        // For example, notetaker_queue
+        const { error: updateNotetakerQueueError } = await supabase
+          .from('notetaker_queue')
+          .update({ event_id: keepEvent.id })
+          .in('event_id', deleteIds);
+        
+        if (updateNotetakerQueueError) {
+          console.error(`❌ [${requestId}] Error updating notetaker_queue for duplicate events:`, updateNotetakerQueueError);
           continue;
         }
 
