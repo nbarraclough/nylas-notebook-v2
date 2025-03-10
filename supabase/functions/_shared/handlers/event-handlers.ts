@@ -218,12 +218,19 @@ async function createNotetakerForEvent(
 // New function to update notetaker join time
 async function updateNotetakerJoinTime(grantId: string, notetakerId: string, newJoinTime: number) {
   try {
-    console.log(`🔄 Updating notetaker ${notetakerId} join time to ${newJoinTime}`);
+    console.log(`🔄 Updating notetaker ${notetakerId} join time from ${newJoinTime} seconds to ${new Date(newJoinTime * 1000).toISOString()}`);
     
     const nylasApiKey = Deno.env.get('NYLAS_CLIENT_SECRET') ?? '';
     if (!nylasApiKey) {
       throw new Error('NYLAS_CLIENT_SECRET not set');
     }
+    
+    // Ensure newJoinTime is in seconds for Nylas API
+    // If it's already in seconds (less than year 2100 in seconds), use as is
+    // Otherwise convert from milliseconds to seconds
+    const joinTimeInSeconds = newJoinTime < 4102444800 ? newJoinTime : Math.floor(newJoinTime / 1000);
+    
+    console.log(`⏰ Using join time in seconds: ${joinTimeInSeconds} (${new Date(joinTimeInSeconds * 1000).toISOString()})`);
     
     const response = await fetch(
       `https://api.us.nylas.com/v3/grants/${grantId}/notetakers/${notetakerId}`,
@@ -235,7 +242,7 @@ async function updateNotetakerJoinTime(grantId: string, notetakerId: string, new
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          join_time: newJoinTime
+          join_time: joinTimeInSeconds
         })
       }
     );
@@ -420,7 +427,11 @@ export const handleEventUpdated = async (objectData: any, grantId: string) => {
     const startTimeChanged = existingEvent && newStartTime && existingEvent.start_time !== newStartTime;
     
     if (startTimeChanged) {
-      console.log(`📅 Event start time changed for event ${objectData.id}. Old: ${existingEvent.start_time}, New: ${newStartTime}`);
+      console.log(`📅 Event start time changed for event ${objectData.id}:`, {
+        oldTime: existingEvent.start_time,
+        newTime: newStartTime,
+        unixTime: objectData.when.start_time
+      });
     }
 
     // Check if this is a recurring event or instance
@@ -488,17 +499,21 @@ export const handleEventUpdated = async (objectData: any, grantId: string) => {
         console.log(`🔄 Found active recording ${activeRecording.id} with notetaker ${activeRecording.notetaker_id} to update`);
         
         try {
-          // Convert ISO timestamp to Unix timestamp (seconds)
-          const newJoinTimeUnix = Math.floor(new Date(newStartTime).getTime() / 1000);
+          // Pass the Unix timestamp in seconds to updateNotetakerJoinTime
+          const newJoinTimeUnix = objectData.when.start_time;
+          console.log(`⏰ Updating notetaker to join at Unix timestamp:`, {
+            seconds: newJoinTimeUnix,
+            iso: new Date(newJoinTimeUnix * 1000).toISOString()
+          });
           
           // Update the notetaker join time via Nylas API
           await updateNotetakerJoinTime(grantId, activeRecording.notetaker_id, newJoinTimeUnix);
           
-          // Update our recording with the new join time
+          // Update our recording with the new join time (in ISO format)
           await supabaseAdmin
             .from('recordings')
             .update({
-              join_time: newStartTime,
+              join_time: new Date(newJoinTimeUnix * 1000).toISOString(),
               updated_at: new Date().toISOString()
             })
             .eq('id', activeRecording.id);
