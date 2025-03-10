@@ -65,12 +65,11 @@ serve(async (req) => {
       pageCount++;
       console.log(`📄 [${requestId}] Fetching page ${pageCount} of events${pageToken ? ' with page token' : ''}`);
       
-      // Build query parameters for the Nylas API
-      // Updated parameter names to match Nylas API v3 spec: "start_time" and "end_time" instead of "after" and "before"
+      // Build query parameters for the Nylas API using correct parameter names
       const queryParams = new URLSearchParams({
         calendar_id: 'primary',
-        start_time: startTimestamp.toString(),
-        end_time: endTimestamp.toString(),
+        start: startTimestamp.toString(),
+        end: endTimestamp.toString(),
         limit: limit.toString()
       });
       
