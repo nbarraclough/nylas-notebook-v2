@@ -41,11 +41,20 @@ export const ManualSync = ({ userId }: { userId: string }) => {
       setSyncProgress(25);
       setSyncStatus("Fetching events from Nylas...");
       
+      // Calculate date range (3 months back and 6 months forward)
+      const now = new Date();
+      const threeMonthsAgo = new Date(now);
+      threeMonthsAgo.setMonth(now.getMonth() - 3);
+      
+      const sixMonthsAhead = new Date(now);
+      sixMonthsAhead.setMonth(now.getMonth() + 6);
+      
       const { data, error } = await supabase.functions.invoke('sync-nylas-events', {
         body: { 
           userId: userId,
           grant_id: profileData.nylas_grant_id,
-          events: [] // Include empty events array to pass validation
+          start_date: threeMonthsAgo.toISOString(),
+          end_date: sixMonthsAhead.toISOString()
         }
       });
 
@@ -69,8 +78,8 @@ export const ManualSync = ({ userId }: { userId: string }) => {
 
       toast({
         title: "Success",
-        description: data?.results?.totalUsers 
-          ? `Synced events for ${data.results.totalUsers} user(s) with ${data.results.grantsProcessed} grant(s).`
+        description: data?.eventsCount 
+          ? `Synced ${data.eventsCount} events from your calendar.`
           : "Calendar events synced successfully!",
       });
     } catch (error) {
