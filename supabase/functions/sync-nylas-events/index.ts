@@ -179,6 +179,96 @@ async function processEventsForUser(
   };
 }
 
+async function deduplicateEventsForUser(
+  userId: string, 
+  SUPABASE_URL: string,
+  SUPABASE_SERVICE_ROLE_KEY: string,
+  requestId: string
+): Promise<any> {
+  try {
+    console.log(`🧹 [${requestId}] Starting deduplication for user: ${userId}`);
+    
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    
+    // Find duplicate events by ical_uid for this user
+    const { data, error } = await supabase
+      .from('events')
+      .select('ical_uid, count(*)')
+      .eq('user_id', userId)
+      .not('ical_uid', 'is', null)
+      .group('ical_uid')
+      .having('count(*)', 'gt', 1);
+    
+    if (error) {
+      console.error(`❌ [${requestId}] Error finding duplicates:`, error);
+      return { deduplicated: 0, error: error.message };
+    }
+    
+    const duplicateIcalIds = data || [];
+    console.log(`🔍 [${requestId}] Found ${duplicateIcalIds.length} duplicate sets for user ${userId}`);
+    
+    let totalDeduplicated = 0;
+    
+    for (const dup of duplicateIcalIds) {
+      const icalUid = dup.ical_uid;
+      
+      // Get all events with this ical_uid, ordered by last_updated_at
+      const { data: events, error: fetchError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('ical_uid', icalUid)
+        .eq('user_id', userId)
+        .order('last_updated_at', { ascending: false });
+      
+      if (fetchError) {
+        console.error(`❌ [${requestId}] Error fetching duplicates for ical_uid ${icalUid}:`, fetchError);
+        continue;
+      }
+      
+      if (!events || events.length <= 1) continue;
+      
+      // Keep the most recently updated event
+      const [keepEvent, ...deleteEvents] = events;
+      const deleteIds = deleteEvents.map(e => e.id);
+      
+      console.log(`🔄 [${requestId}] For ical_uid ${icalUid}: keeping ${keepEvent.id}, deleting ${deleteIds.length} events`);
+      
+      // Update any recordings to point to the kept event
+      if (deleteIds.length > 0) {
+        const { error: updateError } = await supabase
+          .from('recordings')
+          .update({ event_id: keepEvent.id })
+          .in('event_id', deleteIds);
+        
+        if (updateError) {
+          console.error(`❌ [${requestId}] Error updating recordings:`, updateError);
+          continue;
+        }
+        
+        // Delete the duplicate events
+        const { error: deleteError, count } = await supabase
+          .from('events')
+          .delete()
+          .in('id', deleteIds);
+        
+        if (deleteError) {
+          console.error(`❌ [${requestId}] Error deleting duplicates:`, deleteError);
+          continue;
+        }
+        
+        totalDeduplicated += count || 0;
+      }
+    }
+    
+    console.log(`✅ [${requestId}] Deduplication complete for user ${userId}: removed ${totalDeduplicated} duplicate events`);
+    return { deduplicated: totalDeduplicated };
+    
+  } catch (error) {
+    console.error(`❌ [${requestId}] Error in deduplication process:`, error);
+    return { deduplicated: 0, error: error.message };
+  }
+}
+
 serve(async (req) => {
   const requestId = crypto.randomUUID();
   console.log(`🚀 [${requestId}] Starting sync-nylas-events function`);
@@ -191,8 +281,8 @@ serve(async (req) => {
   }
 
   try {
-    const { user_id, user_ids, grant_id, force_recording_rules = false } = await req.json()
-    console.log(`📝 [${requestId}] Request payload:`, { user_id, user_ids, grant_id, force_recording_rules })
+    const { user_id, user_ids, grant_id, force_recording_rules = false, run_deduplication = true } = await req.json()
+    console.log(`📝 [${requestId}] Request payload:`, { user_id, user_ids, grant_id, force_recording_rules, run_deduplication })
 
     const userIdsToProcess = user_ids || (user_id ? [user_id] : null)
 
@@ -210,6 +300,7 @@ serve(async (req) => {
     const usersByGrantId = new Map<string, UserGrantInfo[]>();
     const errors: Array<{ userId: string; error: string }> = [];
     const grantResults = new Map<string, GrantResult>();
+    const deduplicationResults: Array<{userId: string; result: any}> = [];
 
     for (const userId of userIdsToProcess) {
       try {
@@ -341,6 +432,30 @@ serve(async (req) => {
       }
     }
 
+    if (run_deduplication) {
+      console.log(`🧹 [${requestId}] Running deduplication process for all processed users`);
+      
+      for (const userId of userIdsToProcess) {
+        try {
+          const result = await deduplicateEventsForUser(
+            userId,
+            SUPABASE_URL,
+            SUPABASE_SERVICE_ROLE_KEY,
+            `${requestId}-dedup-${userId}`
+          );
+          
+          deduplicationResults.push({ userId, result });
+          
+        } catch (dedupError) {
+          console.error(`❌ [${requestId}] Deduplication error for user ${userId}:`, dedupError);
+          errors.push({ 
+            userId, 
+            error: `Deduplication failed: ${dedupError.message || 'Unknown error'}`
+          });
+        }
+      }
+    }
+
     try {
       console.log(`🧹 [${requestId}] Starting cleanup of orphaned instances`);
       const cleanup = await cleanupOrphanedInstances(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -355,6 +470,7 @@ serve(async (req) => {
         grantsProcessed: grantResults.size,
         totalUsers: userIdsToProcess.length,
         grantResults: Array.from(grantResults.values()),
+        deduplication: run_deduplication ? deduplicationResults : undefined
       },
       errors: errors.length > 0 ? errors : undefined
     };

@@ -124,10 +124,33 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
       participants: eventData.participants.length
     });
 
+    // Check for duplicate events with the same ical_uid
+    if (event.ical_uid) {
+      const { data: existingEvents, error: fetchError } = await supabase
+        .from('events')
+        .select('id, nylas_event_id')
+        .eq('ical_uid', event.ical_uid)
+        .eq('user_id', userId)
+        .neq('nylas_event_id', event.id);
+      
+      if (fetchError) {
+        console.error('Error checking for existing event:', fetchError);
+      } else if (existingEvents && existingEvents.length > 0) {
+        console.log(`Found duplicate events with same ical_uid but different nylas_event_id:`, {
+          icalUid: event.ical_uid,
+          newEventId: event.id,
+          existingEvents: existingEvents.map(e => ({ id: e.id, nylasEventId: e.nylas_event_id }))
+        });
+      }
+    }
+
+    // Use ical_uid for conflict resolution if it exists
+    const upsertOnConflict = event.ical_uid ? 'ical_uid,user_id' : 'nylas_event_id,user_id';
+
     const { error: upsertError } = await supabase
       .from('events')
       .upsert(eventData, {
-        onConflict: 'nylas_event_id,user_id',
+        onConflict: upsertOnConflict,
         ignoreDuplicates: false
       });
 

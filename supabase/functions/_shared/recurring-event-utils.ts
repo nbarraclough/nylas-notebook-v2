@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 
 export interface NylasEvent {
@@ -110,11 +109,34 @@ export async function processRecurringEvent(
       icalUid: eventData.ical_uid
     });
 
+    // Before upserting, check if there's an event with the same ical_uid but different nylas_event_id
+    if (event.ical_uid) {
+      const { data: existingEvents, error: fetchError } = await supabase
+        .from('events')
+        .select('id, nylas_event_id')
+        .eq('ical_uid', event.ical_uid)
+        .eq('user_id', userId)
+        .neq('nylas_event_id', event.id);
+      
+      if (fetchError) {
+        console.error(`❌ [${requestId}] Error checking for existing event:`, fetchError);
+      } else if (existingEvents && existingEvents.length > 0) {
+        console.log(`⚠️ [${requestId}] Found duplicate events with same ical_uid but different nylas_event_id:`, {
+          icalUid: event.ical_uid,
+          newEventId: event.id,
+          existingEvents: existingEvents.map(e => ({ id: e.id, nylasEventId: e.nylas_event_id }))
+        });
+      }
+    }
+
     // Upsert the event data into the database
+    // Now using ical_uid AND user_id for conflict resolution if ical_uid exists
+    const upsertOnConflict = event.ical_uid ? 'ical_uid,user_id' : 'nylas_event_id,user_id';
+    
     const { error: upsertError } = await supabase
       .from('events')
       .upsert(eventData, {
-        onConflict: 'nylas_event_id,user_id',
+        onConflict: upsertOnConflict,
         ignoreDuplicates: false
       });
 
@@ -177,6 +199,87 @@ export async function cleanupOrphanedInstances(supabaseUrl: string, supabaseKey:
 
   } catch (error: any) {
     console.error('❌ Error during cleanup of orphaned instances:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// New function to deduplicate events with the same ical_uid
+export async function deduplicateEvents(supabaseUrl: string, supabaseKey: string, requestId: string) {
+  try {
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    console.log(`🔍 [${requestId}] Starting event deduplication process`);
+
+    // Find all events with duplicate ical_uids
+    const { data: duplicates, error: queryError } = await supabase.rpc(
+      'find_duplicate_events_by_ical_uid'
+    );
+
+    if (queryError) {
+      console.error(`❌ [${requestId}] Error finding duplicate events:`, queryError);
+      return { success: false, error: queryError.message };
+    }
+
+    if (!duplicates || duplicates.length === 0) {
+      console.log(`✅ [${requestId}] No duplicate events found.`);
+      return { success: true, count: 0 };
+    }
+
+    console.log(`⚠️ [${requestId}] Found ${duplicates.length} sets of duplicate events.`);
+
+    let deletedCount = 0;
+    for (const dup of duplicates) {
+      const { data: events, error: eventsError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('ical_uid', dup.ical_uid)
+        .eq('user_id', dup.user_id)
+        .order('last_updated_at', { ascending: false });
+
+      if (eventsError) {
+        console.error(`❌ [${requestId}] Error fetching duplicate events:`, eventsError);
+        continue;
+      }
+
+      if (events && events.length > 1) {
+        // Keep the most recently updated event
+        const [keepEvent, ...deleteEvents] = events;
+        
+        console.log(`🔄 [${requestId}] Keeping event ${keepEvent.id} (${keepEvent.nylas_event_id}) and deleting ${deleteEvents.length} duplicates for ical_uid: ${dup.ical_uid}`);
+        
+        // Get IDs of events to delete
+        const deleteIds = deleteEvents.map(e => e.id);
+        
+        // First, update any recordings to point to the kept event
+        const { error: updateError } = await supabase
+          .from('recordings')
+          .update({ event_id: keepEvent.id })
+          .in('event_id', deleteIds);
+        
+        if (updateError) {
+          console.error(`❌ [${requestId}] Error updating recordings for duplicate events:`, updateError);
+          continue;
+        }
+
+        // Then delete the duplicate events
+        const { error: deleteError, count } = await supabase
+          .from('events')
+          .delete()
+          .in('id', deleteIds);
+        
+        if (deleteError) {
+          console.error(`❌ [${requestId}] Error deleting duplicate events:`, deleteError);
+          continue;
+        }
+        
+        deletedCount += count || 0;
+      }
+    }
+
+    console.log(`✅ [${requestId}] Successfully deleted ${deletedCount} duplicate events.`);
+    return { success: true, count: deletedCount };
+
+  } catch (error: any) {
+    console.error(`❌ [${requestId}] Error during event deduplication:`, error);
     return { success: false, error: error.message };
   }
 }
