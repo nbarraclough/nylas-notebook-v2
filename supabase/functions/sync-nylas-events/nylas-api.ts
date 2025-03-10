@@ -18,17 +18,9 @@ export async function fetchNylasEvents(
 ) {
   console.log(`🔄 [${requestId}] Fetching events for grant ID: ${grantId}`);
   
-  // Determine environment based on configuration
-  const isProd = Deno.env.get('ENVIRONMENT') === 'production';
-  
-  // Get the appropriate Nylas credentials based on environment
-  const clientId = isProd 
-    ? Deno.env.get('NYLAS_PROD_CLIENT_ID') 
-    : Deno.env.get('NYLAS_CLIENT_ID');
-  
-  const clientSecret = isProd
-    ? Deno.env.get('NYLAS_PROD_CLIENT_SECRET')
-    : Deno.env.get('NYLAS_CLIENT_SECRET');
+  // Use production credentials directly
+  const clientId = Deno.env.get('NYLAS_PROD_CLIENT_ID');
+  const clientSecret = Deno.env.get('NYLAS_PROD_CLIENT_SECRET');
   
   if (!clientId || !clientSecret) {
     throw new Error('Missing Nylas credentials');
