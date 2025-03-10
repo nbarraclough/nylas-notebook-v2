@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -75,10 +74,10 @@ export function useRecordings({
       if (!showScheduled) {
         const now = new Date().toISOString();
         
-        // First, exclude recordings where the event start time is in the future
-        query = query.not('event.start_time', 'gt', now);
+        // Filter by start time being in the past
+        query = query.lt('event.start_time', now);
         
-        // Also exclude recordings in a waiting/joining state
+        // Filter out recordings in waiting states
         const waitingStates = ['waiting', 'joining', 'waiting_for_admission', 'dispatched'];
         query = query.not('status', 'in', `(${waitingStates.map(s => `"${s}"`).join(',')})`);
       }

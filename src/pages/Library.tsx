@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageLayout } from "@/components/layout/PageLayout";
@@ -21,7 +20,7 @@ export default function Library() {
   const [sharedRecordingsPage, setSharedRecordingsPage] = useState(1);
   const [errorRecordingsPage, setErrorRecordingsPage] = useState(1);
   const [showErrors, setShowErrors] = useState(false);
-  const [showScheduled, setShowScheduled] = useState(false); // New state for scheduled meetings
+  const [showScheduled, setShowScheduled] = useState(false);
   const [filters, setFilters] = useState({
     types: [] as string[],
     meetingTypes: [] as string[],
@@ -32,7 +31,6 @@ export default function Library() {
     hasPublicLink: false
   });
 
-  // Query for my recordings with pagination
   const { 
     data: myRecordingsData, 
     isLoading: isLoadingMyRecordings, 
@@ -42,10 +40,9 @@ export default function Library() {
     page: myRecordingsPage,
     pageSize: ITEMS_PER_PAGE,
     filters,
-    showScheduled // Pass through the showScheduled flag
+    showScheduled
   });
 
-  // Query for shared recordings with pagination
   const { 
     data: sharedRecordingsData, 
     isLoading: isLoadingShared, 
@@ -85,13 +82,12 @@ export default function Library() {
         .neq('user_id', profile.user.id)
         .order("created_at", { ascending: false });
       
-      // Filter out scheduled meetings that haven't started yet
       if (!showScheduled) {
-        query = query
-          .or(`event.start_time.lte.${now},and(status.neq.waiting,status.neq.joining,status.neq.waiting_for_admission,status.neq.dispatched)`);
+        query = query.lt('event.start_time', now);
+        const waitingStates = ['waiting', 'joining', 'waiting_for_admission', 'dispatched'];
+        query = query.not('status', 'in', `(${waitingStates.map(s => `"${s}"`).join(',')})`);
       }
       
-      // Apply filters
       if (filters.titleSearch) {
         query = query.textSearch("(event->title).text", filters.titleSearch.replace(/\s+/g, " & "));
       }
@@ -112,7 +108,6 @@ export default function Library() {
     },
   });
 
-  // Query for error recordings with pagination
   const {
     data: errorRecordingsData,
     isLoading: isLoadingErrors,
@@ -123,7 +118,7 @@ export default function Library() {
     pageSize: ITEMS_PER_PAGE,
     filters,
     showErrors: true,
-    showScheduled // Pass through the showScheduled flag
+    showScheduled
   });
 
   const handleRecordingSelect = (id: string | null) => {
@@ -155,7 +150,6 @@ export default function Library() {
         </div>
         
         <div className="space-y-12">
-          {/* My Recordings Section */}
           <section>
             <h2 className="text-xl font-semibold mb-4">My Recordings</h2>
             <RecordingGrid
@@ -173,7 +167,6 @@ export default function Library() {
             )}
           </section>
 
-          {/* Shared Recordings Section */}
           <section>
             <h2 className="text-xl font-semibold mb-4">Shared Recordings</h2>
             <RecordingGrid
@@ -191,7 +184,6 @@ export default function Library() {
             )}
           </section>
 
-          {/* Show Errors Toggle */}
           <div className="flex items-center justify-end space-x-2 pt-4 border-t">
             <Switch
               id="show-errors"
@@ -201,7 +193,6 @@ export default function Library() {
             <Label htmlFor="show-errors">Show error recordings</Label>
           </div>
 
-          {/* Error Recordings Section */}
           {showErrors && (
             <section>
               <h2 className="text-xl font-semibold mb-4 text-red-600">Error Recordings</h2>
