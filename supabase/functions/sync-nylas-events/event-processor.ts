@@ -91,7 +91,6 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
       nylas_event_id: event.id,
       title: event.title || 'Untitled Event',
       description: event.description,
-      // Removed text_description field that doesn't exist in our database
       location: event.location,
       start_time: startTimeISO,
       end_time: endTimeISO,

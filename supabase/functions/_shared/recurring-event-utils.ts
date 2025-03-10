@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 
 export interface NylasEvent {
@@ -130,7 +131,7 @@ export async function processRecurringEvent(
     }
 
     // Upsert the event data into the database
-    // Now using ical_uid AND user_id for conflict resolution if ical_uid exists
+    // Use ical_uid AND user_id for conflict resolution if ical_uid exists
     const upsertOnConflict = event.ical_uid ? 'ical_uid,user_id' : 'nylas_event_id,user_id';
     
     const { error: upsertError } = await supabase
