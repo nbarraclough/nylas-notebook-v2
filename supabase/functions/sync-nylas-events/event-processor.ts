@@ -143,13 +143,12 @@ export async function processEvent(event: NylasEvent, userId: string, supabaseUr
       }
     }
 
-    // Use ical_uid for conflict resolution if it exists
-    const upsertOnConflict = event.ical_uid ? 'ical_uid,user_id' : 'nylas_event_id,user_id';
-
+    // FIXED: Always use nylas_event_id,user_id for conflict resolution
+    // This ensures we use a column combination that has a unique constraint
     const { error: upsertError } = await supabase
       .from('events')
       .upsert(eventData, {
-        onConflict: upsertOnConflict,
+        onConflict: 'nylas_event_id,user_id',
         ignoreDuplicates: false
       });
 
