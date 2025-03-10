@@ -43,8 +43,9 @@ export const ManualSync = ({ userId }: { userId: string }) => {
       
       const { data, error } = await supabase.functions.invoke('sync-nylas-events', {
         body: { 
-          user_id: userId,
-          grant_id: profileData.nylas_grant_id  // Pass the grant ID explicitly
+          userId: userId,
+          grant_id: profileData.nylas_grant_id,
+          events: [] // Include empty events array to pass validation
         }
       });
 

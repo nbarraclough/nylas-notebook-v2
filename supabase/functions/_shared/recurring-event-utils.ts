@@ -204,7 +204,7 @@ export async function cleanupOrphanedInstances(supabaseUrl: string, supabaseKey:
   }
 }
 
-// New function to deduplicate events with the same ical_uid
+// Function to deduplicate events with the same ical_uid
 export async function deduplicateEvents(supabaseUrl: string, supabaseKey: string, requestId: string) {
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -259,6 +259,48 @@ export async function deduplicateEvents(supabaseUrl: string, supabaseKey: string
         if (updateError) {
           console.error(`❌ [${requestId}] Error updating recordings for duplicate events:`, updateError);
           continue;
+        }
+
+        // Update or remove any webhook relationships pointing to these events
+        const { error: webhookRelationshipsError } = await supabase
+          .from('webhook_relationships')
+          .update({ event_id: keepEvent.id })
+          .in('event_id', deleteIds);
+          
+        if (webhookRelationshipsError) {
+          console.error(`❌ [${requestId}] Error updating webhook relationships:`, webhookRelationshipsError);
+          
+          // If update fails, try to delete the webhook relationships
+          const { error: deleteRelationshipsError } = await supabase
+            .from('webhook_relationships')
+            .delete()
+            .in('event_id', deleteIds);
+            
+          if (deleteRelationshipsError) {
+            console.error(`❌ [${requestId}] Error deleting webhook relationships:`, deleteRelationshipsError);
+            continue; // Skip deleting events if we can't handle webhook relationships
+          }
+        }
+        
+        // Also check for notetaker_queue entries
+        const { error: queueUpdateError } = await supabase
+          .from('notetaker_queue')
+          .update({ event_id: keepEvent.id })
+          .in('event_id', deleteIds);
+          
+        if (queueUpdateError) {
+          console.error(`❌ [${requestId}] Error updating notetaker queue:`, queueUpdateError);
+          
+          // If update fails, try to delete the queue entries
+          const { error: deleteQueueError } = await supabase
+            .from('notetaker_queue')
+            .delete()
+            .in('event_id', deleteIds);
+            
+          if (deleteQueueError) {
+            console.error(`❌ [${requestId}] Error deleting queue entries:`, deleteQueueError);
+            // Continue anyway, as this is less critical
+          }
         }
 
         // Then delete the duplicate events

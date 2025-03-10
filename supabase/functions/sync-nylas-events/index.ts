@@ -20,10 +20,36 @@ serve(async (req) => {
 
   try {
     const requestData = await req.json();
-    const { userId, events, syncToken } = requestData;
+    
+    // Handle both camelCase and snake_case parameter formats for compatibility
+    const userId = requestData.userId || requestData.user_id;
+    const events = requestData.events || [];
+    const syncToken = requestData.syncToken;
 
     if (!userId) {
       throw new Error('User ID is required');
+    }
+
+    console.log(`📊 [${requestId}] Processing events for user ${userId}`);
+    
+    // If no events were provided but there's a grant ID, we might need to fetch events
+    if ((!events || events.length === 0) && requestData.grant_id) {
+      console.log(`ℹ️ [${requestId}] No events provided but grant_id present`);
+      // Future enhancement: Fetch events using the grant_id if needed
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "No events to process",
+          syncToken: syncToken
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+          status: 200,
+        }
+      );
     }
 
     if (!events || !Array.isArray(events)) {

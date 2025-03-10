@@ -23,3 +23,8 @@ export function getUnixTime(date: Date): number {
 export function formatDate(date: Date): string {
   return format(date, "yyyy-MM-dd'T'HH:mm:ssXXX");
 }
+
+// Convert Unix seconds timestamp to ISO string
+export function unixSecondsToISOString(timestamp: number): string {
+  return new Date(timestamp * 1000).toISOString();
+}
