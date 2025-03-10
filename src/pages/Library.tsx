@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageLayout } from "@/components/layout/PageLayout";
@@ -50,62 +51,75 @@ export default function Library() {
   } = useQuery({
     queryKey: ["shared-recordings", filters, sharedRecordingsPage, showScheduled],
     queryFn: async () => {
-      const { data: profile } = await supabase.auth.getUser();
-      if (!profile.user) return { data: [], count: 0 };
+      try {
+        const { data: profile } = await supabase.auth.getUser();
+        if (!profile.user) return { data: [], count: 0 };
 
-      const from = (sharedRecordingsPage - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
-      const now = new Date().toISOString();
+        const from = (sharedRecordingsPage - 1) * ITEMS_PER_PAGE;
+        const to = from + ITEMS_PER_PAGE - 1;
+        const now = new Date().toISOString();
 
-      let query = supabase
-        .from("recordings")
-        .select(`
-          *,
-          owner:profiles!inner (
-            email
-          ),
-          event:events (
-            title,
-            description,
-            start_time,
-            end_time,
-            participants,
-            organizer,
-            manual_meeting:manual_meetings (*)
-          ),
-          video_shares (
-            share_type,
-            organization_id,
-            external_token
-          )
-        `, { count: 'exact' })
-        .neq('user_id', profile.user.id)
-        .order("created_at", { ascending: false });
-      
-      if (!showScheduled) {
-        query = query.lt('event.start_time', now);
-        const waitingStates = ['waiting', 'joining', 'waiting_for_admission', 'dispatched'];
-        query = query.not('status', 'in', `(${waitingStates.map(s => `"${s}"`).join(',')})`);
+        let query = supabase
+          .from("recordings")
+          .select(`
+            *,
+            owner:profiles!inner (
+              email
+            ),
+            event:events (
+              title,
+              description,
+              start_time,
+              end_time,
+              participants,
+              organizer,
+              manual_meeting:manual_meetings (*)
+            ),
+            video_shares (
+              share_type,
+              organization_id,
+              external_token
+            )
+          `, { count: 'exact' })
+          .neq('user_id', profile.user.id)
+          .order("created_at", { ascending: false });
+        
+        if (!showScheduled) {
+          // Apply start time filter
+          query = query.lt('event.start_time', now);
+          
+          // Apply status filter
+          const waitingStates = ['waiting', 'joining', 'waiting_for_admission', 'dispatched'];
+          query = query.not('status', 'in', `(${waitingStates.map(s => `"${s}"`).join(',')})`);
+        }
+        
+        if (filters.titleSearch) {
+          query = query.textSearch("(event->title).text", filters.titleSearch.replace(/\s+/g, " & "));
+        }
+
+        if (filters.startDate) {
+          query = query.gte("created_at", filters.startDate.toISOString());
+        }
+
+        if (filters.endDate) {
+          query = query.lte("created_at", filters.endDate.toISOString());
+        }
+
+        query = query.range(from, to);
+        const { data, error, count } = await query;
+
+        if (error) {
+          console.error('Error fetching shared recordings:', error);
+          throw error;
+        }
+        
+        return { data: data || [], count: count || 0 };
+      } catch (error) {
+        console.error('Error in shared recordings query:', error);
+        throw error;
       }
-      
-      if (filters.titleSearch) {
-        query = query.textSearch("(event->title).text", filters.titleSearch.replace(/\s+/g, " & "));
-      }
-
-      if (filters.startDate) {
-        query = query.gte("created_at", filters.startDate.toISOString());
-      }
-
-      if (filters.endDate) {
-        query = query.lte("created_at", filters.endDate.toISOString());
-      }
-
-      query = query.range(from, to);
-      const { data, error, count } = await query;
-
-      if (error) throw error;
-      return { data: data || [], count: count || 0 };
     },
+    retry: false
   });
 
   const {

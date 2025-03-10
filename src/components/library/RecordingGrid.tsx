@@ -39,8 +39,11 @@ export function RecordingGrid({
 
   const isScheduled = (recording: any) => {
     const scheduledStatuses = ["waiting", "joining", "waiting_for_admission", "dispatched"];
-    return scheduledStatuses.includes(recording.status) || 
-           (recording.event?.start_time && new Date(recording.event.start_time) > new Date());
+    const hasScheduledStatus = scheduledStatuses.includes(recording.status);
+    
+    const isFutureEvent = recording.event?.start_time && new Date(recording.event.start_time) > new Date();
+    
+    return hasScheduledStatus || isFutureEvent;
   };
 
   if (isLoading) {
