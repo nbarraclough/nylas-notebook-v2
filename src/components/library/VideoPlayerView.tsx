@@ -96,7 +96,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   };
 
   const dialogContentClass = cn(
-    "max-w-6xl w-[95vw] p-0",
+    "max-w-7xl w-[95vw] p-0",
     "bg-gradient-to-br from-white to-gray-50/80",
     "backdrop-blur-sm border border-gray-100",
     "dark:from-gray-900 dark:to-gray-900/80 dark:border-gray-800",
@@ -177,7 +177,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
             <RecordingStatus status={recording.status} meetingState={recording.meeting_state} />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="aspect-video bg-black rounded-lg overflow-hidden shadow-lg">
               <VideoPlayer
                 ref={videoPlayerRef}
@@ -193,7 +193,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
             </div>
             
             {recording.transcript_content && (
-              <div className="bg-white/50 dark:bg-gray-900/50 rounded-lg p-4 backdrop-blur-sm">
+              <div className="bg-white/50 dark:bg-gray-900/50 rounded-lg p-4 backdrop-blur-sm border border-gray-100 dark:border-gray-800">
                 <TranscriptSection 
                   content={recording.transcript_content} 
                   videoRef={videoPlayerRef}

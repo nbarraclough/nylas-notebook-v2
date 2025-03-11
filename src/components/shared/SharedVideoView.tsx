@@ -26,7 +26,7 @@ export function SharedVideoView() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         <SharedEventHeader
           title={eventData.title}
           startTime={eventData.start_time}
@@ -36,7 +36,7 @@ export function SharedVideoView() {
 
         <Card>
           <CardContent className="p-6 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="aspect-video relative">
                 <SharedVideoPlayer
                   ref={videoRef}
@@ -49,7 +49,9 @@ export function SharedVideoView() {
               </div>
               
               {recording?.transcript_content && (
-                <TranscriptSection content={recording.transcript_content} videoRef={videoRef} />
+                <div className="bg-white/80 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800">
+                  <TranscriptSection content={recording.transcript_content} videoRef={videoRef} />
+                </div>
               )}
             </div>
 

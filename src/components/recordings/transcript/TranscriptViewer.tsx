@@ -1,3 +1,4 @@
+
 import { useState, useMemo, useRef, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TranscriptSearch } from "./TranscriptSearch";
@@ -136,8 +137,10 @@ export function TranscriptViewer({ content, videoRef }: TranscriptViewerProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <TranscriptSearch onSearch={setSearchQuery} />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="w-full sm:max-w-md">
+          <TranscriptSearch onSearch={setSearchQuery} />
+        </div>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -148,16 +151,13 @@ export function TranscriptViewer({ content, videoRef }: TranscriptViewerProps) {
             <Copy className="h-4 w-4" />
             <span>Copy Transcript</span>
           </Button>
-          <button
+          <Button
+            variant={isAutoScrollEnabled ? "default" : "secondary"}
+            size="sm"
             onClick={() => setIsAutoScrollEnabled(!isAutoScrollEnabled)}
-            className={`text-sm px-3 py-1 rounded-md transition-colors ${
-              isAutoScrollEnabled 
-                ? 'bg-primary text-primary-foreground' 
-                : 'bg-secondary text-secondary-foreground'
-            }`}
           >
             Auto-scroll: {isAutoScrollEnabled ? 'On' : 'Off'}
-          </button>
+          </Button>
         </div>
       </div>
 

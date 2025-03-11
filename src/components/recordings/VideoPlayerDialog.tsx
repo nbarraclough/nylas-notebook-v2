@@ -1,3 +1,4 @@
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 import { BaseVideoPlayer, type BaseVideoPlayerRef } from "./player/BaseVideoPlayer";
@@ -30,7 +31,7 @@ export const VideoPlayerDialog = ({ videoUrl, title, children }: VideoPlayerDial
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="w-[95vw] max-w-4xl mx-auto">
+      <DialogContent className="w-[95vw] max-w-5xl mx-auto">
         <DialogHeader>
           <DialogTitle className="text-base sm:text-lg line-clamp-2">{title}</DialogTitle>
           <DialogDescription>
