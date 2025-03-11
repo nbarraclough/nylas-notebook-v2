@@ -1,7 +1,9 @@
-
 import { useState, useMemo, useRef, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TranscriptSearch } from "./TranscriptSearch";
+import { Copy } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import type { BaseVideoPlayerRef } from "@/components/recordings/player/BaseVideoPlayer";
 
 interface TranscriptEntry {
@@ -23,7 +25,8 @@ export function TranscriptViewer({ content, videoRef }: TranscriptViewerProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const userScrollRef = useRef(false);
 
-  // Make sure content is properly sorted by start time
+  const { toast } = useToast();
+
   const sortedContent = useMemo(() => {
     return [...content].sort((a, b) => a.start - b.start);
   }, [content]);
@@ -47,7 +50,7 @@ export function TranscriptViewer({ content, videoRef }: TranscriptViewerProps) {
 
   const handleTimeUpdate = (event: Event) => {
     const video = event.target as HTMLVideoElement;
-    setCurrentTime(video.currentTime * 1000); // Convert to milliseconds
+    setCurrentTime(video.currentTime * 1000);
   };
 
   useEffect(() => {
@@ -68,7 +71,7 @@ export function TranscriptViewer({ content, videoRef }: TranscriptViewerProps) {
     
     const videoElement = videoRef.current.getVideoElement();
     if (videoElement) {
-      videoElement.currentTime = timestamp / 1000; // Convert to seconds
+      videoElement.currentTime = timestamp / 1000;
       if (videoElement.paused) {
         videoElement.play().catch(err => console.error("Error playing video:", err));
       }
@@ -107,20 +110,55 @@ export function TranscriptViewer({ content, videoRef }: TranscriptViewerProps) {
     );
   };
 
+  const formatTranscriptForCopy = (entries: TranscriptEntry[]) => {
+    return entries.map(entry => {
+      const timestamp = formatTimestamp(entry.start);
+      return `[${timestamp}] ${entry.speaker}: ${entry.text}`;
+    }).join('\n\n');
+  };
+
+  const handleCopyTranscript = async () => {
+    try {
+      const formattedText = formatTranscriptForCopy(filteredContent);
+      await navigator.clipboard.writeText(formattedText);
+      toast({
+        title: "Copied!",
+        description: "Transcript copied to clipboard",
+      });
+    } catch (err) {
+      toast({
+        title: "Failed to copy",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <TranscriptSearch onSearch={setSearchQuery} />
-        <button
-          onClick={() => setIsAutoScrollEnabled(!isAutoScrollEnabled)}
-          className={`text-sm px-3 py-1 rounded-md transition-colors ${
-            isAutoScrollEnabled 
-              ? 'bg-primary text-primary-foreground' 
-              : 'bg-secondary text-secondary-foreground'
-          }`}
-        >
-          Auto-scroll: {isAutoScrollEnabled ? 'On' : 'Off'}
-        </button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCopyTranscript}
+            className="flex items-center gap-2"
+          >
+            <Copy className="h-4 w-4" />
+            <span>Copy Transcript</span>
+          </Button>
+          <button
+            onClick={() => setIsAutoScrollEnabled(!isAutoScrollEnabled)}
+            className={`text-sm px-3 py-1 rounded-md transition-colors ${
+              isAutoScrollEnabled 
+                ? 'bg-primary text-primary-foreground' 
+                : 'bg-secondary text-secondary-foreground'
+            }`}
+          >
+            Auto-scroll: {isAutoScrollEnabled ? 'On' : 'Off'}
+          </button>
+        </div>
       </div>
 
       <ScrollArea 
