@@ -55,9 +55,12 @@ export function useNotetakers(userId: string, showScheduled: boolean = false) {
 
       // For recordings without events or incomplete data, create a default structure
       const notetakerRecords = recordingsData?.map(record => {
+        // Add more detailed logging including the notetaker ID in a searchable format
+        console.log(`[NoteTaker ID: ${record.notetaker_id}] Processing notetaker record with status: ${record.status}`);
+        
         // Check if record has the required event data
         if (!record.event) {
-          console.warn(`Recording ${record.id} has no event data`);
+          console.warn(`[NoteTaker ID: ${record.notetaker_id}] Recording ${record.id} has no event data`);
           // Return a record with default/fallback values for the event
           return {
             ...record,

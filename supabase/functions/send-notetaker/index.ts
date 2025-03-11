@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 import { corsHeaders } from '../_shared/cors.ts'
 
@@ -93,8 +94,7 @@ Deno.serve(async (req) => {
     const nylasResponse = JSON.parse(responseText);
     const notetakerId = nylasResponse.data.id;
 
-    console.log('✅ Nylas API success:', {
-      notetakerId,
+    console.log(`✅ [NoteTaker ID: ${notetakerId}] Nylas API success:`, {
       status: response.status,
       headers: Object.fromEntries(response.headers.entries())
     });
@@ -115,13 +115,13 @@ Deno.serve(async (req) => {
       });
 
     if (recordingError) {
-      console.error('❌ Error upserting recording:', recordingError);
+      console.error(`❌ [NoteTaker ID: ${notetakerId}] Error upserting recording:`, recordingError);
       throw new Error('Failed to upsert recording')
     }
 
     // Only create queue entry for calendar events (non-manual meetings)
     if (!isManualMeeting) {
-      console.log('📋 Creating queue entry for calendar event...');
+      console.log(`📋 [NoteTaker ID: ${notetakerId}] Creating queue entry for calendar event...`);
       const { error: queueError } = await supabaseClient
         .from('notetaker_queue')
         .upsert({
@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
         });
 
       if (queueError) {
-        console.error('❌ Error upserting queue:', queueError);
+        console.error(`❌ [NoteTaker ID: ${notetakerId}] Error upserting queue:`, queueError);
         throw new Error('Failed to upsert queue')
       }
     }

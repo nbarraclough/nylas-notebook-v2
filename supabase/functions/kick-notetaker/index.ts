@@ -14,7 +14,7 @@ Deno.serve(async (req) => {
 
   try {
     const { notetakerId } = await req.json()
-    console.log('🚀 Processing request to kick notetaker:', notetakerId)
+    console.log(`🚀 [NoteTaker ID: ${notetakerId}] Processing request to kick notetaker`)
 
     if (!notetakerId) {
       throw new Error('notetakerId is required')
@@ -41,22 +41,22 @@ Deno.serve(async (req) => {
       .single()
 
     if (recordingError) {
-      console.error('❌ Error fetching recording:', recordingError)
+      console.error(`❌ [NoteTaker ID: ${notetakerId}] Error fetching recording:`, recordingError)
       throw new Error('Failed to fetch recording details')
     }
 
     if (!recording) {
-      console.error('❌ Recording not found for notetaker_id:', notetakerId)
+      console.error(`❌ [NoteTaker ID: ${notetakerId}] Recording not found`)
       throw new Error('Recording not found')
     }
 
     const grantId = recording.profiles?.nylas_grant_id
     if (!grantId) {
-      console.error('❌ No Nylas grant ID found for user')
+      console.error(`❌ [NoteTaker ID: ${notetakerId}] No Nylas grant ID found for user`)
       throw new Error('No Nylas grant ID found for user')
     }
 
-    console.log(`🔄 Sending cancellation request to Nylas API for notetaker ${notetakerId}`)
+    console.log(`🔄 [NoteTaker ID: ${notetakerId}] Sending cancellation request to Nylas API`)
 
     // 2. Call Nylas API to cancel the notetaker
     const response = await fetch(
@@ -71,15 +71,15 @@ Deno.serve(async (req) => {
     )
 
     // Log the response status for debugging
-    console.log(`📥 Nylas API Response: ${response.status}`)
+    console.log(`📥 [NoteTaker ID: ${notetakerId}] Nylas API Response: ${response.status}`)
     
     // Get response body if available
     let responseBody = null
     try {
       responseBody = await response.text()
-      console.log('📥 Response body:', responseBody)
+      console.log(`📥 [NoteTaker ID: ${notetakerId}] Response body:`, responseBody)
     } catch (e) {
-      console.log('📝 No response body or could not parse')
+      console.log(`📝 [NoteTaker ID: ${notetakerId}] No response body or could not parse`)
     }
 
     // 3. Update recording status in database
@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
       .eq('notetaker_id', notetakerId)
 
     if (updateError) {
-      console.error('❌ Error updating recording status:', updateError)
+      console.error(`❌ [NoteTaker ID: ${notetakerId}] Error updating recording status:`, updateError)
       throw new Error('Failed to update recording status')
     }
 
@@ -105,12 +105,12 @@ Deno.serve(async (req) => {
         .eq('user_id', recording.user_id)
 
       if (queueError) {
-        console.log('⚠️ Error removing from queue (non-critical):', queueError)
+        console.log(`⚠️ [NoteTaker ID: ${notetakerId}] Error removing from queue (non-critical):`, queueError)
         // Non-critical error, don't throw
       }
     }
 
-    console.log('✅ Successfully cancelled notetaker and updated recording status')
+    console.log(`✅ [NoteTaker ID: ${notetakerId}] Successfully cancelled notetaker and updated recording status`)
 
     return new Response(
       JSON.stringify({ success: true }),

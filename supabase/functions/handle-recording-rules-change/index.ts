@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
         if (!recording.notetaker_id) continue
 
         try {
-          console.log(`🚫 Cancelling notetaker ${recording.notetaker_id} for recording ${recording.id}`)
+          console.log(`🚫 [NoteTaker ID: ${recording.notetaker_id}] Cancelling notetaker for recording ${recording.id}`)
           
           // Call the Nylas API to cancel the notetaker
           const response = await fetch(
@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
 
           // Log the response for debugging
           const responseText = await response.text()
-          console.log(`📥 Nylas API Response for ${recording.notetaker_id}:`, response.status, responseText)
+          console.log(`📥 [NoteTaker ID: ${recording.notetaker_id}] Nylas API Response: ${response.status}`, responseText)
 
           // Update recording status to cancelled
           await supabaseClient
@@ -121,10 +121,10 @@ Deno.serve(async (req) => {
             })
             .eq('id', recording.id)
 
-          console.log(`✅ Recording ${recording.id} marked as cancelled`)
+          console.log(`✅ [NoteTaker ID: ${recording.notetaker_id}] Recording ${recording.id} marked as cancelled`)
         } catch (err) {
           // Log the error but continue with other recordings
-          console.error(`❌ Error cancelling notetaker ${recording.notetaker_id}:`, err)
+          console.error(`❌ [NoteTaker ID: ${recording.notetaker_id}] Error cancelling notetaker:`, err)
         }
       }
 
@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
 
         // If recording exists and is active, skip
         if (existingRecording && ['waiting', 'joining', 'recording'].includes(existingRecording.status)) {
-          console.log(`⏭️ Event ${event.id} already has an active recording`)
+          console.log(`⏭️ Event ${event.id} already has an active recording with notetaker ${existingRecording.notetaker_id}`)
           continue
         }
 
@@ -222,51 +222,63 @@ Deno.serve(async (req) => {
         )
 
         const responseText = await response.text()
-        const responseData = JSON.parse(responseText)
-        console.log(`📥 Nylas API Response for event ${event.id}:`, response.status, responseText)
-
-        if (!response.ok || !responseData.data?.id) {
-          console.error(`❌ Failed to create notetaker for event ${event.id}`)
-          continue
-        }
-
-        const notetakerId = responseData.data.id
-
-        // Create or update recording entry
-        if (existingRecording) {
-          await supabaseClient
-            .from('recordings')
-            .update({
-              notetaker_id: notetakerId,
-              status: 'waiting',
-              join_time: new Date(joinTime * 1000).toISOString(),
-              updated_at: new Date().toISOString(),
-              meeting_settings: {
-                video_recording: true,
-                audio_recording: true,
-                transcription: true
+        try {
+          const responseData = JSON.parse(responseText)
+          const notetakerId = responseData.data?.id
+          
+          if (notetakerId) {
+            console.log(`📥 [NoteTaker ID: ${notetakerId}] Successfully created notetaker for event ${event.id}`)
+            
+            // Create or update recording entry
+            if (existingRecording) {
+              await supabaseClient
+                .from('recordings')
+                .update({
+                  notetaker_id: notetakerId,
+                  status: 'waiting',
+                  join_time: new Date(joinTime * 1000).toISOString(),
+                  updated_at: new Date().toISOString(),
+                  meeting_settings: {
+                    video_recording: true,
+                    audio_recording: true,
+                    transcription: true
+                  }
+                })
+                .eq('id', existingRecording.id)
+                
+              console.log(`✅ [NoteTaker ID: ${notetakerId}] Updated existing recording ${existingRecording.id}`)
+            } else {
+              const { data: newRecording, error: insertError } = await supabaseClient
+                .from('recordings')
+                .insert({
+                  user_id: userId,
+                  event_id: event.id,
+                  notetaker_id: notetakerId,
+                  status: 'waiting',
+                  join_time: new Date(joinTime * 1000).toISOString(),
+                  meeting_settings: {
+                    video_recording: true,
+                    audio_recording: true,
+                    transcription: true
+                  }
+                })
+                .select('id')
+                .single()
+                
+              if (insertError) {
+                console.error(`❌ [NoteTaker ID: ${notetakerId}] Error creating new recording:`, insertError)
+              } else {
+                console.log(`✅ [NoteTaker ID: ${notetakerId}] Created new recording ${newRecording.id}`)
               }
-            })
-            .eq('id', existingRecording.id)
-        } else {
-          await supabaseClient
-            .from('recordings')
-            .insert({
-              user_id: userId,
-              event_id: event.id,
-              notetaker_id: notetakerId,
-              status: 'waiting',
-              join_time: new Date(joinTime * 1000).toISOString(),
-              meeting_settings: {
-                video_recording: true,
-                audio_recording: true,
-                transcription: true
-              }
-            })
-        }
+            }
 
-        scheduledCount++
-        console.log(`✅ Successfully scheduled recording for event ${event.id}`)
+            scheduledCount++
+          } else {
+            console.error(`❌ Error: No notetaker ID in response for event ${event.id}`, responseData)
+          }
+        } catch (parseError) {
+          console.error(`❌ Error parsing response for event ${event.id}:`, parseError, responseText)
+        }
       } catch (err) {
         console.error(`❌ Error processing event ${event.id}:`, err)
       }

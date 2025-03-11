@@ -3,16 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Loader, Download, RefreshCw, Zap, CheckCircle, AlertTriangle } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-
-interface NotetakerActionsProps {
-  recordingId: string;
-  notetakerId: string;
-  status: string;
-  isKicking: boolean;
-  isRetrieving: boolean;
-  onKick: () => Promise<void>;
-  onRetrieve: (forceRefresh?: boolean) => Promise<void>;
-}
+import { NotetakerActionsProps } from "./types";
 
 export function NotetakerActions({
   recordingId,
@@ -29,6 +20,7 @@ export function NotetakerActions({
 
   const handleKick = async () => {
     try {
+      console.log(`🚫 Attempting to kick notetaker [NoteTaker ID: ${notetakerId}]`);
       setLastFailedAction(null);
       await onKick();
       setLastSuccessAction('kick');
@@ -36,7 +28,9 @@ export function NotetakerActions({
         title: "Success",
         description: "Notetaker kicked successfully",
       });
+      console.log(`✅ Successfully kicked notetaker [NoteTaker ID: ${notetakerId}]`);
     } catch (error) {
+      console.error(`❌ Failed to kick notetaker [NoteTaker ID: ${notetakerId}]`, error);
       setLastSuccessAction(null);
       setLastFailedAction('kick');
       toast({
@@ -49,6 +43,7 @@ export function NotetakerActions({
 
   const handleRetrieve = async (forceRefresh = false) => {
     try {
+      console.log(`🔄 Attempting to ${forceRefresh ? 'refresh' : 'retrieve'} media for [NoteTaker ID: ${notetakerId}]`);
       setLastFailedAction(null);
       await onRetrieve(forceRefresh);
       setLastSuccessAction(forceRefresh ? 'refresh' : 'retrieve');
@@ -56,7 +51,9 @@ export function NotetakerActions({
         title: "Success",
         description: forceRefresh ? "Media refreshed successfully" : "Media retrieved successfully",
       });
+      console.log(`✅ Successfully ${forceRefresh ? 'refreshed' : 'retrieved'} media for [NoteTaker ID: ${notetakerId}]`);
     } catch (error) {
+      console.error(`❌ Failed to ${forceRefresh ? 'refresh' : 'retrieve'} media for [NoteTaker ID: ${notetakerId}]`, error);
       setLastSuccessAction(null);
       setLastFailedAction(forceRefresh ? 'refresh' : 'retrieve');
       toast({
