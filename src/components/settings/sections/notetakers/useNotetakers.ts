@@ -7,7 +7,7 @@ export function useNotetakers(userId: string, showScheduled: boolean = false) {
   return useQuery({
     queryKey: ['notetakers', userId, showScheduled],
     queryFn: async () => {
-      console.log('Fetching notetakers for user:', userId);
+      console.log(`[NoteTaker] Fetching notetakers for user: ${userId}, showScheduled: ${showScheduled}`);
 
       // Build the query
       let query = supabase
@@ -46,10 +46,10 @@ export function useNotetakers(userId: string, showScheduled: boolean = false) {
 
       const { data: recordingsData, error: recordingsError } = await query;
 
-      console.log('Recordings query result:', { recordingsData, recordingsError });
+      console.log(`[NoteTaker] Recordings query result: ${recordingsData?.length} records found`);
       
       if (recordingsError) {
-        console.error('Recordings error:', recordingsError);
+        console.error('[NoteTaker] Recordings error:', recordingsError);
         throw recordingsError;
       }
 
@@ -93,7 +93,7 @@ export function useNotetakers(userId: string, showScheduled: boolean = false) {
         return dateB.getTime() - dateA.getTime();
       });
 
-      console.log('Final sorted records:', sortedRecords);
+      console.log(`[NoteTaker] Final sorted records: ${sortedRecords.length}`);
       return sortedRecords as NotetakerRecord[];
     },
   });

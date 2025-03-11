@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -69,11 +70,19 @@ export const ConnectNylas = () => {
       const userId = (await supabase.auth.getUser()).data.user?.id;
       if (!userId) throw new Error('User not found');
 
+      // Updated to pass both user_id and grant_id to the sync-nylas-events function
+      console.log(`[NoteTaker] Syncing events for user ${userId} with grant ID ${data.grant_id}`);
       const { error: syncError } = await supabase.functions.invoke('sync-nylas-events', {
-        body: { user_id: userId }
+        body: { 
+          user_id: userId,
+          grant_id: data.grant_id 
+        }
       });
 
-      if (syncError) throw syncError;
+      if (syncError) {
+        console.error(`[NoteTaker] Error syncing events: ${syncError.message}`);
+        throw syncError;
+      }
 
       toast({
         title: "Success",

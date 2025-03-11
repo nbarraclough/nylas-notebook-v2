@@ -32,9 +32,13 @@ serve(async (req) => {
       throw new Error('User ID is required');
     }
 
+    // Added validation for grant_id
     if (!grant_id) {
+      console.error(`❌ [${requestId}] Missing grant_id parameter`);
       throw new Error('Nylas grant ID is required');
     }
+
+    console.log(`🔍 [NoteTaker ID: ${grant_id}] Processing events sync for user ${user_id}`);
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -93,14 +97,14 @@ serve(async (req) => {
 
       if (!nylasResponse.ok) {
         const errorText = await nylasResponse.text();
-        console.error(`❌ [${requestId}] Nylas API error on page ${pageCount}:`, errorText);
+        console.error(`❌ [${requestId}] [NoteTaker ID: ${grant_id}] Nylas API error on page ${pageCount}:`, errorText);
         throw new Error(`Failed to fetch events from Nylas: ${nylasResponse.status} ${errorText}`);
       }
 
       const nylasData = await nylasResponse.json();
       const pageEvents = nylasData.data || [];
       
-      console.log(`📊 [${requestId}] Received ${pageEvents.length} events on page ${pageCount}`);
+      console.log(`📊 [${requestId}] [NoteTaker ID: ${grant_id}] Received ${pageEvents.length} events on page ${pageCount}`);
       
       // Add events from this page to our collection
       allEvents = [...allEvents, ...pageEvents];
@@ -110,7 +114,7 @@ serve(async (req) => {
       
     } while (pageToken); // Continue fetching pages until there's no next_cursor
     
-    console.log(`📊 [${requestId}] Fetched a total of ${allEvents.length} events across ${pageCount} pages`);
+    console.log(`📊 [${requestId}] [NoteTaker ID: ${grant_id}] Fetched a total of ${allEvents.length} events across ${pageCount} pages`);
 
     // Process each event
     const processingPromises = allEvents.map(event => 
@@ -119,16 +123,16 @@ serve(async (req) => {
     
     await Promise.all(processingPromises);
     
-    console.log(`✅ [${requestId}] Successfully processed all events`);
+    console.log(`✅ [${requestId}] [NoteTaker ID: ${grant_id}] Successfully processed all events`);
 
     // Run deduplication after syncing events
-    console.log(`🧹 [${requestId}] Running deduplication for events`);
+    console.log(`🧹 [${requestId}] [NoteTaker ID: ${grant_id}] Running deduplication for events`);
     const deduplicationResult = await deduplicateEvents(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, requestId);
     
     if (deduplicationResult.success) {
-      console.log(`✅ [${requestId}] Deduplication complete: removed ${deduplicationResult.count} duplicates`);
+      console.log(`✅ [${requestId}] [NoteTaker ID: ${grant_id}] Deduplication complete: removed ${deduplicationResult.count} duplicates`);
     } else {
-      console.error(`⚠️ [${requestId}] Deduplication issues:`, deduplicationResult.error);
+      console.error(`⚠️ [${requestId}] [NoteTaker ID: ${grant_id}] Deduplication issues:`, deduplicationResult.error);
     }
 
     return new Response(
