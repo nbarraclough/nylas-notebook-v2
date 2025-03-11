@@ -112,7 +112,7 @@ export function RecurringRecordingToggle({
         for (const event of events) {
           if (event.recordings && event.recordings.length > 0) {
             for (const recording of event.recordings) {
-              if (recording.notetaker_id) {
+              if (recording.notetaker_id && recording.status !== 'cancelled') {
                 await supabase.functions.invoke('kick-notetaker', {
                   body: {
                     notetakerId: recording.notetaker_id

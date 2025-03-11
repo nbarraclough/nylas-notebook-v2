@@ -174,29 +174,37 @@ Deno.serve(async (req) => {
     // For each eligible event, check if it already has a recording and create one if not
     for (const event of eventsToRecord) {
       try {
-        // Check if a recording already exists
-        const { data: existingRecording, error: recordingError } = await supabaseClient
+        // FIX: Updated query to handle multiple recordings for the same event
+        // Get all recordings for this event, order by created_at DESC to get the most recent first
+        const { data: existingRecordings, error: recordingsError } = await supabaseClient
           .from('recordings')
-          .select('id, status, notetaker_id')
+          .select('id, status, notetaker_id, created_at')
           .eq('event_id', event.id)
           .eq('user_id', userId)
-          .maybeSingle()
+          .order('created_at', { ascending: false })
 
-        if (recordingError) {
-          console.error(`❌ Error checking existing recording for event ${event.id}:`, recordingError)
+        if (recordingsError) {
+          console.error(`❌ Error checking existing recordings for event ${event.id}:`, recordingsError)
+          console.error(`Full error details:`, JSON.stringify(recordingsError, null, 2))
           continue
         }
 
-        // If recording exists and is active, skip
-        if (existingRecording && ['waiting', 'joining', 'recording'].includes(existingRecording.status)) {
-          console.log(`⏭️ Event ${event.id} already has an active recording with notetaker ${existingRecording.notetaker_id}`)
-          continue
-        }
+        // Find the most recent active recording (if any)
+        const activeRecording = existingRecordings?.find(rec => 
+          ['waiting', 'joining', 'recording'].includes(rec.status)
+        );
 
         // Calculate join time (epoch seconds) for the meeting start time
         const startDate = new Date(event.start_time)
         const joinTime = Math.floor(startDate.getTime() / 1000)
 
+        // Check if there's an active recording
+        if (activeRecording) {
+          console.log(`⏭️ Event ${event.id} already has an active recording with notetaker ${activeRecording.notetaker_id}`)
+          continue
+        }
+
+        // If this event has cancelled recordings but no active ones, we'll create a new one
         console.log(`🔄 Creating notetaker for event ${event.id} with join time ${joinTime}`)
 
         // Call the Nylas API to create a new notetaker
@@ -229,8 +237,11 @@ Deno.serve(async (req) => {
           if (notetakerId) {
             console.log(`📥 [NoteTaker ID: ${notetakerId}] Successfully created notetaker for event ${event.id}`)
             
-            // Create or update recording entry
-            if (existingRecording) {
+            // Choose the most recent recording to update, if there are any cancelled ones
+            if (existingRecordings && existingRecordings.length > 0) {
+              // Get the most recent recording (should be the first one after ordering)
+              const recordingToUpdate = existingRecordings[0];
+              
               await supabaseClient
                 .from('recordings')
                 .update({
@@ -244,10 +255,55 @@ Deno.serve(async (req) => {
                     transcription: true
                   }
                 })
-                .eq('id', existingRecording.id)
+                .eq('id', recordingToUpdate.id)
                 
-              console.log(`✅ [NoteTaker ID: ${notetakerId}] Updated existing recording ${existingRecording.id}`)
+              console.log(`✅ [NoteTaker ID: ${notetakerId}] Updated existing recording ${recordingToUpdate.id}`)
+              
+              // Cancel or cleanup any other recordings for this event if there are duplicates
+              if (existingRecordings.length > 1) {
+                console.log(`🧹 Found ${existingRecordings.length - 1} additional recordings for event ${event.id}, cleaning up...`)
+                
+                // Skip the first one (most recent) that we just updated
+                for (let i = 1; i < existingRecordings.length; i++) {
+                  const oldRec = existingRecordings[i];
+                  
+                  // If this recording has a notetaker_id and is not already cancelled, cancel it with Nylas
+                  if (oldRec.notetaker_id && oldRec.status !== 'cancelled') {
+                    try {
+                      console.log(`🚫 [NoteTaker ID: ${oldRec.notetaker_id}] Cancelling duplicate notetaker for recording ${oldRec.id}`)
+                      
+                      const cancelResponse = await fetch(
+                        `https://api.us.nylas.com/v3/grants/${profile.nylas_grant_id}/notetakers/${oldRec.notetaker_id}/cancel`,
+                        {
+                          method: 'DELETE',
+                          headers: {
+                            'Authorization': `Bearer ${Deno.env.get('NYLAS_CLIENT_SECRET')}`,
+                            'Accept': 'application/json, application/gzip'
+                          }
+                        }
+                      )
+                      
+                      console.log(`📥 Nylas API Cancel Response: ${cancelResponse.status}`)
+                    } catch (cancelErr) {
+                      console.error(`⚠️ Error cancelling duplicate notetaker ${oldRec.notetaker_id}:`, cancelErr)
+                      // Continue with database update even if API call fails
+                    }
+                  }
+                  
+                  // Mark old recording as cancelled in database
+                  await supabaseClient
+                    .from('recordings')
+                    .update({
+                      status: 'cancelled',
+                      updated_at: new Date().toISOString()
+                    })
+                    .eq('id', oldRec.id)
+                  
+                  console.log(`✅ Marked duplicate recording ${oldRec.id} as cancelled`)
+                }
+              }
             } else {
+              // No existing recordings, create a new one
               const { data: newRecording, error: insertError } = await supabaseClient
                 .from('recordings')
                 .insert({

@@ -26,8 +26,8 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // 1. Get the recording entry to find the user's Nylas grant ID
-    const { data: recording, error: recordingError } = await supabaseClient
+    // 1. Get all recordings with this notetaker_id (there might be duplicates)
+    const { data: recordings, error: recordingsError } = await supabaseClient
       .from('recordings')
       .select(`
         id,
@@ -38,25 +38,30 @@ Deno.serve(async (req) => {
         )
       `)
       .eq('notetaker_id', notetakerId)
-      .single()
+      .order('created_at', { ascending: false })
 
-    if (recordingError) {
-      console.error(`❌ [NoteTaker ID: ${notetakerId}] Error fetching recording:`, recordingError)
+    if (recordingsError) {
+      console.error(`❌ [NoteTaker ID: ${notetakerId}] Error fetching recordings:`, recordingsError)
       throw new Error('Failed to fetch recording details')
     }
 
-    if (!recording) {
-      console.error(`❌ [NoteTaker ID: ${notetakerId}] Recording not found`)
-      throw new Error('Recording not found')
+    if (!recordings || recordings.length === 0) {
+      console.error(`❌ [NoteTaker ID: ${notetakerId}] No recordings found`)
+      throw new Error('No recordings found with this notetaker ID')
     }
 
-    const grantId = recording.profiles?.nylas_grant_id
+    console.log(`📋 [NoteTaker ID: ${notetakerId}] Found ${recordings.length} recordings with this notetaker ID`)
+
+    // Use the most recent recording's grant ID (should be the same for all)
+    const mostRecentRecording = recordings[0]
+    const grantId = mostRecentRecording.profiles?.nylas_grant_id
+
     if (!grantId) {
       console.error(`❌ [NoteTaker ID: ${notetakerId}] No Nylas grant ID found for user`)
       throw new Error('No Nylas grant ID found for user')
     }
 
-    console.log(`🔄 [NoteTaker ID: ${notetakerId}] Sending cancellation request to Nylas API`)
+    console.log(`🔄 [NoteTaker ID: ${notetakerId}] Sending cancellation request to Nylas API using grant ${grantId}`)
 
     // 2. Call Nylas API to cancel the notetaker
     const response = await fetch(
@@ -82,35 +87,41 @@ Deno.serve(async (req) => {
       console.log(`📝 [NoteTaker ID: ${notetakerId}] No response body or could not parse`)
     }
 
-    // 3. Update recording status in database
-    const { error: updateError } = await supabaseClient
-      .from('recordings')
-      .update({
-        status: 'cancelled',
-        updated_at: new Date().toISOString()
-      })
-      .eq('notetaker_id', notetakerId)
+    // 3. Update recording status in database - mark ALL recordings with this notetaker_id as cancelled
+    for (const recording of recordings) {
+      const { error: updateError } = await supabaseClient
+        .from('recordings')
+        .update({
+          status: 'cancelled',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', recording.id)
 
-    if (updateError) {
-      console.error(`❌ [NoteTaker ID: ${notetakerId}] Error updating recording status:`, updateError)
-      throw new Error('Failed to update recording status')
-    }
+      if (updateError) {
+        console.error(`❌ [NoteTaker ID: ${notetakerId}] Error updating recording ${recording.id} status:`, updateError)
+        // Continue with other recordings
+      } else {
+        console.log(`✅ [NoteTaker ID: ${notetakerId}] Updated recording ${recording.id} status to cancelled`)
+      }
 
-    // 4. Remove from notetaker_queue if present
-    if (recording.event_id) {
-      const { error: queueError } = await supabaseClient
-        .from('notetaker_queue')
-        .delete()
-        .eq('event_id', recording.event_id)
-        .eq('user_id', recording.user_id)
+      // 4. Remove from notetaker_queue if present
+      if (recording.event_id) {
+        const { error: queueError } = await supabaseClient
+          .from('notetaker_queue')
+          .delete()
+          .eq('event_id', recording.event_id)
+          .eq('user_id', recording.user_id)
 
-      if (queueError) {
-        console.log(`⚠️ [NoteTaker ID: ${notetakerId}] Error removing from queue (non-critical):`, queueError)
-        // Non-critical error, don't throw
+        if (queueError) {
+          console.log(`⚠️ [NoteTaker ID: ${notetakerId}] Error removing from queue for event ${recording.event_id} (non-critical):`, queueError)
+          // Non-critical error, don't throw
+        } else {
+          console.log(`✅ [NoteTaker ID: ${notetakerId}] Removed from queue for event ${recording.event_id}`)
+        }
       }
     }
 
-    console.log(`✅ [NoteTaker ID: ${notetakerId}] Successfully cancelled notetaker and updated recording status`)
+    console.log(`✅ [NoteTaker ID: ${notetakerId}] Successfully cancelled notetaker and updated recording statuses`)
 
     return new Response(
       JSON.stringify({ success: true }),

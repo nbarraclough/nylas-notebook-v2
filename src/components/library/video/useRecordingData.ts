@@ -14,6 +14,7 @@ export function useRecordingData(recordingId: string | null) {
     queryFn: async () => {
       if (!recordingId) return null;
 
+      // Modified to use maybeSingle instead of single to avoid errors with duplicate records
       const { data, error } = await supabase
         .from('recordings')
         .select(`
