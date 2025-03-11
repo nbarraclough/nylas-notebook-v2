@@ -36,12 +36,10 @@ export function useNotetakers(userId: string, showScheduled: boolean = false) {
       if (!showScheduled) {
         const now = new Date().toISOString();
         
-        // Add condition to filter based on event start_time only if event exists
-        query = query.or(`event.start_time.lt.${now},event.is.null`);
-        
-        // Also filter out recordings in waiting states
+        // Filter recordings based on event start time and waiting states
         const waitingStates = ['waiting', 'joining', 'waiting_for_admission', 'dispatched'];
-        query = query.not('status', 'in', `(${waitingStates.map(s => `"${s}"`).join(',')})`);
+        query = query
+          .or(`event.start_time.lt.${now},and(event.id.is.null,not.status.in.(${waitingStates.join(',')}))`);
       }
 
       const { data: recordingsData, error: recordingsError } = await query;
