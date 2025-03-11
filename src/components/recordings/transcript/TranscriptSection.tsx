@@ -4,6 +4,7 @@ import type { Json } from "@/integrations/supabase/types";
 import type { BaseVideoPlayerRef } from "@/components/recordings/player/BaseVideoPlayer";
 import { FileText, AlertCircle } from "lucide-react";
 import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface TranscriptSectionProps {
   content: Json;
@@ -70,23 +71,30 @@ export function TranscriptSection({ content, videoRef }: TranscriptSectionProps)
   const hasContent = validatedContent && validatedContent.length > 0;
 
   return (
-    <div className="h-full">
-      <h3 className="text-lg font-medium mb-4">Transcript</h3>
+    <div className={cn(
+      "h-full p-5",
+      "rounded-lg bg-white/80 dark:bg-gray-900/70",
+      "backdrop-blur-sm shadow-sm border border-gray-100 dark:border-gray-800"
+    )}>
+      <h3 className="text-lg font-medium mb-5 text-gray-800 dark:text-gray-200">
+        Transcript
+      </h3>
       
       {hasContent ? (
         <TranscriptViewer content={validatedContent} videoRef={videoRef} />
       ) : (
-        <div className="flex flex-col items-center justify-center h-64 text-muted-foreground bg-gray-50 rounded-lg border border-dashed border-gray-200">
+        <div className="flex flex-col items-center justify-center h-64 text-muted-foreground bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed border-gray-200 dark:border-gray-700">
           {hasError ? (
             <>
-              <AlertCircle className="h-12 w-12 mb-2 text-amber-500" />
-              <p>There was a problem processing the transcript</p>
-              <p className="text-sm mt-1">The transcript format is not supported or is corrupted</p>
+              <AlertCircle className="h-12 w-12 mb-3 text-amber-500" />
+              <p className="text-base font-medium">There was a problem processing the transcript</p>
+              <p className="text-sm mt-2 text-gray-500 dark:text-gray-400">The transcript format is not supported or is corrupted</p>
             </>
           ) : (
             <>
-              <FileText className="h-12 w-12 mb-2 text-gray-300" />
-              <p>No transcript available</p>
+              <FileText className="h-12 w-12 mb-3 text-gray-300 dark:text-gray-600" />
+              <p className="text-base font-medium">No transcript available</p>
+              <p className="text-sm mt-2 text-gray-500 dark:text-gray-400">This recording does not have a transcript</p>
             </>
           )}
         </div>

@@ -2,10 +2,11 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TranscriptSearch } from "./TranscriptSearch";
-import { Copy } from "lucide-react";
+import { Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import type { BaseVideoPlayerRef } from "@/components/recordings/player/BaseVideoPlayer";
+import { cn } from "@/lib/utils";
 
 interface TranscriptEntry {
   start: number;
@@ -23,8 +24,11 @@ export function TranscriptViewer({ content, videoRef }: TranscriptViewerProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentTime, setCurrentTime] = useState(0);
   const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
+  const [isCopying, setIsCopying] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const userScrollRef = useRef(false);
+  const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { toast } = useToast();
 
@@ -41,6 +45,15 @@ export function TranscriptViewer({ content, videoRef }: TranscriptViewerProps) {
         entry.speaker.toLowerCase().includes(query)
     );
   }, [sortedContent, searchQuery]);
+
+  // Clear copied state after unmount
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const formatTimestamp = (milliseconds: number) => {
     const totalSeconds = Math.floor(milliseconds / 1000);
@@ -120,13 +133,28 @@ export function TranscriptViewer({ content, videoRef }: TranscriptViewerProps) {
 
   const handleCopyTranscript = async () => {
     try {
+      setIsCopying(true);
       const formattedText = formatTranscriptForCopy(filteredContent);
       await navigator.clipboard.writeText(formattedText);
+      
+      setIsCopied(true);
+      setIsCopying(false);
+      
       toast({
         title: "Copied!",
         description: "Transcript copied to clipboard",
       });
+      
+      // Reset the copied state after 2 seconds
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+      
+      copyTimeoutRef.current = setTimeout(() => {
+        setIsCopied(false);
+      }, 2000);
     } catch (err) {
+      setIsCopying(false);
       toast({
         title: "Failed to copy",
         description: "Please try again",
@@ -137,7 +165,7 @@ export function TranscriptViewer({ content, videoRef }: TranscriptViewerProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="w-full sm:max-w-md">
           <TranscriptSearch onSearch={setSearchQuery} />
         </div>
@@ -146,15 +174,30 @@ export function TranscriptViewer({ content, videoRef }: TranscriptViewerProps) {
             variant="outline"
             size="sm"
             onClick={handleCopyTranscript}
-            className="flex items-center gap-2"
+            disabled={isCopying || filteredContent.length === 0}
+            isLoading={isCopying}
+            className={cn(
+              "transition-all duration-300 flex items-center gap-2 min-w-[140px]",
+              isCopied && "bg-green-50 text-green-600 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800"
+            )}
           >
-            <Copy className="h-4 w-4" />
-            <span>Copy Transcript</span>
+            {isCopied ? (
+              <>
+                <Check className="h-4 w-4" />
+                <span>Copied!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="h-4 w-4" />
+                <span>Copy Transcript</span>
+              </>
+            )}
           </Button>
           <Button
             variant={isAutoScrollEnabled ? "default" : "secondary"}
             size="sm"
             onClick={() => setIsAutoScrollEnabled(!isAutoScrollEnabled)}
+            className="min-w-[120px] transition-all duration-200"
           >
             Auto-scroll: {isAutoScrollEnabled ? 'On' : 'Off'}
           </Button>
@@ -162,7 +205,7 @@ export function TranscriptViewer({ content, videoRef }: TranscriptViewerProps) {
       </div>
 
       <ScrollArea 
-        className="h-[400px] w-full rounded-md border"
+        className="h-[400px] w-full rounded-md border border-gray-200 shadow-sm bg-white/50 backdrop-blur-sm"
         onWheel={() => {
           userScrollRef.current = true;
           handleScroll();
@@ -177,9 +220,10 @@ export function TranscriptViewer({ content, videoRef }: TranscriptViewerProps) {
                 <div 
                   key={index}
                   id={`transcript-${entry.start}`}
-                  className={`group rounded-lg p-2 transition-colors cursor-pointer hover:bg-muted/50 ${
-                    isCurrentSegment ? 'bg-muted/50 border-l-2 border-primary' : ''
-                  }`}
+                  className={cn(
+                    "group rounded-lg p-3 transition-colors cursor-pointer hover:bg-muted/50",
+                    isCurrentSegment ? 'bg-muted/50 border-l-2 border-primary shadow-sm' : ''
+                  )}
                   onClick={() => handleEntryClick(entry.start)}
                 >
                   <div className="flex items-center gap-3 mb-1">
@@ -197,12 +241,13 @@ export function TranscriptViewer({ content, videoRef }: TranscriptViewerProps) {
               );
             })
           ) : searchQuery ? (
-            <div className="text-center text-muted-foreground py-8">
-              No results found for "{searchQuery}"
+            <div className="text-center text-muted-foreground py-12">
+              <p className="text-lg">No results found for "{searchQuery}"</p>
+              <p className="text-sm mt-2">Try a different search term</p>
             </div>
           ) : (
-            <div className="text-center text-muted-foreground py-8">
-              No transcript segments found
+            <div className="text-center text-muted-foreground py-12">
+              <p className="text-lg">No transcript segments found</p>
             </div>
           )}
         </div>
