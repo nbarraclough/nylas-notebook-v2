@@ -14,10 +14,12 @@ export function useVideoDownload() {
       setIsDownloading(true);
       setDownloadProgress(0);
       
-      toastId = toast({
+      // Show initial toast notification
+      const initialToast = toast({
         title: "Download started",
         description: "Preparing your high-quality video download...",
-      }).id;
+      });
+      toastId = initialToast;
       
       // Get the high quality MP4 download URL from Mux instead of low quality
       const mp4Url = `https://stream.mux.com/${playbackId}/high.mp4`;
@@ -58,7 +60,6 @@ export function useVideoDownload() {
         // Update toast with progress
         if (toastId) {
           toast({
-            id: toastId,
             title: "Downloading video",
             description: `${progress}% complete`,
           });
@@ -91,7 +92,6 @@ export function useVideoDownload() {
       window.URL.revokeObjectURL(blobUrl);
 
       toast({
-        id: toastId,
         title: "Download complete",
         description: "Your high-quality video has been downloaded",
       });
@@ -105,7 +105,6 @@ export function useVideoDownload() {
           // Update toast
           if (toastId) {
             toast({
-              id: toastId,
               title: "High quality unavailable",
               description: "Trying medium quality instead...",
             });
@@ -131,7 +130,6 @@ export function useVideoDownload() {
           window.URL.revokeObjectURL(blobUrl);
           
           toast({
-            id: toastId,
             title: "Download complete",
             description: "Your video has been downloaded in medium quality",
           });
@@ -142,7 +140,6 @@ export function useVideoDownload() {
       }
       
       toast({
-        id: toastId,
         title: "Download failed",
         description: "There was a problem downloading your video. Please try again later.",
         variant: "destructive",

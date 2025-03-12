@@ -270,16 +270,18 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
         </div>
       )}
       
-      <style jsx>{`
-        .video-container .download-button {
-          opacity: 0;
-          transition: opacity 0.2s ease;
-        }
-        
-        .video-container:hover .download-button {
-          opacity: 1;
-        }
-      `}</style>
+      <style>
+        {`
+          .video-container .download-button {
+            opacity: 0;
+            transition: opacity 0.2s ease;
+          }
+          
+          .video-container:hover .download-button {
+            opacity: 1;
+          }
+        `}
+      </style>
     </div>
   );
 });
