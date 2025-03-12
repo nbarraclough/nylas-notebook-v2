@@ -52,11 +52,11 @@ Deno.serve(async (req) => {
       return internal ? recordInternalMeetings : recordExternalMeetings
     }
 
-    // Get the user's profile to check if they have a Nylas grant ID
+    // Get the user's profile to check if they have a Nylas grant ID and notetaker name
     console.log('🔍 Fetching user profile')
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
-      .select('nylas_grant_id')
+      .select('nylas_grant_id, notetaker_name') // Added notetaker_name to the query
       .eq('id', userId)
       .single()
 
@@ -69,6 +69,10 @@ Deno.serve(async (req) => {
       console.error('❌ No Nylas grant ID found for user:', userId)
       throw new Error('No Nylas grant ID found for user')
     }
+
+    // Get the notetaker name from the profile or use default if not set
+    const notetakerName = profile.notetaker_name || `Notetaker`
+    console.log(`📝 Using notetaker name: "${notetakerName}"`)
 
     // If both recording settings are turned off, cancel all active notetakers that are in 'waiting' status
     if (!recordExternalMeetings && !recordInternalMeetings) {
@@ -220,6 +224,7 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               meeting_link: event.conference_url,
               join_time: joinTime,
+              notetaker_name: notetakerName, // Use the notetaker name from the profile
               meeting_settings: {
                 video_recording: true,
                 audio_recording: true,
@@ -230,12 +235,15 @@ Deno.serve(async (req) => {
         )
 
         const responseText = await response.text()
+        console.log(`📥 Raw Nylas API response: ${responseText}`)
+        
         try {
           const responseData = JSON.parse(responseText)
           const notetakerId = responseData.data?.id
           
           if (notetakerId) {
             console.log(`📥 [NoteTaker ID: ${notetakerId}] Successfully created notetaker for event ${event.id}`)
+            console.log(`👤 Notetaker name used: "${notetakerName}"`)
             
             // Choose the most recent recording to update, if there are any cancelled ones
             if (existingRecordings && existingRecordings.length > 0) {
