@@ -4,6 +4,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { NotetakersTable } from "./notetakers/NotetakersTable";
 import { useNotetakers } from "./notetakers/useNotetakers";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 export function NotetakersSettings({ userId }: { userId: string }) {
   console.log('NotetakersSettings rendering with userId:', userId);
@@ -11,7 +13,8 @@ export function NotetakersSettings({ userId }: { userId: string }) {
   const { toast } = useToast();
   const [isKicking, setIsKicking] = useState<{ [key: string]: boolean }>({});
   const [isRetrieving, setIsRetrieving] = useState<{ [key: string]: boolean }>({});
-  const { data: recordings, isLoading, error } = useNotetakers(userId);
+  const [showScheduled, setShowScheduled] = useState(false);
+  const { data: recordings, isLoading, error } = useNotetakers(userId, showScheduled);
 
   console.log('NotetakersSettings state:', { 
     userId,
@@ -19,7 +22,8 @@ export function NotetakersSettings({ userId }: { userId: string }) {
     isLoading,
     error,
     isKicking,
-    isRetrieving
+    isRetrieving,
+    showScheduled
   });
 
   const handleManualKick = async (notetakerId: string, recordingId: string) => {
@@ -126,6 +130,14 @@ export function NotetakersSettings({ userId }: { userId: string }) {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-semibold">Notetakers</h2>
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="show-scheduled"
+            checked={showScheduled}
+            onCheckedChange={setShowScheduled}
+          />
+          <Label htmlFor="show-scheduled">Show scheduled meetings</Label>
+        </div>
       </div>
 
       <NotetakersTable

@@ -9,7 +9,7 @@ export function useNotetakers(userId: string, showScheduled: boolean = false) {
     queryFn: async () => {
       console.log(`[NoteTaker] Fetching notetakers for user: ${userId}, showScheduled: ${showScheduled}`);
 
-      // Build the query
+      // Build the query - Get all recordings with notetaker_id that aren't cancelled
       let query = supabase
         .from('recordings')
         .select(`
@@ -30,31 +30,27 @@ export function useNotetakers(userId: string, showScheduled: boolean = false) {
         `)
         .eq('user_id', userId)
         .not('notetaker_id', 'is', null)
-        .not('status', 'eq', 'cancelled'); // Explicitly filter out cancelled notetakers
+        .not('status', 'eq', 'cancelled');
 
-      // If we're not showing scheduled meetings, filter them out
+      // If we're not showing scheduled meetings, filter by start time
       if (!showScheduled) {
         const now = new Date().toISOString();
-        
-        // Filter recordings based on event start time and waiting states
-        const waitingStates = ['waiting', 'joining', 'waiting_for_admission', 'dispatched'];
-        query = query
-          .or(`event.start_time.lt.${now},and(event.id.is.null,not.status.in.(${waitingStates.join(',')}))`);
+        query = query.lt('event.start_time', now);
       }
 
       const { data: recordingsData, error: recordingsError } = await query;
 
-      console.log(`[NoteTaker] Recordings query result: ${recordingsData?.length} records found`);
-      
       if (recordingsError) {
-        console.error('[NoteTaker] Recordings error:', recordingsError);
+        console.error('[NoteTaker] Error fetching recordings:', recordingsError);
         throw recordingsError;
       }
 
+      console.log(`[NoteTaker] Recordings query result: ${recordingsData?.length} records found`);
+      
       // For recordings without events or incomplete data, create a default structure
       const notetakerRecords = recordingsData?.map(record => {
-        // Add more detailed logging including the notetaker ID in a searchable format
-        console.log(`[NoteTaker ID: ${record.notetaker_id}] Processing notetaker record with status: ${record.status}`);
+        // Add more detailed logging including the notetaker ID
+        console.log(`[NoteTaker ID: ${record.notetaker_id}] Processing record with status: ${record.status}`);
         
         // Check if record has the required event data
         if (!record.event) {
