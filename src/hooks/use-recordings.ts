@@ -16,7 +16,7 @@ interface UseRecordingsProps {
     hasPublicLink: boolean;
   };
   showErrors?: boolean;
-  showScheduled?: boolean; // For scheduled meetings
+  showScheduled?: boolean;
 }
 
 interface PaginatedResponse<T> {
@@ -74,10 +74,8 @@ export function useRecordings({
       
       // Handle scheduled recordings that haven't started yet
       if (!showScheduled) {
-        const now = new Date().toISOString();
-        
-        // Filter by start time being in the past
-        query = query.lt('event.start_time', now);
+        // Only show recordings that are not in a waiting/joining state
+        query = query.not('status', 'in', '("waiting","joining","waiting_for_admission")');
       }
 
       // If not authenticated, only fetch the shared recording
@@ -139,16 +137,20 @@ export function useRecordings({
       // Process recordings
       const processedData = (data || []).map(recording => ({
         ...recording,
-        event: {
+        event: recording.event ? {
           ...recording.event,
-          participants: Array.isArray(recording.event?.participants) 
+          // Use title from manual meeting if it exists, otherwise use event title
+          title: recording.event.manual_meeting?.title || recording.event.title || 'Untitled Meeting',
+          participants: Array.isArray(recording.event.participants) 
             ? recording.event.participants.map((p: any) => ({
                 name: typeof p === 'object' ? p.name || '' : '',
                 email: typeof p === 'object' ? p.email || '' : p
               }))
             : []
-        }
+        } : null
       }));
+
+      console.log('Processed recordings:', processedData);
 
       return {
         data: processedData,
