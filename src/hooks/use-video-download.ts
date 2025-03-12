@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useToast } from "./use-toast";
 
@@ -19,7 +18,7 @@ export function useVideoDownload() {
         title: "Download started",
         description: "Preparing your high-quality video download...",
       });
-      toastId = initialToast;
+      toastId = initialToast.id;
       
       // Get the high quality MP4 download URL from Mux instead of low quality
       const mp4Url = `https://stream.mux.com/${playbackId}/high.mp4`;
