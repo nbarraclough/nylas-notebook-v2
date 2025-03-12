@@ -693,9 +693,3 @@ export const handleEventDeleted = async (objectData: any, grantId: string) => {
     return { success: false, error };
   }
 };
-
-export {
-  handleEventCreated,
-  handleEventUpdated,
-  handleEventDeleted
-};
