@@ -39,6 +39,8 @@ export const SharedVideoPlayer = forwardRef<BaseVideoPlayerRef, SharedVideoPlaye
       ref={ref}
       videoUrl={videoSource}
       recordingUrl={null}
+      muxPlaybackId={muxPlaybackId}
+      title={title}
     />
   );
 });

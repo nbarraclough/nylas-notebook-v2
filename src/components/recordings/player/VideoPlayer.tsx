@@ -20,7 +20,8 @@ export type VideoPlayerRef = BaseVideoPlayerRef;
 export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
   videoUrl,
   recordingUrl,
-  muxPlaybackId
+  muxPlaybackId,
+  title
 }, ref) => {
   // Get Mux playback URL if not provided directly
   const effectiveVideoUrl = videoUrl || (muxPlaybackId ? `https://stream.mux.com/${muxPlaybackId}.m3u8` : null);
@@ -40,6 +41,8 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({
         ref={ref}
         videoUrl={effectiveVideoUrl}
         recordingUrl={recordingUrl}
+        muxPlaybackId={muxPlaybackId}
+        title={title}
       />
     </div>
   );

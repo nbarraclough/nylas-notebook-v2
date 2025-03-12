@@ -1,6 +1,11 @@
 
-import { forwardRef, useEffect, useRef } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Download, MoreVertical } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useVideoDownload } from "@/hooks/use-video-download";
+import { cn } from "@/lib/utils";
 
 export interface BaseVideoPlayerRef {
   pause: () => void;
@@ -15,16 +20,22 @@ interface BaseVideoPlayerProps {
   recordingUrl: string | null;
   onRefreshMedia?: () => Promise<void>;
   isRefreshing?: boolean;
+  muxPlaybackId?: string | null;
+  title?: string;
 }
 
 export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerProps>(({
   videoUrl,
   recordingUrl,
   onRefreshMedia,
-  isRefreshing
+  isRefreshing,
+  muxPlaybackId,
+  title = 'Recording'
 }, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const { isDownloading, downloadVideo } = useVideoDownload();
+  const [showControls, setShowControls] = useState(false);
 
   // Enhanced cleanup function with more thorough HLS and video cleanup
   const cleanupHls = () => {
@@ -205,17 +216,57 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
     );
   }
 
+  const handleDownload = () => {
+    if (muxPlaybackId) {
+      downloadVideo(muxPlaybackId, title);
+    }
+  };
+
   return (
-    <video
-      ref={videoRef}
-      className="w-full h-full"
-      controls
-      playsInline
-      preload="auto"
-      controlsList="nodownload"
+    <div 
+      className="relative w-full h-full" 
+      onMouseEnter={() => setShowControls(true)}
+      onMouseLeave={() => setShowControls(false)}
     >
-      Your browser does not support the video tag.
-    </video>
+      <video
+        ref={videoRef}
+        className="w-full h-full"
+        controls
+        playsInline
+        preload="auto"
+      >
+        Your browser does not support the video tag.
+      </video>
+      
+      {muxPlaybackId && showControls && (
+        <div className="absolute top-2 right-2 z-10">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="secondary" 
+                size="icon" 
+                className={cn(
+                  "h-8 w-8 rounded-full bg-black/50 hover:bg-black/70",
+                  "text-white border-none shadow-md"
+                )}
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem onClick={handleDownload} disabled={isDownloading}>
+                {isDownloading ? (
+                  <span className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                ) : (
+                  <Download className="h-4 w-4 mr-2" />
+                )}
+                Download
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+    </div>
   );
 });
 
