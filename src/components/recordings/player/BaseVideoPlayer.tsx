@@ -1,11 +1,10 @@
 
-import { forwardRef, useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useRef } from "react";
 import Hls from "hls.js";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Download, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useVideoDownload } from "@/hooks/use-video-download";
-import { cn } from "@/lib/utils";
 
 export interface BaseVideoPlayerRef {
   pause: () => void;
@@ -34,7 +33,7 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
 }, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
-  const { isDownloading, downloadVideo } = useVideoDownload();
+  const { isDownloading, downloadProgress, downloadVideo } = useVideoDownload();
   
   // Enhanced cleanup function with more thorough HLS and video cleanup
   const cleanupHls = () => {
@@ -245,14 +244,26 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem onClick={handleDownload} disabled={isDownloading}>
                 {isDownloading ? (
-                  <span className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  <>
+                    <div className="relative h-4 w-4 mr-2">
+                      <div className="absolute inset-0 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                      {downloadProgress > 0 && (
+                        <div className="absolute inset-0 flex items-center justify-center text-[8px] font-semibold">
+                          {downloadProgress}%
+                        </div>
+                      )}
+                    </div>
+                    Downloading...
+                  </>
                 ) : (
-                  <Download className="h-4 w-4 mr-2" />
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download HD Video
+                  </>
                 )}
-                Download
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
