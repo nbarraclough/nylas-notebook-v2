@@ -215,10 +215,10 @@ async function createNotetakerForEvent(
   }
 }
 
-// New function to update notetaker join time
+// Updated function to update notetaker join time
 async function updateNotetakerJoinTime(grantId: string, notetakerId: string, newJoinTime: number) {
   try {
-    console.log(`🔄 Updating notetaker ${notetakerId} join time from ${newJoinTime} seconds to ${new Date(newJoinTime * 1000).toISOString()}`);
+    console.log(`🔄 Updating notetaker ${notetakerId} join time to ${newJoinTime} seconds (${new Date(newJoinTime * 1000).toISOString()})`);
     
     const nylasApiKey = Deno.env.get('NYLAS_CLIENT_SECRET') ?? '';
     if (!nylasApiKey) {
@@ -232,6 +232,40 @@ async function updateNotetakerJoinTime(grantId: string, notetakerId: string, new
     
     console.log(`⏰ Using join time in seconds: ${joinTimeInSeconds} (${new Date(joinTimeInSeconds * 1000).toISOString()})`);
     
+    // Find the user associated with this grant to get the notetaker name
+    const profile = await findUserByGrant(grantId);
+    if (!profile) {
+      throw new Error(`No user found for grant: ${grantId}`);
+    }
+    
+    // Get the user's preferred notetaker name
+    const { data: userProfile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('notetaker_name')
+      .eq('id', profile.id)
+      .single();
+      
+    if (profileError) {
+      console.error(`❌ Error fetching user profile:`, profileError);
+      throw profileError;
+    }
+    
+    // Use the user's preferred name or default to "Nylas Notetaker"
+    const notetakerName = userProfile.notetaker_name || 'Nylas Notetaker';
+    
+    // Prepare the complete payload with all required fields
+    const payload = {
+      join_time: joinTimeInSeconds,
+      notetaker_name: notetakerName,
+      meeting_settings: {
+        video_recording: true,
+        audio_recording: true,
+        transcription: true
+      }
+    };
+    
+    console.log(`📤 Sending complete payload to Nylas API:`, payload);
+    
     const response = await fetch(
       `https://api.us.nylas.com/v3/grants/${grantId}/notetakers/${notetakerId}`,
       {
@@ -241,18 +275,38 @@ async function updateNotetakerJoinTime(grantId: string, notetakerId: string, new
           'Accept': 'application/json, application/gzip',
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          join_time: joinTimeInSeconds
-        })
+        body: JSON.stringify(payload)
       }
     );
     
+    // Enhanced error handling
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Nylas API error (${response.status}): ${errorText}`);
+      // Try to get detailed error information
+      let errorDetail = "";
+      try {
+        const errorResponse = await response.json();
+        errorDetail = JSON.stringify(errorResponse);
+      } catch (e) {
+        errorDetail = await response.text();
+      }
+      
+      const errorMessage = `Nylas API error (${response.status}): ${errorDetail}`;
+      console.error(`❌ ${errorMessage}`);
+      
+      if (response.status === 500) {
+        console.error(`❌ Nylas server error. This may be temporary, consider implementing retries.`);
+      } else if (response.status === 404) {
+        console.error(`❌ Notetaker not found. It may have been deleted or cancelled.`);
+      } else if (response.status === 400) {
+        console.error(`❌ Bad request. Check the payload format and required fields.`);
+      }
+      
+      throw new Error(errorMessage);
     }
     
-    return await response.json();
+    const result = await response.json();
+    console.log(`✅ Successfully updated notetaker join time:`, result);
+    return result;
   } catch (error) {
     console.error(`❌ Error updating notetaker join time:`, error);
     throw error;
@@ -637,4 +691,10 @@ export const handleEventDeleted = async (objectData: any, grantId: string) => {
     logWebhookError('event.deleted', error);
     return { success: false, error };
   }
+};
+
+export {
+  handleEventCreated,
+  handleEventUpdated,
+  handleEventDeleted
 };
