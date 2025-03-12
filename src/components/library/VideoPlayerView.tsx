@@ -96,7 +96,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
   };
 
   const dialogContentClass = cn(
-    "max-w-7xl w-[95vw] p-0",
+    "max-w-5xl w-[95vw] p-0 overflow-y-auto max-h-[90vh]",
     "bg-gradient-to-br from-white to-gray-50/80",
     "backdrop-blur-sm border border-gray-100",
     "dark:from-gray-900 dark:to-gray-900/80 dark:border-gray-800",
@@ -178,7 +178,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="aspect-video bg-black rounded-lg overflow-hidden shadow-lg">
+            <div className="relative aspect-video bg-black rounded-lg overflow-hidden shadow-lg">
               <VideoPlayer
                 ref={videoPlayerRef}
                 recordingId={recordingId}
