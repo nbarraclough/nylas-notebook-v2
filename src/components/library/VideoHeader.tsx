@@ -1,6 +1,6 @@
 
 import { Badge } from "@/components/ui/badge";
-import { X, Shield, Globe, Users, Pencil, Check, Share2, Mail } from "lucide-react";
+import { X, Shield, Globe, Users, Pencil, Check, Share2, Mail, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
@@ -10,6 +10,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { useVideoDownload } from "@/hooks/use-video-download";
 import type { EventParticipant } from "@/types/calendar";
 
 interface VideoHeaderProps {
@@ -26,6 +27,7 @@ interface VideoHeaderProps {
   ownerEmail?: string;
   userId?: string;
   manualMeetingId?: string;
+  muxPlaybackId?: string | null;
 }
 
 export function VideoHeader({
@@ -41,11 +43,13 @@ export function VideoHeader({
   onShareUpdate,
   ownerEmail,
   userId,
-  manualMeetingId
+  manualMeetingId,
+  muxPlaybackId
 }: VideoHeaderProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(title);
   const { toast } = useToast();
+  const { isDownloading, downloadVideo } = useVideoDownload();
 
   const handleUpdateTitle = async () => {
     try {
@@ -178,6 +182,21 @@ export function VideoHeader({
         </div>
       </div>
       <div className="flex items-center gap-2">
+        {muxPlaybackId && (
+          <Button 
+            variant="outline" 
+            size="icon" 
+            className="rounded-full"
+            onClick={() => downloadVideo(muxPlaybackId, title)}
+            disabled={isDownloading}
+          >
+            {isDownloading ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+          </Button>
+        )}
         <ShareVideoDialog recordingId={recordingId} onShareUpdate={onShareUpdate}>
           <Button variant="outline" size="icon" className="rounded-full">
             <Share2 className="h-4 w-4" />

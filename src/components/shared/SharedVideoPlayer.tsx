@@ -2,9 +2,6 @@
 import { forwardRef } from "react";
 import { BaseVideoPlayer, type BaseVideoPlayerRef } from "@/components/recordings/player/BaseVideoPlayer";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Download, Loader2 } from "lucide-react";
-import { useVideoDownload } from "@/hooks/use-video-download";
 
 interface SharedVideoPlayerProps {
   videoUrl: string | null;
@@ -19,8 +16,6 @@ export const SharedVideoPlayer = forwardRef<BaseVideoPlayerRef, SharedVideoPlaye
   muxPlaybackId,
   title = 'Recording'
 }, ref) => {
-  const { isDownloading, downloadVideo } = useVideoDownload();
-
   if (!muxPlaybackId) {
     return (
       <div className={cn(
@@ -40,28 +35,11 @@ export const SharedVideoPlayer = forwardRef<BaseVideoPlayerRef, SharedVideoPlaye
   const videoSource = `https://stream.mux.com/${muxPlaybackId}.m3u8`;
 
   return (
-    <div className="relative">
-      <BaseVideoPlayer
-        ref={ref}
-        videoUrl={videoSource}
-        recordingUrl={null}
-      />
-      <div className="absolute top-4 right-4">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => downloadVideo(muxPlaybackId, title)}
-          disabled={isDownloading}
-        >
-          {isDownloading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Download className="h-4 w-4" />
-          )}
-          <span className="ml-2">Download</span>
-        </Button>
-      </div>
-    </div>
+    <BaseVideoPlayer
+      ref={ref}
+      videoUrl={videoSource}
+      recordingUrl={null}
+    />
   );
 });
 

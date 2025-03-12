@@ -33,6 +33,7 @@ export function SharedVideoView() {
           startTime={eventData.start_time}
           endTime={eventData.end_time}
           participants={eventData.participants}
+          muxPlaybackId={recording?.mux_playback_id}
         />
 
         <Card className="border-gray-100 shadow-sm overflow-hidden">
@@ -46,6 +47,7 @@ export function SharedVideoView() {
                   recordingId={recording?.id || ''}
                   notetakerId={recording?.notetaker_id}
                   muxPlaybackId={recording?.mux_playback_id}
+                  title={eventData.title}
                 />
               </div>
               

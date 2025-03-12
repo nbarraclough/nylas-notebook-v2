@@ -173,6 +173,7 @@ export function VideoPlayerView({ recordingId, onClose }: VideoPlayerViewProps) 
               ownerEmail={recording.owner_email}
               userId={recording.user_id}
               manualMeetingId={recording.event?.manual_meeting?.id}
+              muxPlaybackId={recording.mux_playback_id}
             />
             <RecordingStatus status={recording.status} meetingState={recording.meeting_state} />
           </div>
