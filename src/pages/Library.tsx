@@ -82,15 +82,12 @@ export default function Library() {
             )
           `, { count: 'exact' })
           .neq('user_id', profile.user.id)
-          .order("created_at", { ascending: false });
+          .order("created_at", { ascending: false })
+          .not('status', 'eq', 'cancelled');
         
         if (!showScheduled) {
-          // Apply start time filter
+          // Apply start time filter for scheduled meetings
           query = query.lt('event.start_time', now);
-          
-          // Apply status filter
-          const waitingStates = ['waiting', 'joining', 'waiting_for_admission', 'dispatched'];
-          query = query.not('status', 'in', `(${waitingStates.map(s => `"${s}"`).join(',')})`);
         }
         
         if (filters.titleSearch) {

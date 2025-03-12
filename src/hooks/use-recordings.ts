@@ -16,7 +16,7 @@ interface UseRecordingsProps {
     hasPublicLink: boolean;
   };
   showErrors?: boolean;
-  showScheduled?: boolean; // New prop to control showing scheduled meetings
+  showScheduled?: boolean; // For scheduled meetings
 }
 
 interface PaginatedResponse<T> {
@@ -31,7 +31,7 @@ export function useRecordings({
   pageSize = 8,
   filters,
   showErrors = false,
-  showScheduled = false // Default to false - don't show scheduled meetings
+  showScheduled = false 
 }: UseRecordingsProps) {
   return useQuery({
     queryKey: ['library-recordings', filters, isAuthenticated, recordingId, page, pageSize, showErrors, showScheduled],
@@ -64,23 +64,20 @@ export function useRecordings({
         `, { count: 'exact' })
         .order('created_at', { ascending: false });
 
-      // Always filter out cancelled recordings unless explicitly requested (showErrors = true)
+      // Always filter out cancelled recordings
+      query = query.not('status', 'eq', 'cancelled');
+      
+      // Handle error recordings - if not showing errors, filter those out
       if (!showErrors) {
-        query = query.not('status', 'in', '("error","failed_entry","failed","cancelled")');
-      } else {
-        query = query.not('status', 'eq', 'cancelled');
+        query = query.not('status', 'in', '("error","failed_entry","failed")');
       }
       
-      // Filter out scheduled meetings that haven't started yet (if showScheduled is false)
+      // Handle scheduled recordings that haven't started yet
       if (!showScheduled) {
         const now = new Date().toISOString();
         
         // Filter by start time being in the past
         query = query.lt('event.start_time', now);
-        
-        // Filter out recordings in waiting states
-        const waitingStates = ['waiting', 'joining', 'waiting_for_admission', 'dispatched'];
-        query = query.not('status', 'in', `(${waitingStates.map(s => `"${s}"`).join(',')})`);
       }
 
       // If not authenticated, only fetch the shared recording
