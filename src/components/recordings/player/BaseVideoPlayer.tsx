@@ -35,8 +35,7 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const { isDownloading, downloadVideo } = useVideoDownload();
-  const [showControls, setShowControls] = useState(false);
-
+  
   // Enhanced cleanup function with more thorough HLS and video cleanup
   const cleanupHls = () => {
     console.log('Cleaning up HLS instance and video element');
@@ -223,11 +222,7 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
   };
 
   return (
-    <div 
-      className="relative w-full h-full" 
-      onMouseEnter={() => setShowControls(true)}
-      onMouseLeave={() => setShowControls(false)}
-    >
+    <div className="relative w-full h-full video-container">
       <video
         ref={videoRef}
         className="w-full h-full"
@@ -238,17 +233,14 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
         Your browser does not support the video tag.
       </video>
       
-      {muxPlaybackId && showControls && (
-        <div className="absolute top-2 right-2 z-10">
+      {muxPlaybackId && (
+        <div className="absolute top-2 right-2 z-10 download-button">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="secondary" 
                 size="icon" 
-                className={cn(
-                  "h-8 w-8 rounded-full bg-black/50 hover:bg-black/70",
-                  "text-white border-none shadow-md"
-                )}
+                className="h-8 w-8 rounded-full bg-black/70 hover:bg-black/90 text-white border-none shadow-md"
               >
                 <MoreVertical className="h-4 w-4" />
               </Button>
@@ -266,6 +258,17 @@ export const BaseVideoPlayer = forwardRef<BaseVideoPlayerRef, BaseVideoPlayerPro
           </DropdownMenu>
         </div>
       )}
+      
+      <style jsx>{`
+        .video-container .download-button {
+          opacity: 0;
+          transition: opacity 0.2s ease;
+        }
+        
+        .video-container:hover .download-button {
+          opacity: 1;
+        }
+      `}</style>
     </div>
   );
 });
