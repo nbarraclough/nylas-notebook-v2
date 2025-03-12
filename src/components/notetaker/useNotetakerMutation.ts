@@ -105,9 +105,10 @@ export function useNotetakerMutation(onSuccess: () => void) {
       if (userError) throw userError;
       if (!user) throw new Error('Not authenticated');
 
+      // Query for user's profile including notetaker_name
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('nylas_grant_id, email')
+        .select('nylas_grant_id, email, notetaker_name')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -116,6 +117,8 @@ export function useNotetakerMutation(onSuccess: () => void) {
       if (!profile.nylas_grant_id) {
         throw new Error('Nylas connection not found. Please connect your calendar first.');
       }
+
+      console.log('Retrieved profile with notetaker_name:', profile.notetaker_name);
 
       const startTime = new Date();
       // Calculate join time (epoch seconds) for now

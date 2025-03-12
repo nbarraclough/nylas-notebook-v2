@@ -80,12 +80,12 @@ Deno.serve(async (req) => {
     
     logInfo(requestId, `Processing request`, { event_id, join_time, manual_override }, 'PROCESS');
 
-    // Get event details
+    // Get event details - FIX: Use proper join syntax with !inner to ensure proper join
     const { data: event, error: eventError } = await supabase
       .from('events')
       .select(`
         *,
-        profiles:user_id (
+        profiles!inner (
           nylas_grant_id,
           notetaker_name,
           record_internal_meetings,
@@ -108,7 +108,8 @@ Deno.serve(async (req) => {
     logDebug(requestId, `Event details retrieved`, { 
       event_id: event.id,
       title: event.title,
-      conference_url: event.conference_url
+      conference_url: event.conference_url,
+      profiles: event.profiles
     }, 'FETCH');
 
     // Verify grant ID
@@ -166,7 +167,12 @@ Deno.serve(async (req) => {
       }, 'SKIP');
     }
 
+    // Get notetaker name from profile, log it for debugging
     const notetakerName = event.profiles.notetaker_name || 'Nylas Notetaker';
+    logInfo(requestId, `Using notetaker name from profile`, { 
+      notetakerName, 
+      profileNotetakerName: event.profiles.notetaker_name
+    }, 'PROCESS');
     
     // Prepare meeting settings
     const defaultSettings = {

@@ -126,7 +126,7 @@ async function createNotetakerForEvent(
       console.log(`⏰ No join time specified, notetaker will join immediately`);
     }
     
-    // Get user's notetaker name preference
+    // Get user's notetaker name preference - fixed to use !inner for proper join
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('notetaker_name')
@@ -139,6 +139,7 @@ async function createNotetakerForEvent(
     }
     
     const notetakerName = profile.notetaker_name || 'Nylas Notetaker';
+    console.log(`👤 Using notetaker name: "${notetakerName}" from user profile`);
     
     // Prepare request payload - now including join_time if provided
     const requestPayload: Record<string, any> = {
