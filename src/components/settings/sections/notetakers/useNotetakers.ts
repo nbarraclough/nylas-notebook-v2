@@ -47,32 +47,28 @@ export function useNotetakers(userId: string, showScheduled: boolean = false) {
 
       console.log(`[NoteTaker] Recordings query result: ${recordingsData?.length} records found`);
       
+      // Filter out recordings with missing or invalid event data
+      const validRecordings = recordingsData?.filter(record => 
+        record.event && (record.event.title || record.event.manual_meeting?.title)
+      ) || [];
+      
+      console.log(`[NoteTaker] After filtering invalid events: ${validRecordings.length} valid records`);
+      
       // For recordings without events or incomplete data, create a default structure
-      const notetakerRecords = recordingsData?.map(record => {
+      const notetakerRecords = validRecordings.map(record => {
         // Add more detailed logging including the notetaker ID
         console.log(`[NoteTaker ID: ${record.notetaker_id}] Processing record with status: ${record.status}`);
         
-        // Check if record has the required event data
-        if (!record.event) {
-          console.warn(`[NoteTaker ID: ${record.notetaker_id}] Recording ${record.id} has no event data`);
-          // Return a record with default/fallback values for the event
-          return {
-            ...record,
-            event: {
-              id: null,
-              title: 'Unknown Event',
-              start_time: record.created_at, // Fallback to recording creation time
-              manual_meeting: null
-            },
-            source: 'recording'
-          };
-        }
-        
         return {
           ...record,
+          event: {
+            ...record.event,
+            // Use title from manual meeting if it exists, otherwise use event title
+            title: record.event.manual_meeting?.title || record.event.title || 'Untitled Meeting'
+          },
           source: 'recording'
         };
-      }) || [];
+      });
 
       // Sort records by start_time in descending order (newest first)
       // Handle cases where event or start_time might be null
