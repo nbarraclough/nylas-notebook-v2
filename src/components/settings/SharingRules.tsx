@@ -1,6 +1,5 @@
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,46 +53,15 @@ export const SharingRules = ({
     },
   });
 
-  const handleShareInternalChange = () => {
-    const newValue = !shareInternal;
-    updateProfile.mutate({ share_internal_recordings: newValue });
-  };
-
-  const handleShareExternalChange = () => {
-    const newValue = !shareExternal;
-    updateProfile.mutate({ share_external_recordings: newValue });
-  };
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Organization Sharing Rules</CardTitle>
+        <CardTitle>Sharing Settings</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <Label>Automatically Share Internal Meeting Recordings</Label>
-            <p className="text-sm text-muted-foreground">
-              Share recordings of internal meetings with your organization
-            </p>
-          </div>
-          <Switch 
-            checked={shareInternal}
-            onCheckedChange={handleShareInternalChange}
-          />
-        </div>
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <Label>Automatically Share External Meeting Recordings</Label>
-            <p className="text-sm text-muted-foreground">
-              Share recordings of external meetings with your organization
-            </p>
-          </div>
-          <Switch 
-            checked={shareExternal}
-            onCheckedChange={handleShareExternalChange}
-          />
-        </div>
+      <CardContent>
+        <p className="text-muted-foreground">
+          Configure your sharing settings in individual recordings by using the share button.
+        </p>
       </CardContent>
     </Card>
   );

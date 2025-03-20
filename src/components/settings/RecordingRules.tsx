@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -134,119 +133,57 @@ export const RecordingRules = ({
     updateProfile.mutate({ record_internal_meetings: newValue });
   };
 
-  const handleShareExternalChange = () => {
-    const newValue = !localState.share_external_recordings;
-    updateProfile.mutate({ share_external_recordings: newValue });
-  };
-
-  const handleShareInternalChange = () => {
-    const newValue = !localState.share_internal_recordings;
-    updateProfile.mutate({ share_internal_recordings: newValue });
-  };
-
   if (isLoading) {
     return (
-      <>
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Recording Rules</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Skeleton className="h-4 w-[200px]" />
-              <Skeleton className="h-6 w-[42px]" />
-            </div>
-            <div className="flex items-center justify-between">
-              <Skeleton className="h-4 w-[200px]" />
-              <Skeleton className="h-6 w-[42px]" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Organization Sharing Rules</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Skeleton className="h-4 w-[200px]" />
-              <Skeleton className="h-6 w-[42px]" />
-            </div>
-            <div className="flex items-center justify-between">
-              <Skeleton className="h-4 w-[200px]" />
-              <Skeleton className="h-6 w-[42px]" />
-            </div>
-          </CardContent>
-        </Card>
-      </>
-    );
-  }
-
-  return (
-    <>
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Recording Rules</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Record External Meetings</Label>
-              <p className="text-sm text-muted-foreground">
-                Record meetings where the host's email domain differs from participants
-              </p>
-            </div>
-            <Switch 
-              checked={localState.record_external_meetings}
-              onCheckedChange={handleRecordExternalChange}
-            />
+            <Skeleton className="h-4 w-[200px]" />
+            <Skeleton className="h-6 w-[42px]" />
           </div>
           <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Record Internal Meetings</Label>
-              <p className="text-sm text-muted-foreground">
-                Record meetings where all participants share the same email domain
-              </p>
-            </div>
-            <Switch 
-              checked={localState.record_internal_meetings}
-              onCheckedChange={handleRecordInternalChange}
-            />
+            <Skeleton className="h-4 w-[200px]" />
+            <Skeleton className="h-6 w-[42px]" />
           </div>
         </CardContent>
       </Card>
+    );
+  }
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Organization Sharing Rules</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Automatically Share Internal Meeting Recordings</Label>
-              <p className="text-sm text-muted-foreground">
-                Share recordings of internal meetings with your organization
-              </p>
-            </div>
-            <Switch 
-              checked={localState.share_internal_recordings}
-              onCheckedChange={handleShareInternalChange}
-            />
+  return (
+    <Card className="mb-6">
+      <CardHeader>
+        <CardTitle>Recording Rules</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label>Record External Meetings</Label>
+            <p className="text-sm text-muted-foreground">
+              Record meetings where the host's email domain differs from participants
+            </p>
           </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Automatically Share External Meeting Recordings</Label>
-              <p className="text-sm text-muted-foreground">
-                Share recordings of external meetings with your organization
-              </p>
-            </div>
-            <Switch 
-              checked={localState.share_external_recordings}
-              onCheckedChange={handleShareExternalChange}
-            />
+          <Switch 
+            checked={localState.record_external_meetings}
+            onCheckedChange={handleRecordExternalChange}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label>Record Internal Meetings</Label>
+            <p className="text-sm text-muted-foreground">
+              Record meetings where all participants share the same email domain
+            </p>
           </div>
-        </CardContent>
-      </Card>
-    </>
+          <Switch 
+            checked={localState.record_internal_meetings}
+            onCheckedChange={handleRecordInternalChange}
+          />
+        </div>
+      </CardContent>
+    </Card>
   );
 };
