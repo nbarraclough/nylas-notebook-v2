@@ -3,12 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
-import { Video, Users, CalendarClock, Calendar, Crown, ArrowRight } from "lucide-react";
+import { Video, Users, CalendarClock, Calendar, Crown, ArrowRight, Copy } from "lucide-react";
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 interface EventCardProps {
   event: {
@@ -21,6 +23,7 @@ interface EventCardProps {
 }
 
 export function EventCard({ event }: EventCardProps) {
+  const { toast } = useToast();
   const participantsCount = event.latestEvent.participants?.length || 0;
   const nextEventDate = event.nextEvent 
     ? formatDistanceToNow(new Date(event.nextEvent.start_time), { addSuffix: true })
@@ -43,6 +46,16 @@ export function EventCard({ event }: EventCardProps) {
 
   // Check if user is the organizer
   const isOrganizer = event.latestEvent.organizer?.email === event.latestEvent.user_email;
+
+  // Copy to clipboard function
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      toast({
+        title: "Copied to clipboard",
+        description: `${label} has been copied to your clipboard.`
+      });
+    });
+  };
 
   return (
     <Link to={`/recurring-event-series/${event.masterId}`}>
@@ -114,6 +127,48 @@ export function EventCard({ event }: EventCardProps) {
                     {event.notes.length} meeting {event.notes.length === 1 ? 'note' : 'notes'}
                   </span>
                   <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Add event identifiers section */}
+          <div className="pt-2 mt-2 border-t text-xs font-mono text-gray-500">
+            <div className="flex items-center justify-between mb-1">
+              <span>Master Event ID:</span>
+              <div className="flex items-center">
+                <code className="bg-gray-100 px-1 py-0.5 rounded">{event.masterId}</code>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-5 w-5 ml-1" 
+                  onClick={(e) => {
+                    e.preventDefault(); // Prevent link navigation
+                    copyToClipboard(event.masterId, "Master Event ID");
+                  }}
+                >
+                  <Copy className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+            
+            {/* Show iCal UID if it exists */}
+            {event.latestEvent.ical_uid && (
+              <div className="flex items-center justify-between mb-1">
+                <span>iCal UID:</span>
+                <div className="flex items-center">
+                  <code className="bg-gray-100 px-1 py-0.5 rounded">{event.latestEvent.ical_uid}</code>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-5 w-5 ml-1" 
+                    onClick={(e) => {
+                      e.preventDefault(); // Prevent link navigation
+                      copyToClipboard(event.latestEvent.ical_uid, "iCal UID");
+                    }}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
                 </div>
               </div>
             )}
