@@ -224,7 +224,7 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               meeting_link: event.conference_url,
               join_time: joinTime,
-              notetaker_name: notetakerName, // Use the notetaker name from the profile
+              name: notetakerName, // Updated from notetaker_name to name
               meeting_settings: {
                 video_recording: true,
                 audio_recording: true,

@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 import { findUserByGrant } from './user-handlers.ts';
 import { logWebhookProcessing, logWebhookError, logWebhookSuccess } from '../webhook-logger.ts';
@@ -141,10 +142,15 @@ async function createNotetakerForEvent(
     const notetakerName = profile.notetaker_name || 'Nylas Notetaker';
     console.log(`👤 Using notetaker name: "${notetakerName}" from user profile`);
     
-    // Prepare request payload - now including join_time if provided
+    // Prepare request payload for Nylas API
     const requestPayload: Record<string, any> = {
       meeting_link: meetingUrl,
-      notetaker_name: notetakerName
+      name: notetakerName, // Updated from notetaker_name to name
+      meeting_settings: {
+        video_recording: true,
+        audio_recording: true,
+        transcription: true
+      }
     };
     
     // Add join_time to payload if provided
@@ -257,7 +263,7 @@ async function updateNotetakerJoinTime(grantId: string, notetakerId: string, new
     // Prepare the complete payload with all required fields
     const payload = {
       join_time: joinTimeInSeconds,
-      notetaker_name: notetakerName,
+      name: notetakerName, // Updated from notetaker_name to name
       meeting_settings: {
         video_recording: true,
         audio_recording: true,

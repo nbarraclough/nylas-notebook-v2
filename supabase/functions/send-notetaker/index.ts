@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           meeting_link: meetingUrl,
-          notetaker_name: event.profiles?.notetaker_name || 'Nylas Notetaker'
+          name: event.profiles?.notetaker_name || 'Nylas Notetaker' // Updated from notetaker_name to name
         })
       }
     )

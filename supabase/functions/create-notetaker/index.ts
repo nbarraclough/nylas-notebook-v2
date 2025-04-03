@@ -186,7 +186,7 @@ Deno.serve(async (req) => {
     // Prepare request body for Nylas API
     const nylasRequestBody: Record<string, any> = {
       meeting_link: event.conference_url,
-      notetaker_name: notetakerName,
+      name: notetakerName, // Updated from notetaker_name to name
       meeting_settings: finalMeetingSettings
     };
     
