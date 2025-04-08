@@ -1,7 +1,9 @@
+
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
+import { DeprecationBanner } from "../common/DeprecationBanner";
 
 interface PageLayoutProps {
   children: React.ReactNode;
@@ -42,6 +44,7 @@ export function PageLayout({ children }: PageLayoutProps) {
     <div className="min-h-screen flex flex-col">
       <Navbar />
       <main className="flex-1 container mx-auto py-6">
+        <DeprecationBanner />
         {children}
       </main>
       <Footer />
