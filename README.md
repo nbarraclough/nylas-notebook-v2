@@ -4,6 +4,14 @@
 
 Notebook is a meeting recording and note-taking application that integrates with calendar services to automate the process of recording, transcribing, and organizing meeting information. The application allows users to manage their calendar events, schedule recordings, view past recordings, and share them with colleagues. It was built nearly entirely with lovable.dev.
 
+## Bugs
+
+There are quite a few bugs in this - I wouldn't recommend using it publicly, but I'm putting this up publicly for fun. There are bugs with:
+
+- Handling recurring event updates
+- What consistitutes an internal or external meeting
+- Probably much more. Use at your own risk! No liability!
+
 ## Application Structure
 
 The application follows a React-based architecture with the following key components:
